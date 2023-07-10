@@ -85,7 +85,7 @@ md.match
 
 ## Modeling
 ### Network set-up
-As a start, we set up the network in the following way. The distribution for age was choosen arbitary, so this needs to be strengthened by better knowing the age distribution of the target population (discussion point).
+As a start, we set up the network in the following way. The distribution for age was chosen arbitrary, so this needs to be strengthened by better knowing the age distribution of the target population (discussion point).
 
 ```{r, warning=F, message=FALSE, echo=T}
 ### nodes
@@ -140,7 +140,7 @@ target.stats.edges.nf.h
 ```
 
 #### Edge-only model
-We fitted a edge-only model and encountered the following warning (discussion point). Based on its estimates, we simulated networks with edges and nodefactor.
+We fitted an edge-only model and encountered the following warning (discussion point). Based on its estimates, we simulated networks with edges and nodefactor.
 ```{r, warning=F, message=T, echo=T}
 ## Fit edge-only model to data
 est.h.edges <- netest(nw, formation.edge, target.stats.edges.h, coef.diss.hh,
