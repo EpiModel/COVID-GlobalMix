@@ -1,0 +1,28 @@
+{
+    "id": "0310B609",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1689269201579.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "id": "9547fdf5e4b34386ae50247136e8d648",
+        "name": "dx.h.edges",
+        "title": "dx.h.edges",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 0,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1689269201579,
+    "read_only": false,
+    "read_only_alternatives": []
+}

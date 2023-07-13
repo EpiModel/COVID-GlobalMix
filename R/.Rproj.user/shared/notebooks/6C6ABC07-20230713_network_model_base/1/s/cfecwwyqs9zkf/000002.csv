@@ -1,0 +1,2 @@
+"0","formation.edge <- ~edges "
+"0","formation.edge.nf <- ~edges + nodefactor(""age.grp"" , levels = 1:9) # dropping the 10th age group"

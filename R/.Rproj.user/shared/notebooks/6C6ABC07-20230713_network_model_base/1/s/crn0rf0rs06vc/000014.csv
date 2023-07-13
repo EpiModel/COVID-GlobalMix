@@ -1,0 +1,54 @@
+"0","## Fit edge-only model to data"
+"0","est.h.edges <- netest(nw, formation.edge, target.stats.edges.h, coef.diss.hh,"
+"0","                 set.control.ergm = control.ergm(MCMLE.maxit = 500)"
+"0","                 )"
+"2","Unable to match target stats. Using MCMLE estimation.
+"
+"2","Starting maximum pseudolikelihood estimation (MPLE):
+"
+"2","Obtaining the responsible dyads.
+"
+"2","Evaluating the predictor and response matrix.
+"
+"2","Maximizing the pseudolikelihood.
+"
+"2","Finished MPLE.
+"
+"2","Starting Monte Carlo maximum likelihood estimation (MCMLE):
+"
+"2","Iteration 1 of at most 500:
+"
+"2","Optimizing with step length 1.0000.
+"
+"2","The log-likelihood improved by 0.0038.
+"
+"2","Convergence test p-value: 0.0132. "
+"2","Not converged with 99% confidence; increasing sample size.
+"
+"2","Iteration 2 of at most 500:
+"
+"2","Optimizing with step length 1.0000.
+"
+"2","The log-likelihood improved by 0.0148.
+"
+"2","Convergence test p-value: 0.0006. "
+"2","Converged with 99% confidence.
+"
+"2","Finished MCMLE.
+"
+"2","This model was fit using MCMC.  To examine model diagnostics and check for degeneracy, use the mcmc.diagnostics() function.
+"
+"0","#### Simulate based on the edge model adding an extra term, "
+"0","dx.h.edges.age.grp.est <- netdx(est.h.edges, nsims = 1, ncores = 1, nsteps = 1000, dynamic = T,"
+"0","               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),"
+"0","               nwstats.formula = ~edges  + "
+"0","                 nodefactor(""age.grp""), "
+"0","               keep.tedgelist = TRUE)"
+"1","
+Network Diagnostics"
+"1","
+-----------------------
+"
+"1","- Simulating 1 network"
+"1","
+- Calculating formation statistics"
