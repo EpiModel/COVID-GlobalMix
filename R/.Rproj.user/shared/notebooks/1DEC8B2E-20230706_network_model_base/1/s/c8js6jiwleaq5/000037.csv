@@ -1,7 +1,0 @@
-"0","
-colnames(table_compare_sim_obs) <- dx.h.edges.age.grp.merge$age.grp
-
-library(knitr)
-kable(table_compare_sim_obs)
-"
-"0",""
