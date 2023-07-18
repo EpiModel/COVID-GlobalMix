@@ -1,16 +1,16 @@
 ---
 title: "Network Modeling for GlobalMix India Data"
 author: "Billy Dehao Chen"
-date: "7/6/2023"
+date: "7/17/2023"
 output: word_document
 ---
 
 # Background
-This is a living document for network modeling of the India GlobalMix diary data. For practice, the current modeling focuses on the the mixing at home and will be expanded to other settings later (nonhome, rural, urban) (discussion point).
+This is a living document for network modeling of the India GlobalMix diary data. For practice, the current modeling focuses on a single network (Home mixing in urban study population) and will be expanded to other networks later.
 
 # Method
 ## Retrieving degree information from the India data
-We used the daily mean degree data by network predictor (e.g., contact location), participant's age group, and contact's age group to calculate the total mean degree by network predictor's category (home/nonhome). We retrieved the total daily degree of each age group from the symmetric contact matrix, from which we also calculated the proportion of within-age-group matching by network predictor.
+We used the daily mean degrees of participant's age group and contact's age group to calculate the total mean degree by network's layer (home/nonhome) in a study population (urban/rural). Using the symmetric contact matrix, we calculated the proportion of within-age-group matching.
 
 ```{r, echo=F, warning=F, message=FALSE}
 library(tidyverse)
@@ -18,6 +18,7 @@ library(socialmixr)
 library(EpiModel)
 library(ggpubr)
 library(knitr)
+library(kableExtra)
 
 # things to be completed - sync to git, average age of participants
 
@@ -25,64 +26,135 @@ library(knitr)
 # load contact data----------------------------------------
 
 # 'raw'  mixing data by mean degree for one day
-gm <- readRDS("../output/data/india_mix.sum.no15.RData")[[2]] # mixing degree by contact location
+gm.raw <- readRDS("../data/network_params/india_mix.sum.no15.RData")
 # daily mixing matrix
-matrix <- readRDS("../output/data/avg.matrix.india.predictors.RData") 
+matrices <- readRDS("../data/network_params/avg.matrices.india.RData") 
 
 #  daily mixing matrix by mean degree
-gm2 <- matrix$avg.matrix.india.contact_location$avg.matrix %>%
-  rename(contact_location = predictor_contact) %>% # for now, we will initiate the model by contact location
+## urban
+gm.matrix.urban <- matrices$avg.matrix.india.urban$avg.matrix %>%
+  rename(contact_location = predictor_contact) %>% 
   ungroup()
-rm(matrix)
+## rural
+gm.matrix.rural <- matrices$avg.matrix.india.rural$avg.matrix %>%
+  rename(contact_location = predictor_contact) %>% 
+  ungroup()
 
-# total mean degree by contact location using raw data
-md <- gm %>%
+# function to calculate degree information for later deriving of target statistics
+md.info <- function(mixing.raw, sym.matrix){ # it'd be better to organize things in list for this.
+  
+  output <- list()
+  
+  # mean degree by network layer (contact location)
+  output[[1]] <- mixing.raw %>%
   group_by(contact_location,p_age,n_participants) %>%
   summarise(n_contacts = sum(n_contacts)) %>% # the sum of two-day contacts
   ungroup() %>%
   group_by(contact_location) %>%
   summarise(n_contacts = sum(n_contacts), #  total contacts over two days
             n_participants = sum(n_participants)) %>%
-  mutate(md.daily = (n_contacts/n_participants)/2) # mean degree at daily scale
-
-# Total daily mean degree from the global mix data
-md.h <- md %>%
-  filter(contact_location == "Home") %>%
-  select(md.daily) %>%
-  as.numeric()
-
-#  total daily degree of edges per age group for nodefactor()
-md.h.ag <- gm2 %>%
+  mutate(md.daily = (n_contacts/n_participants)/2) %>% as.data.frame() # mean degree at daily scale
+  
+  # total daily degree of edges per age group for nodefactor()
+  output[[2]] <- 
+  rbind(
+  sym.matrix %>%
   filter(contact_location == "Home") %>%
   select(total_degree) %>%
   as_vector() %>%
+  as.numeric(),
+  
+  sym.matrix %>%
+  filter(contact_location == "Nonhome") %>%
+  select(total_degree) %>%
+  as_vector() %>%
   as.numeric()
-
-# proportion of daily within-age-group matching by contact_location
-md.match <- gm2  %>% 
+  )
+  row.names(output[[2]]) <- c("Home", "Nonhome"); colnames(output[[2]]) <- levels(sym.matrix$age); 
+  output[[2]] <- as.data.frame(output[[2]])
+  
+  # proportion of daily within-age-group matching by contact_location
+  output[[3]] <- sym.matrix  %>% 
   mutate(within_age_edges = total_degree*prop_match) %>% # at the daily scale
   select(contact_location,age,total_degree,within_age_edges) %>%
   group_by(contact_location) %>%
   summarise(total_degree = sum(total_degree),
             within_age_edges = sum(within_age_edges)) %>%
-  mutate(match = within_age_edges/total_degree) # at the daily scale
+  mutate(match = within_age_edges/total_degree) %>% as.data.frame() # at the daily scale
+  
+  names(output) <- c("md.layer", "md.ag", "within.ag.match.prop")
+  
+  output
+}
+
+
+md.info.urban <- md.info(mixing.raw = gm.raw$india_mix.sum.no15.urban, sym.matrix = gm.matrix.urban)
+
+md.info.rural <-md.info(mixing.raw = gm.raw$india_mix.sum.no15.rural, sym.matrix = gm.matrix.urban)
+
+
+
+# test total mean degree by symmetric matrix (20230717 - awaiting response from Maria)
+#gm.matrix.urban %>% group_by(contact_location) %>% summarise(tot_mean_degree = mean(total_degree))
+
+# Total daily mean degree from the global mix data
+#md.urban.h <- md.urban %>%
+ # filter(contact_location == "Home") %>%
+  #select(md.daily) %>%
+  #as.numeric()
+
+#  total daily degree of edges per age group for nodefactor()
+#md.urban.h.ag <- gm.matrix.urban %>%
+ # filter(contact_location == "Home") %>%
+  #select(total_degree) %>%
+  #as_vector() %>%
+  #as.numeric()
+
+# proportion of daily within-age-group matching by contact_location
+#md.urban.match <- gm.matrix.urban  %>% 
+ # mutate(within_age_edges = total_degree*prop_match) %>% # at the daily scale
+  #select(contact_location,age,total_degree,within_age_edges) %>%
+  #group_by(contact_location) %>%
+  #summarise(total_degree = sum(total_degree),
+  #          within_age_edges = sum(within_age_edges)) %>%
+  #mutate(match = within_age_edges/total_degree) # at the daily scale
 
 
 ```
 
 ### Total mean degree of the whole network by contact location.
 ```{r, warning=F, message=FALSE, echo=F}
-kable(md)
+kable(
+rbind(
+md.info.urban[[1]] %>% mutate(contact_location=recode(contact_location,  `Home`= "Home, Urban" , `Nonhome` ="Nonhome, Urban" )),
+md.info.rural[[1]] %>% mutate(contact_location=recode(contact_location,  `Home`= "Home, Rural" , `Nonhome` ="Nonhome, Rural" ))
+),
+ col.names = c("Layer", "Number of contacts", "Number of participants", "Daily MD"))%>% 
+  kable_styling()
 ```
 
 ### Total daily degree of edges from age groups 1 to 10
 ```{r, warning=F, message=FALSE, echo=F}
-md.h.ag
+kable(
+rbind(
+md.info.urban[[2]] %>% rownames_to_column(var = "contact_location")  %>% mutate(contact_location=recode(contact_location,  `Home`= "Home, Urban" , `Nonhome` ="Nonhome, Urban" )),
+md.info.rural[[2]] %>% rownames_to_column(var = "contact_location")  %>% mutate(contact_location=recode(contact_location,  `Home`= "Home, Rural" , `Nonhome` ="Nonhome, Rural" ))
+ ) %>% rename(  `contact location` =contact_location) %>% mutate_if(is.numeric, round, 3)
+)%>% 
+  kable_styling()
 ```
 
 ### Proportion of daily within-age-group matching by contact location
 ```{r, warning=F, message=FALSE, echo=F}
-kable(md.match)
+
+rbind(
+md.info.urban[[3]]  %>% mutate(contact_location=recode(contact_location,  `Home`= "Home, Urban" , `Nonhome` ="Nonhome, Urban" )),
+md.info.rural[[3]]  %>% mutate(contact_location=recode(contact_location,  `Home`= "Home, Rural" , `Nonhome` ="Nonhome, Rural" ))
+ ) %>% rename(  `contact location` =contact_location, `total degree `=total_degree, `mumber of edges with same age group` = within_age_edges,
+                `matching proportion`=match) %>% mutate_if(is.numeric, round, 3) %>%
+  knitr::kable() %>% 
+  kable_styling()
+
 ```
 
 ## Modeling

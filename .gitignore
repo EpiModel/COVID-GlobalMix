@@ -35,4 +35,5 @@ data/input/est.*
 # Old scripts
 R/old_scripts/
 
-miscallaneous/
+# miscellaneous things
+miscellaneous/
