@@ -16,7 +16,7 @@
 /*.Rcheck/
 
 # RStudio files
-.Rproj.user/
+.Rproj.user
 
 # knitr and R markdown default cache directories
 *_cache/
@@ -28,6 +28,7 @@
 
 # R Environment Variables
 .Renviron
+.Rproj
 .DS_Store
 renv/
 data/input/est.*
