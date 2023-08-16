@@ -1,7 +1,7 @@
 ---
 title: "Descriptive Degree Summary of GlobalMix India Data"
 author: "Billy Dehao Chen"
-date: "7/31/2023"
+date: "08/07/2023"
 output:
   html_document: default
   word_document: default
@@ -89,19 +89,36 @@ tb_contact_location <-
              ) 
 ```
 ## Characterization of home-nonhome status
-The home-nonhome status is processed from multiple questions asking contact location; given these questions are not mutually exclusive due to the check-box design in REDCap, a contact is characterized as at home when any contact with a participant reportedly occurred at the participant's home (i.e., "my home") but not at other's home, regardless of the responses for other contact location types. For contacts did not occurred at home, they were characterized as occurring in a nonhome location if any of the nonhome locations were checked, including other's home. Given the sociological contact pattern in a participant's residence and other’s home is likely vary, we consider contacts occurring at home and other's home separately. For a contact checked neither home nor nonhome location, we assigned an NA to this contact. Below is a breakdown of the frequency of contact, in which there was `r paste0(as.numeric(round(tb_contact_location[3]/nrow(india_mix)*100)), "%")` of contact did not check any of the contact locations. We excluded these contacts in analysis.
+The home-nonhome status is processed from multiple questions asking contact location; given these questions are not mutually exclusive due to the check-box design in REDCap, a contact is characterized as at home when any contact with a participant reportedly occurred at the participant's home (i.e., "my home") but not at other's home, regardless of the responses for other contact location types. For contacts did not occurred at home, they were characterized as occurring in a nonhome location if any of the nonhome locations were checked, including other's home. Given the sociological contact pattern in a participant's residence and other’s home is likely vary, we consider contacts occurring at home and other's home separately. For a contact checked neither home nor non-home location, we assigned an NA to this contact. Below is a breakdown of the frequency of contact, in which there was `r paste0(as.numeric(round(tb_contact_location[3]/nrow(india_mix)*100)), "%")` of contact did not check any of the contact locations. We excluded these contacts in analysis.
 ```{r, echo=F, warning=F, message=FALSE}
 kable(tb_contact_location, col.names = c("Contact location", "Freq."))%>% kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 ```
 
 ## Distribution of indoor/outdoor status
-The following is a break down of the observed categories of the variable "where_contact" indicating in- and out-door status. Correspondence with Moses is ongoing for the interpretation of the "Both" category.
+The following is a break down of the observed categories of the variable "where_contact" indicating in- and out-door status. The "Both" category indicates a participant contacted with a contact both in- and out-doors.
 
 ```{r, echo=F, warning=F, message=FALSE}
 kable(table(india_contact$where_contact, useNA = "always"), col.names = c("In-/outdoors", "Freq."))%>%
    kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 #chisq.test(table(india_mix$contact_location2, india_mix$study_site))
 ```
+
+### Indoor/outdoor status vs. home/non-home status
+The below table indicates correlation exists between the two variables (p value of chis-square test <0.01 for each network). An indoor contact is more likely to occur at home and an outdoor contact is more likely to occur non-home.
+```{r, echo=F, warning=F, message=FALSE}
+
+
+
+kbl(list(
+           table(india_mix$where_contact, india_mix$contact_location2, india_mix$study_site)[1:3,,"Rural"] ,
+           
+           table(india_mix$where_contact, india_mix$contact_location2, india_mix$study_site)[1:3,,"Urban"]  
+           )
+      ) %>% kable_classic(full_width = F, html_font = "Cambria") %>%
+  footnote(general = "The left and right tables are for the rural and urban networks, respectively.")
+
+```
+
 
 ## Repeated contacts
 ### Distribution of unique/repeated contacts
@@ -336,7 +353,7 @@ names(india_mix.sum.no15) <- c("india_mix.sum.no15.rural.10age.grps", "india_mix
 
 # create symmetrical social mixing matrix by average degree and its proportion ----
 avg.matrices.india <- list() # single-day symmetric matrices separately for urban and rural populations
-avg.matrix <- 
+avg.matrix.fun <- 
   function(mix.sum, age_grp_count){
     
     if (age_grp_count == 10){
@@ -658,7 +675,7 @@ avg.matrix <-
         mutate(
           age2 = factor(age2, levels = c("0s", "10s",  "20s", "30s", "40s", "60s")
           )
-        )
+        ) # In Aug 2023, this script was validated by calculation using the symmetrical mixing matrix - total degree of group i =avg.matrix[,i]+avg.matrix[i,]-avg.matrix[i,i]. The script is fine based on the validation.
       
       
       avg.matrix <- avg.matrix %>%
@@ -711,26 +728,26 @@ avg.matrix <-
 
 # Rural symmetric mixing matrices, 10 age groups
 avg.matrices.india$avg.matrix.india.rural.10age.grps <- 
-avg.matrix(mix.sum = india_mix.sum.no15$india_mix.sum.no15.rural.10age.grps  %>% rename(predictor_contact = contact_location),
+avg.matrix.fun(mix.sum = india_mix.sum.no15$india_mix.sum.no15.rural.10age.grps  %>% rename(predictor_contact = contact_location),
            age_grp_count =10
            )
 
 # Urban symmetric mixing matrices, 10 age groups
 avg.matrices.india$avg.matrix.india.urban.10age.grps <- 
-avg.matrix(mix.sum = india_mix.sum.no15$india_mix.sum.no15.urban.10age.grps  %>% rename(predictor_contact = contact_location),
+avg.matrix.fun(mix.sum = india_mix.sum.no15$india_mix.sum.no15.urban.10age.grps  %>% rename(predictor_contact = contact_location),
            age_grp_count = 10
            )
 
 
 # Rural symmetric mixing matrices, 6 age groups
 avg.matrices.india$avg.matrix.india.rural.6age.grps <- 
-avg.matrix(mix.sum = india_mix.sum.no15$india_mix.sum.no15.rural.6age.grps  %>% rename(predictor_contact = contact_location),
+avg.matrix.fun(mix.sum = india_mix.sum.no15$india_mix.sum.no15.rural.6age.grps  %>% rename(predictor_contact = contact_location),
            age_grp_count = 6
            )
 
 # Urban symmetric mixing matrices, 6 age groups
 avg.matrices.india$avg.matrix.india.urban.6age.grps <- 
-avg.matrix(mix.sum = india_mix.sum.no15$india_mix.sum.no15.urban.6age.grps  %>% rename(predictor_contact = contact_location),
+avg.matrix.fun(mix.sum = india_mix.sum.no15$india_mix.sum.no15.urban.6age.grps  %>% rename(predictor_contact = contact_location),
            age_grp_count = 6
            )
 
@@ -753,7 +770,6 @@ The below figure shows the total degree of contact in each age group by network 
 
 max_total_deg <- ceiling(max( avg.matrices.india$avg.matrix.india.rural.10age.grps$avg.matrix$total_degree, avg.matrices.india$avg.matrix.india.urban.10age.grps$avg.matrix$total_degree))
   
-total_degree <- avg.matrices.india$avg.matrix.india.rural.10age.grps$avg.matrix %>% rename(contact_location = predictor_contact)
 
 total_degree_plot <- # this replaced the function plotting the raw total degree
 function(total_degree, network_name, max_total_degree){
@@ -806,7 +822,7 @@ bottom = "Age group"
 ## Symmetrical mixing matrices, by degree
 In the following figures, panels A and C present the information by the ten original age groups. Panel B and D present the information by six age groups.
 
-### Home/nonhome mixing in the rural population
+### Home/nonhome mixing in the rural network
 ```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
 # To be add back - In the rural setting, the mixings at home were generally more heterogeneous than nonhome settings. In nonhome settings, the degrees of mixing for those < one year old were generally lower than home settings #and close to zero.  The higest degrees were observed in the mixing within the same age groups of 5-9 years old and 10-14 years old in the nonhome settings.  
 
@@ -924,10 +940,9 @@ bottom = "Age"
 
 ```
 
-### Home/nonhome mixing in the urban population
-
+### Home/nonhome mixing in the urban network
 ```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
-# Add back to text after revision - The mixing matrices in the home and nonhome settings in the urban population are generally similar to those in the rural population.
+# Add back to text after revision - The mixing matrices in the home and nonhome settings in the urban network are generally similar to those in the rural network.
 
 # symmetric home matrix in long format, urban, 10 age groups
 avg.matrix.india.urban.home.10age.grps <- 
@@ -990,13 +1005,15 @@ bottom = "Age"
 
 ```
 
-
-
 ## Symmetrical mixing matrices, by proportion
-Proportions below are calculated by dividing the $M.D.$ in each cell ($i,j$) by the total degree of the age group ($j$) it belonged to.
+The proportions below are calculated by dividing the mean degree ($MD_{ij}$) in each cell ($i,j$) by the total degree of each age group ($j$) it belonged to. The total degree of each age group is summarized above. In a symmetrical mixing matrix ($sym.matrix$), the total degree of age group $j = sym.matrix[,j]+sym.matrix[j,]-sym.matrix[j,j]$. So the proportion of $MD_{ij}$, denoted as $MD.prop_{ij}$, can be expressed as the following. Given $sym.matrix[j,]$ was included in the denominator, the row-wise sum of the proportion is less than one.
 
-### Home/nonhome mixing in the rural population
+$$
+MD.prop_{ij}=\frac{sym.matrix[i,j]}{sym.matrix[,j]+sym.matrix[j,]-sym.matrix[j,j]}
+$$
 
+
+### Home/nonhome mixing in the rural network
 ```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
 # symmetric home matrix in long format, rural, 10 age groups
 avg.matrix.india.rural.home.10age.grps.prop <- 
@@ -1062,8 +1079,8 @@ bottom = "Age"
 
 ```
 
-### Home/nonhome mixing in the urban population
-The mixing matrices in the home and nonhome settings in the urban population are generally similar to those in the rural population.
+### Home/nonhome mixing in the urban network
+The mixing matrices in the home and nonhome settings in the urban network are generally similar to those in the rural network.
 ```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
 # symmetric home matrix in long format, urban, 10 age groups
 avg.matrix.india.urban.home.10age.grps.prop <- 
@@ -1130,7 +1147,172 @@ bottom = "Age"
 
 ```
 
+### Uncertainty of network statistics by degree
+The following table is a demonstration of a way to present the uncertainty of network statistics by standard deviation (SD), which is the SD of the mean of raw degrees of a age group pair between participants and contacts. For example, for the pair of 6-11 months and 40-59 years old at home in the rural network, the degree between participants 6-11 months and contacts 40-59 years old is 0.40, and the degree between contacts 6-11 months and participants 40-59 years old is 0.00352. The SD of the symmetrical contact of these two age groups is $\sqrt{\frac{(0.40-0.202)^2+(0.00352-0.202)^2}{2}}=0.28$. For the diagonal degree of the same age group, the SD is NA given it is a signle value.
+```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
+avg.sd.matrix.10.grp <- 
+  function(mix.sum){
+    
+ 
+      avg.mix <- mix.sum %>%   # average mean degree for 1 day
+        select(-c("total_degree", "prop_degree")) %>% 
+        mutate(mix = case_when(p_age == "<6mo" & contact_age == "<6mo" ~ "0s-0s",
+                               (p_age == "<6mo" & contact_age == "6-11mo") |
+                                 (p_age == "6-11mo" & contact_age == "<6mo") ~ "0s-0.49s",
+                               (p_age == "<6mo" & contact_age == "1-4y") |
+                                 (p_age == "1-4y" & contact_age == "<6mo") ~ "0s-1s",
+                               (p_age == "<6mo" & contact_age == "5-9y") |
+                                 (p_age == "5-9y" & contact_age == "<6mo") ~ "0s-5s",
+                               (p_age == "<6mo" & contact_age == "10-14y") |
+                                 (p_age == "10-14y" & contact_age == "<6mo") ~ "0s-10s",
+                               (p_age == "<6mo" & contact_age == "15-19y") |
+                                 (p_age == "15-19y" & contact_age == "<6mo") ~ "0s-14.9s",
+                               (p_age == "<6mo" & contact_age == "20-29y") |
+                                 (p_age == "20-29y" & contact_age == "<6mo") ~ "0s-20s",
+                               (p_age == "<6mo" & contact_age == "30-39y") |
+                                 (p_age == "30-39y" & contact_age == "<6mo") ~ "0s-30s",
+                               (p_age == "<6mo" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "<6mo") ~ "0s-40s",
+                               (p_age == "<6mo" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "<6mo") ~ "0s-60s",
+                               
+                               p_age == "6-11mo" & contact_age == "6-11mo" ~ "0.49s-0.49s",
+                               (p_age == "6-11mo" & contact_age == "1-4y") |
+                                 (p_age == "1-4y" & contact_age == "6-11mo") ~ "0.49s-1s",
+                               (p_age == "6-11mo" & contact_age == "5-9y") |
+                                 (p_age == "5-9y" & contact_age == "6-11mo") ~ "0.49s-5s",
+                               (p_age == "6-11mo" & contact_age == "10-14y") |
+                                 (p_age == "10-14y" & contact_age == "6-11mo") ~ "0.49s-10s",
+                               (p_age == "6-11mo" & contact_age == "15-19y") |
+                                 (p_age == "15-19y" & contact_age == "6-11mo") ~ "0.49s-14.9s",
+                               (p_age == "6-11mo" & contact_age == "20-29y") |
+                                 (p_age == "20-29y" & contact_age == "6-11mo") ~ "0.49s-20s",
+                               (p_age == "6-11mo" & contact_age == "30-39y") |
+                                 (p_age == "30-39y" & contact_age == "6-11mo") ~ "0.49s-30s",
+                               (p_age == "6-11mo" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "6-11mo") ~ "0.49s-40s",
+                               (p_age == "6-11mo" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "6-11mo") ~ "0.49s-60s",
+                               
+                               p_age == "1-4y" & contact_age == "1-4y" ~ "1s-1s",
+                               (p_age == "1-4y" & contact_age == "5-9y") |
+                                 (p_age == "5-9y" & contact_age == "1-4y") ~ "1s-5s",
+                               (p_age == "1-4y" & contact_age == "10-14y") |
+                                 (p_age == "10-14y" & contact_age == "1-4y") ~ "1s-10s",
+                               (p_age == "1-4y" & contact_age == "15-19y") |
+                                 (p_age == "15-19y" & contact_age == "1-4y") ~ "1s-14.9s",
+                               (p_age == "1-4y" & contact_age == "20-29y") |
+                                 (p_age == "20-29y" & contact_age == "1-4y") ~ "1s-20s",
+                               (p_age == "1-4y" & contact_age == "30-39y") |
+                                 (p_age == "30-39y" & contact_age == "1-4y") ~ "1s-30s",
+                               (p_age == "1-4y" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "1-4y") ~ "1s-40s",
+                               (p_age == "1-4y" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "1-4y") ~ "1s-60s",
+                               
+                               p_age == "5-9y" & contact_age == "5-9y" ~ "5s-5s",
+                               (p_age == "5-9y" & contact_age == "10-14y") |
+                                 (p_age == "10-14y" & contact_age == "5-9y") ~ "5s-10s",
+                               (p_age == "5-9y" & contact_age == "15-19y") |
+                                 (p_age == "15-19y" & contact_age == "5-9y") ~ "5s-14.9s",
+                               (p_age == "5-9y" & contact_age == "20-29y") |
+                                 (p_age == "20-29y" & contact_age == "5-9y") ~ "5s-20s",
+                               (p_age == "5-9y" & contact_age == "30-39y") |
+                                 (p_age == "30-39y" & contact_age == "5-9y") ~ "5s-30s",
+                               (p_age == "5-9y" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "5-9y") ~ "5s-40s",
+                               (p_age == "5-9y" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "5-9y") ~ "5s-60s",
+                               
+                               p_age == "10-14y" & contact_age == "10-14y" ~ "10s-10s",
+                               (p_age == "10-14y" & contact_age == "15-19y") |
+                                 (p_age == "15-19y" & contact_age == "10-14y") ~ "10s-14.9s",
+                               (p_age == "10-14y" & contact_age == "20-29y") |
+                                 (p_age == "20-29y" & contact_age == "10-14y") ~ "10s-20s",
+                               (p_age == "10-14y" & contact_age == "30-39y") |
+                                 (p_age == "30-39y" & contact_age == "10-14y") ~ "10s-30s",
+                               (p_age == "10-14y" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "10-14y") ~ "10s-40s",
+                               (p_age == "10-14y" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "10-14y") ~ "10s-60s",                         
+                               
+                               p_age == "15-19y" & contact_age == "15-19y" ~ "14.9s-14.9s",
+                               (p_age == "15-19y" & contact_age == "20-29y") |
+                                 (p_age == "20-29y" & contact_age == "15-19y") ~ "14.9s-20s",
+                               (p_age == "15-19y" & contact_age == "30-39y") |
+                                 (p_age == "30-39y" & contact_age == "15-19y") ~ "14.9s-30s",
+                               (p_age == "15-19y" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "15-19y") ~ "14.9s-40s",
+                               (p_age == "15-19y" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "15-19y") ~ "14.9s-60s", 
+                               
+                               p_age == "20-29y" & contact_age == "20-29y" ~ "20s-20s",
+                               (p_age == "20-29y" & contact_age == "30-39y") |
+                                 (p_age == "30-39y" & contact_age == "20-29y") ~ "20s-30s",
+                               (p_age == "20-29y" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "20-29y") ~ "20s-40s",
+                               (p_age == "20-29y" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "20-29y") ~ "20s-60s",   
+                               
+                               p_age == "30-39y" & contact_age == "30-39y" ~ "30s-30s",
+                               (p_age == "30-39y" & contact_age == "40-59y") |
+                                 (p_age == "40-59y" & contact_age == "30-39y") ~ "30s-40s",
+                               (p_age == "30-39y" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "30-39y") ~ "30s-60s", 
+                               
+                               p_age == "40-59y" & contact_age == "40-59y" ~ "40s-40s",
+                               (p_age == "40-59y" & contact_age == "60+y") |
+                                 (p_age == "60+y" & contact_age == "40-59y") ~ "40s-60s", 
+                               
+                               p_age == "60+y" & contact_age == "60+y" ~ "60s-60s",
+                               
+                               
+        )
+        ) %>%
+        ungroup() %>%
+        group_by(predictor_contact,mix) %>%
+        rename(degree_single = degree) %>% 
+        summarise(degree = mean(degree_single), sd = sd(degree_single)
+                 ) %>% 
+        mutate_if(is.numeric, round, 3) %>%         
+        mutate(degree_sd = paste0(degree, " (", sd, ")")
+               ) %>% select(-c(degree, sd))
+        
 
+      
+      avg.matrix <- avg.mix %>%
+        separate(mix,c("age1","age2"), sep = "-") %>% # age 1 is for participant, age 2 is for contact
+        mutate(age1 = factor(age1, levels = c("0s",  "0.49s",  "1s",  "5s", "10s", "14.9s", "20s", "30s", "40s", "60s" )
+        ),
+        age2 = factor(age2, levels = c("0s",  "0.49s",  "1s",  "5s", "10s", "14.9s", "20s", "30s", "40s", "60s" )
+        )
+        ) %>% 
+        arrange(age1, age2) %>% 
+        pivot_wider(names_from = "age1",values_from = "degree_sd") %>%  # the matrix pivoted by "age2" is the same but the degrees are in the other side of the diagnoal
+    
+      mutate(age2 = as.character(age2)) %>% 
+      mutate(age2 = recode(age2, 
+                          "0s"="<6mo", "0.49s"="6-11mo", "1s"= "1-4y", "5s"="5-9y",
+                          "10s"="10-14y", "14.9s"="15-19y", "20s"= "20-29y", "30s"="30-39y",
+                          "40s"="40-59y", "60s"="60+y"
+      )
+      ) %>% 
+      mutate(age2 = factor(age2, levels = c("<6mo","6-11mo","1-4y","5-9y", "10-14y","15-19y","20-29y", "30-39y", "40-59y", "60+y")
+      )
+      ) %>% 
+      rename(`<6mo`=`0s`, `6-11mo`=`0.49s`, `1-4y`=`1s`, `5-9y`=`5s`,
+             `10-14y`=`10s`, `15-19y`=`14.9s`,  `20-29y` = `20s`, `30-39y`=`30s`,
+             `40-59y`=`40s`, `60+y`=`60s`
+      )
+    avg.matrix
+  }
+
+avg.sd.matrix.10.grp(mix.sum = india_mix.sum.no15$india_mix.sum.no15.rural.10age.grps  %>% rename(predictor_contact = contact_location)
+                     ) %>% rename(age=age2) %>% filter(predictor_contact == "Home") %>% 
+kable(., caption = "Degree and standard deviation of home mixing in the rural network")%>% kableExtra::kable_classic(full_width = F, html_font = "Cambria")
+
+
+```
 
 ## Degree proportion of contact age by participant age
 The following plots consider the direction of contact (between participants and contacts) and were presented to validate the symmetry mixing matrices. Overall, the proportion distributions mirror the degree distributions in the symmetric mixing matrices. Notably, for participants < one year old, they had non-home contacts with more age groups in urban than rural setting. The patterns were similar across layers (home/nonhome) and networks (urban/rual) for age groups ≥ one year old.
