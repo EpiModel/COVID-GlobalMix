@@ -1,7 +1,7 @@
 ---
 title: "Descriptive Degree Summary of GlobalMix India Data"
 author: "Billy Dehao Chen"
-date: "08/21/2023"
+date: "09/07/2023"
 output:
   html_document: default
   word_document: default
@@ -94,13 +94,13 @@ india_mix <- india_participant %>%
                                    # levels = c("Home","Nonhome"),
                                     ordered = TRUE)
          ) %>% 
-  mutate(duration_contact = case_when(duration_contact == ">4 hrs" ~ "4+ hrs",
-                                      .default = duration_contact),
+  filter(!(duration_contact %in% c("<5 mins", "5-15 mins"))) %>% # filter out contact with duration ≤ 15 mins
+  mutate(
          duration_contact = factor(duration_contact,
-                                    levels = c("<5 mins", "5-15 mins", "16-30 mins",  
-                                               "31 mins-1 hr", "1-4 hrs", "4+ hrs", "Unknown"),
+                                    levels = c( "16-30 mins",  "31 mins-1 hr", "1-4 hrs", ">4 hrs", "Unknown"),
                                     ordered = TRUE)
-         )
+         )  
+   
 
 ```
 ## Characterization of network layers
@@ -113,19 +113,13 @@ For a contact checked non of the categories, we assigned an NA to this contact.
 india_mix %>% select(participant_age, contact_age, location_contact___2, location_contact___3) %>% mutate(sum = location_contact___2+location_contact___3) %>% filter(sum==2) %>% select(-sum)%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-Below is a breakdown of the frequency of contact. We excluded contacts of the NA category in analysis.
-```{r, echo=F, warning=F, message=FALSE}
-india_mix %>% 
-  group_by( contact_location, study_site) %>%
-  tally() %>%  spread(study_site, n) %>% kable()%>%
-   kableExtra::kable_classic(full_width = F, html_font = "Cambria")
-```
 
+
+
+```{r, echo=F, warning=F, message=FALSE, fig.show='hide', results='hide'}
 ## Distribution of indoor/outdoor status
-The following is a break down of the observed categories of the variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted with a contact both in- and out-doors.  Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" into the "Indoors" category. We will adjust for this status as a nodefactor. For building the transmission model, we will assign lower risk for the "Outdoors" category during simulation.
+#The following is a break down of the observed categories of the variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted with a contact both in- and out-doors.  Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" into the "Indoors" category. We will adjust for this status as a nodefactor. For building the transmission model, we will assign lower risk for the "Outdoors" category during simulation.
 
-
-```{r, echo=F, warning=F, message=FALSE}
 # merge the both and indoor categories into the latter.
 india_mix <-
 india_mix %>% mutate(where_contact2=case_when(where_contact %in% c("Indoors", "Both") ~ "Indoors",
@@ -142,9 +136,11 @@ india_mix %>%
 
 ## Repeated contacts
 For repeated contacts at the home layer, we deduplicate them in the analysis. Current investigation is ongoing to decide how to deal with replicated contact in the other layers.
+
+```{r, echo=F, warning=F, message=FALSE, fig.show='hide', results='hide'}
 ### Distribution of unique/repeated contacts
-The following table shows the distribution of repeated/unique contact by network layers of each network. The levels of replicated contact is high across layers in both networks.
-```{r, echo=F, warning=F, message=FALSE}
+#The following table shows the distribution of repeated/unique contact by network layers of each network. The levels of replicated contact is high across layers in both networks.
+
 
 kbl(list(
            india_mix %>% filter(study_site == "Rural") %>% #drop_na(fromdayone, contact_location) %>%
@@ -165,7 +161,7 @@ nonhome_dup_descib <- function(mix, network){
   
   output <- list()
   
-#india_mix_nonhome <- # later, we may account for rural/urban status
+# Frequency of contact type
 output$overall_freq <- 
   mix %>% filter(study_site==network & contact_location %in% c( "Nonhome",  "School",    "Work" )) %>% group_by(fromdayone) %>% 
   summarize(n=n()
@@ -174,7 +170,7 @@ output$overall_freq <-
   mutate_if(is.numeric, round, 3)
 
 
-#india_mix_nonhome_bothdays <- # nonhome contacts spanning two days. 
+# Frequency of contact repeated contact by contact location
 location_labs <- as.character(get_label(mix))
 location_labs <-as.character(location_labs)[which(location_labs=="My home"):which(location_labs=="Other")]
 
@@ -184,6 +180,8 @@ mix %>% filter(study_site==network & contact_location %in% c( "Nonhome",  "Schoo
  
 output$location_freq <- 
 location_freq[location_freq>100] 
+
+
 
 output
 
@@ -199,7 +197,8 @@ nonhome_dup_descib(mix = india_mix, network = "Urban")
 ```
 
 The following figure shows the frequency of duplicated non-home contacts by contact location of the two-day study period. Contact locations with frequencies > 100 were shown.
-```{r, echo=F, warning=F, message=FALSE, fig.width==10, fig.height=10}
+
+```{r, echo=F, warning=F, message=FALSE}
 par(mfrow = c(1, 2), mar=c(5, 4, 4, 2) + 0.5) 
 barplot(nonhome_dup_rural$location_freq, main = "Rural", ylab = "Frequency", ylim = c(0, 1100),
         las = 2, 
@@ -211,6 +210,184 @@ barplot(nonhome_dup_urban$location_freq, main = "Urban", ylim = c(0,1100),
 
 
 ```
+
+### Contact frequency by duration of replicated contact at nonhome settings
+In rural and urban non-home areas, the non-home contacts other than school/work were more frequent than the school and work contacts when the contact duration is less than 4 hrs. For contacts with duration more than 4 hrs, the school contacts were the most frequent. 
+
+```{r, echo=F, warning=F, message=FALSE, fig.width=10, fig.height=6}
+
+# Duration of repeated contact by layer
+india_mix %>% 
+  filter( contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          & fromdayone == "Both days"
+          ) %>% 
+  group_by(study_site, contact_location, duration_contact) %>% summarize(n=n()) %>% 
+  ggplot( mapping = aes(x = duration_contact,y = n)
+        )+ 
+  geom_col(aes(fill = contact_location) , position = position_dodge()
+           )+
+  facet_wrap(~study_site)+
+  theme_classic()+
+  geom_text(aes(label = n, group = contact_location), 
+            colour = "black" ,  vjust = -0.2,position = position_dodge(0.8)
+            )+
+  labs(x = "", y = "", color = "contact_location")+theme(legend.position = "top")+
+  guides(fill=guide_legend(title=""))+
+ 
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size=15)
+        )
+
+
+```
+
+#### Duration of replicated contact on street
+In rural area, the most frequent duration of replicated contact was 1-4 hrs. In urban area, the most frequent duration of replicated contact was >4hrs.
+
+```{r, echo=F, warning=F, message=FALSE}
+
+# evaluate contact duration for contact on street
+# Duration of repeated contact by layer
+india_mix %>% 
+  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          location_contact___6 ==1
+          & fromdayone == "Both days"
+          ) %>% 
+  group_by(study_site,  duration_contact) %>% summarize(n=n()) %>% 
+  ggplot( mapping = aes(x = duration_contact,y = n)
+        )+ 
+  geom_col( position = position_dodge()
+           )+
+  facet_wrap(~study_site)+
+  theme_classic()+
+   labs(x = "", y = "")
+
+
+```
+
+
+### Contact frequency vs. duration of knowing the replicated contact
+We tabulate the frequency_contact variable (In the past 6 months, how often have you had contact with this person?) and known_contact variable (How long have you known this person?).
+In the non-home, school, and work layers of both the rural and urban areas, most participants had replicated contacts with the contacts daily. Contacts were commonly known by participants for ≥1 year.
+
+#### Rural contacts
+```{r,  echo=FALSE}
+
+# frequency_contact question is precede by contact_id
+nw <- c("Rural", "Urban")
+layer <-  c( "Nonhome",  "School",    "Work" )
+nws <- c()
+for (i in 1:2) {
+  india_mix_nw <- 
+  india_mix %>% filter(study_site==nw[i])
+  
+  nw_one <- c()
+  for (j in 1:3) {
+    nw_1 <- 
+    india_mix_nw %>% 
+   filter(!is.na(frequency_contact) & !is.na(known_contact)
+          ) %>% 
+   filter(contact_location %in% layer[j] & fromdayone == "Both days") %>%  
+  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n)  # check what these two questions are branched to and see how it branched with / related to contact duration
+    
+    nw_one <- c(nw_one, list(nw_1))
+  }
+  nws <- c(nws, list(nw_one))
+  
+}
+
+
+
+list(nws[[1]][1], nws[[1]][2], nws[[1]][3])%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
+  footnote(general = "The left, middle, and right tables are for the nonhome, school, and work layers, respectively.")
+
+
+```
+
+#### Urban contacts
+```{r,  echo=FALSE}
+list(nws[[2]][1], nws[[2]][2], nws[[2]][3])%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
+  footnote(general = "The left, middle, and right tables are for the nonhome, school, and work layers, respectively.")
+```
+
+#### Contact frequency in other non-home locations 
+To evaluate why the observed frequency of the non-home contacts are high, we tabulate the frequency of contact and the time that the participant has known the contact in other non-home locations. Similar to the above, most contacts were daily. Except for the urban street contact,  most participants have known the contacts > 1 years.   
+
+##### Street
+````{r,  echo=FALSE}
+list(# replicate the above analysis for contact on street
+india_mix  %>% filter(study_site==nw[1]) %>% 
+  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          location_contact___6 ==1
+          & fromdayone == "Both days"
+          ) %>%  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n),
+
+     india_mix  %>% filter(study_site==nw[2]) %>% 
+  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          location_contact___6 ==1
+          & fromdayone == "Both days"
+          ) %>%  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n)
+     
+     
+     )%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
+  footnote(general = "The left, right tables are for the rural and urban networks, respectively.")
+```
+
+##### Other home
+````{r,  echo=FALSE}
+list(# replicate the above analysis for contact on street
+india_mix  %>% filter(study_site==nw[1]) %>% 
+  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          location_contact___1 ==1
+          & fromdayone == "Both days"
+          ) %>%  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n),
+
+     india_mix  %>% filter(study_site==nw[2]) %>% 
+  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          location_contact___1 ==1
+          & fromdayone == "Both days"
+          ) %>%  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n)
+     
+     
+     )%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
+  footnote(general = "The left, right tables are for the rural and urban networks, respectively.")
+```
+
+##### Playground
+````{r,  echo=FALSE}
+list(# replicate the above analysis for contact on street
+india_mix  %>% filter(study_site==nw[1]) %>% 
+  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          location_contact___7 ==1
+          & fromdayone == "Both days"
+          ) %>%  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n),
+
+     india_mix  %>% filter(study_site==nw[2]) %>% 
+  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
+          location_contact___7 ==1
+          & fromdayone == "Both days"
+          ) %>%  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n)
+     
+     
+     )%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
+  footnote(general = "The left, right tables are for the rural and urban networks, respectively.")
+```
+
+
 
 ```{r, echo=F, warning=F, message=FALSE}
 # split data into urban and rural networks using study site, and get the number of participants with 0 contact in specified age groups
@@ -237,17 +414,6 @@ names(out) <-  c(paste0("india_mix.", tolower(study_site.), age.grp),
 out
 } 
 
-# india_mix.rural.10age.grps <- # rural mixing, original age groups
-# data_split(india_mix. = india_mix %>% select(-participant_age_reclass, -contact_age_reclass), 
-#            india_participant. = india_participant %>% select(-participant_age_reclass), 
-#            india_contact. = india_contact %>% select( -contact_age_reclass),
-#            study_site. ="Rural", age.grp = ".10age.grps") # 
-# 
-# india_mix.urban.10age.grps <- # urban mixing, original age groups
-# data_split(india_mix. = india_mix %>% select(-participant_age_reclass, -contact_age_reclass), 
-#            india_participant. = india_participant %>% select(-participant_age_reclass), 
-#            india_contact. = india_contact %>% select( -contact_age_reclass),
-#            study_site. ="Urban", age.grp = ".10age.grps") # .10age.grps
 
 
 india_mix.rural.6age.grps <- # rural mixing, six age groups
@@ -280,11 +446,16 @@ data_split(india_mix. = india_mix %>%
              select(-contact_age) %>% 
              rename(contact_age = contact_age_reclass),
            study_site. ="Urban", age.grp = ".6age.grps") # .6age.grps
+```
+
+
+
+
+```{r, echo=F, warning=F, message=FALSE}
 
 
 # function to compile data by participant's and contact's age groups and estimate mean degree (duplicated contacts/dyads at home were counted once)------
 summariseContacts <- function(df,
-                              filter.duration_contact, 
                               no.contacts
                           
 ) { 
@@ -294,7 +465,6 @@ summariseContacts <- function(df,
   group_by(participant_age) %>%
   mutate(n_participants = n_distinct(id)) %>%  # total number of participants by age group
   ungroup() %>%
-  filter(!(duration_contact %in% filter.duration_contact)) %>% # filter out contact with duration ≤ 15 mins
   group_by(contact_location,participant_age,contact_age,n_participants, fromdayone, .drop = FALSE) %>%
   summarise(n_contacts = n()) %>%  # total number of contacts reported over the 2 study days, by contact_location, participant's age group, contact's age group, total number of participants in each age group
   mutate(n_contacts = case_when(contact_location == "Home" & fromdayone == "Both days" ~ n_contacts/2, # for repeated home contacts over two days, we count them once
@@ -327,36 +497,29 @@ left_join(no.contacts ,by = c("participant_age")
 
 india_mix.sum.no15 <- list() # degree for each study site is outputted separately
 
-# india_mix.sum.no15[[1]] <- 
-#   summariseContacts(df = india_mix.rural.10age.grps$india_mix.rural.10age.grps %>% rename(predictor_contact = contact_location), 
-#                     filter.duration_contact = c("<5 mins", "5-15 mins"),
-#                     no.contacts = india_mix.rural.10age.grps$india.no.contacts.rural.10age.grps
-#                     ) %>% rename( contact_location=predictor_contact )
-# 
-# india_mix.sum.no15[[2]] <- 
-#   summariseContacts(df = india_mix.urban.10age.grps$india_mix.urban.10age.grps %>% rename(predictor_contact = contact_location), 
-#                     filter.duration_contact = c("<5 mins", "5-15 mins"),
-#                     no.contacts = india_mix.urban.10age.grps$india.no.contacts.urban.10age.grps
-#                     ) %>% rename( contact_location=predictor_contact )
 
 india_mix.sum.no15[[1]] <- 
   summariseContacts(df = india_mix.rural.6age.grps$india_mix.rural.6age.grps , 
-                    filter.duration_contact = c("<5 mins", "5-15 mins"),
                     no.contacts = india_mix.rural.6age.grps$india.no.contacts.rural.6age.grps
                     ) %>% rename( contact_location=contact_location )
 
 india_mix.sum.no15[[2]] <- 
   summariseContacts(df = india_mix.urban.6age.grps$india_mix.urban.6age.grps, 
-                    filter.duration_contact = c("<5 mins", "5-15 mins"),
                     no.contacts = india_mix.urban.6age.grps$india.no.contacts.urban.6age.grps
                     ) %>% rename( contact_location=contact_location )
 
 
 
-names(india_mix.sum.no15) <- c(#"india_mix.sum.no15.rural.10age.grps", "india_mix.sum.no15.urban.10age.grps",
+names(india_mix.sum.no15) <- c(
                                "india_mix.sum.no15.rural.6age.grps", "india_mix.sum.no15.urban.6age.grps"
                                )
+
+
+
 ```
+
+
+
 
 ```{r, echo=F, warning=F, message=FALSE}
 
@@ -738,17 +901,6 @@ avg.matrix.fun <-
     avg.matrix.list
   }
 
-# # Rural symmetric mixing matrices, 10 age groups
-# avg.matrices.india$avg.matrix.india.rural.10age.grps <- 
-# avg.matrix.fun(mix.sum = india_mix.sum.no15$india_mix.sum.no15.rural.10age.grps  %>% rename(predictor_contact = contact_location),
-#            age_grp_count =10
-#            )
-# 
-# # Urban symmetric mixing matrices, 10 age groups
-# avg.matrices.india$avg.matrix.india.urban.10age.grps <- 
-# avg.matrix.fun(mix.sum = india_mix.sum.no15$india_mix.sum.no15.urban.10age.grps  %>% rename(predictor_contact = contact_location),
-#            age_grp_count = 10
-#            )
 
 
 # Rural symmetric mixing matrices, 6 age groups
@@ -764,20 +916,21 @@ avg.matrix.fun(mix.sum = india_mix.sum.no15$india_mix.sum.no15.urban.6age.grps ,
            )
 
 
-#saveRDS(avg.matrices.india, file = "./data/network_params/avg.matrices.india.RData")
+#saveRDS(avg.matrices.india, file = "../data/network_params/avg.matrices.india.RData")
 
 
 
 ```
 
-## Total degree by contact location 
-```{r pressure, echo=F, fig.width=6, fig.height=6}
+## Individual-level overall mean degree by contact location 
+The following degrees are the mean of total degrees of the six age groups.
+```{r, echo=F, fig.width=6, fig.height=6}
 rbind(
 avg.matrices.india$avg.matrix.india.rural.6age.grps$avg.matrix %>% group_by(contact_location) %>% 
-    summarise(tot_mean_degree = mean(total_degree)) %>% mutate(network="Rural"),
+    summarise(tot_mean_degree = mean(total_degree/6)) %>% mutate(network="Rural"),
 
 avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix %>% group_by(contact_location) %>% 
-    summarise(tot_mean_degree = mean(total_degree)) %>% mutate(network="Urban")
+    summarise(tot_mean_degree = mean(total_degree/6)) %>% mutate(network="Urban")
 ) %>% 
   ggplot(mapping = 
     aes(x=contact_location, y=tot_mean_degree)
@@ -786,7 +939,7 @@ avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix %>% group_by(cont
           )+
   theme_classic()+
   xlab("Contact location")+ylab("Mean degree")+
-    geom_text(aes(label = format(round(tot_mean_degree,1), nsmall=1, fontface= "bold"#, size=6
+    geom_text(aes(label = format(round(tot_mean_degree,2), nsmall=2, fontface= "bold"#, size=6
                    ), group = network), 
             colour = "black" ,  vjust = -0.1, position = position_dodge(0.8)
             )+
@@ -796,28 +949,25 @@ avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix %>% group_by(cont
   
 ```
 
-## Total degree by age group 
-Previously, the raw total degree (by participants' age group) was plotted. Since the total degree for each age group will be instead used for analysis, we plot the latter moving forward. Note that repeated contacts in the home category were de-duplicated.
+## Individual-level mean degree by age group 
+```{r , echo=F, fig.width=12, fig.height=12}
 
-```{r pressure, echo=F, fig.width=12, fig.height=12}
-# add back to text after revision - The total degree peaked in the age group of 10-14 years old and gradually became lower in the adjacent age groups. For participants < 1 year old in the rural population, the total degree of 6-11 months old #was lower than those < 6 months old.
-#The participant's total degree tended to be higher at home than non-home locations among those that were not teenagers (10-19y). 
 
 
 max_total_deg <- ceiling(max( avg.matrices.india$avg.matrix.india.rural.6age.grps$avg.matrix$total_degree, avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix$total_degree))
   
 
-total_degree_plot <- # this replaced the function plotting the raw total degree
+individual_degree_grp_plot <- # this replaced the function plotting the raw total degree
 function(total_degree, network_name, max_total_degree){
   total_degree %>% 
   #select(contact_location,participant_age,total_degree) %>%
   #distinct() %>% 
-  ggplot( mapping = aes(x = age,y = total_degree)
+  ggplot( mapping = aes(x = age,y = total_degree/6)
         )+ 
   geom_col(aes(fill = contact_location) , position = position_dodge()
            )+
   theme_classic()+
-  geom_text(aes(label = format(round(total_degree,2), nsmall=2, fontface= "bold", size=6
+  geom_text(aes(label = format(round(total_degree/6,2), nsmall=2, fontface= "bold", size=6
                    ), group = contact_location), 
             colour = "black" ,  vjust = -0.2,position = position_dodge(0.8)
             )+
@@ -826,7 +976,7 @@ function(total_degree, network_name, max_total_degree){
   ggtitle(network_name) +
   theme(plot.title = element_text(hjust = 0.5),
         text = element_text(size=15)
-        )+ scale_y_continuous(limits = c(0, max_total_degree))
+        )+ scale_y_continuous(limits = c(0, max_total_degree/6))
   
 }
 
@@ -835,14 +985,14 @@ annotate_figure(
   
 ggarrange(
 # Total degree by participant age group and network layer
-# total_degree_plot(total_degree = avg.matrices.india$avg.matrix.india.rural.10age.grps$avg.matrix %>% rename(contact_location = predictor_contact), 
+# individual_degree_grp_plot(total_degree = avg.matrices.india$avg.matrix.india.rural.10age.grps$avg.matrix %>% rename(contact_location = predictor_contact), 
 #                   network_name = "Rural", max_total_degree=max_total_deg)+
 #   theme(axis.text.x=element_blank()),
-total_degree_plot(total_degree = avg.matrices.india$avg.matrix.india.rural.6age.grps$avg.matrix , 
+individual_degree_grp_plot(total_degree = avg.matrices.india$avg.matrix.india.rural.6age.grps$avg.matrix , 
                   network_name = "Rural", max_total_degree=max_total_deg-0.5),
-# total_degree_plot(total_degree = avg.matrices.india$avg.matrix.india.urban.10age.grps$avg.matrix %>% rename(contact_location = predictor_contact), 
+# individual_degree_grp_plot(total_degree = avg.matrices.india$avg.matrix.india.urban.10age.grps$avg.matrix %>% rename(contact_location = predictor_contact), 
 #                   network_name = "Urban", max_total_degree=max_total_deg),
-total_degree_plot(total_degree = avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix , 
+individual_degree_grp_plot(total_degree = avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix , 
                   network_name = "Urban", max_total_degree=max_total_deg-0.5),
 ncol = 1, nrow = 2,
 labels = c("A", "B"),
@@ -918,11 +1068,6 @@ symmetric_contactmatrix_viz <- function(matrix_wide, network_layer, max.degree, 
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+ 
     labs(fill="Degree")+ggtitle(panel_title)
 }
-
-
- 
-
-
 ```
 
 #### Rural networks
@@ -971,7 +1116,7 @@ annotate_figure(
   
 ggarrange(
   
-symmetric_contactmatrix_viz(matrix_wide = $avg.matrix.india.urban.6age.grps$avg.matrix, network_layer = "Home", max.degree = max.degree., 
+symmetric_contactmatrix_viz(matrix_wide = avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix, network_layer = "Home", max.degree = max.degree., 
                             panel_title = "Home, Urban", metric = "degree")+
   theme(axis.text.x=element_blank()),
 
@@ -1001,17 +1146,17 @@ bottom = "Age"
 
 
 ```
-
+```{r, echo=FALSE, warning=F, message=FALSE, fig.show='hide'}
 ## Symmetrical mixing matrices, by proportion
-The proportions below are calculated by dividing the mean degree ($MD_{ij}$) in each cell ($i,j$) by the total degree of each age group ($j$) it belonged to. The total degree of each age group is summarized above. In a symmetrical mixing matrix ($sym.matrix$), the total degree of age group $j = sym.matrix[,j]+sym.matrix[j,]-sym.matrix[j,j]$. So the proportion of $MD_{ij}$, denoted as $MD.prop_{ij}$, can be expressed as the following. Given $sym.matrix[j,]$ was included in the denominator, the row-wise sum of the proportion is less than one.
+#The proportions below are calculated by dividing the mean degree ($MD_{ij}$) in each cell ($i,j$) by the total degree of each age group ($j$) it belonged to. The total degree of each age group is summarized above. In a symmetrical mixing matrix ($sym.matrix$), the total degree of age group $j = sym.matrix[,j]+sym.matrix[j,]-sym.matrix[j,j]$. So the proportion of $MD_{ij}$, denoted as $MD.prop_{ij}$, can be expressed as the following. Given $sym.matrix[j,]$ was included in the denominator, the row-wise sum of the proportion is less than one.
 
-$$
-MD.prop_{ij}=\frac{sym.matrix[i,j]}{sym.matrix[,j]+sym.matrix[j,]-sym.matrix[j,j]}
-$$
-
-
-### Mixing by layers in the rural network
-```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
+# $$
+# MD.prop_{ij}=\frac{sym.matrix[i,j]}{sym.matrix[,j]+sym.matrix[j,]-sym.matrix[j,j]}
+# $$
+# 
+# 
+# ### Mixing by layers in the rural network
+# ```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
 
 annotate_figure(
   
@@ -1046,9 +1191,12 @@ bottom = "Age"
 
 ```
 
+
+```{r, echo=FALSE, warning=F, message=FALSE, fig.show='hide'}
 ### Mixing by layers in the urban network
-The mixing matrices in the home and nonhome settings in the urban network are generally similar to those in the rural network.
-```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6}
+#The mixing matrices in the home and nonhome settings in the urban network are generally similar to those in the rural network.
+#```{r, echo=F, warning=F, message=FALSE, error =F, fig.width=10, fig.height=6
+
 annotate_figure(
   
 ggarrange(
@@ -1084,168 +1232,103 @@ bottom = "Age"
 ```
 
 ## Uncertainties of network statistics
-The following characterization of network statistics is adapted from ARTnet. We summarize the number of contact at the individual level, which is regressed on categories of terms (edge, nodefactor, nodematch) of the formation model using Poisson regression.
+The following characterization of network statistics is adapted from ARTnet. We use the following models to estimate the network statistic's uncertainties in each layer.
+$$
+M.D_{i,j} \sim Poisson(\beta_0)
+$$
+
+$$
+M.D_{i,j} \sim Poisson(\beta_{age.grp}*age.grp_i)
+$$
+
+### Individual-level mean degrees and 95% confidence intervals in rural areas
 ```{r, echo=F, warning=F, message=FALSE, error =F}
-ci <- 
-function(df, filter.duration_contact){
 
-  out <- list()
-  
-# Pending: participants w/ 0 contacts is to be adjusted
-# use GLM method to estimate network statistics
-library(broom)
-# india_mix %>% 
-#   filter(study_site == "Rural") %>% 
-#   group_by(id) %>%
-#   summarize(n = n()) %>% ungroup() %>% 
-#   do(tidy( glm(n ~ 1, data = ., family = poisson())))
+degree_ci_all_layers <- function(avg.matrix){
 
-# edge
-## glm mestimate
-  out[[1]] <- df %>%
-  filter(!(duration_contact %in% filter.duration_contact)) %>% # filter out contact with duratioin ≤ 15 mins
-  #filter(study_site == "Rural") %>% 
-  group_by(id,  contact_location, fromdayone) %>%
-  summarize(n = n()) %>% ungroup() %>% 
-  mutate(n = case_when(contact_location == "Home" & fromdayone == "Both days" ~ n/2, # for repeated home contacts over two days, we count them once
-                                TRUE ~ n)
-  ) %>% 
-  group_by(id,  contact_location) %>% 
-  summarize(n = sum(n)) %>% ungroup() %>% 
-  mutate(n= round(n)) %>% # round non-integer to integer for poisson regression
-  group_by( contact_location) %>% 
-  do(tidy( glm(n ~ 1, data = ., family = poisson())
-  )
-  ) %>% 
-  mutate(lo= estimate-1.96*std.error, up=estimate+1.96*std.error) %>% 
-  mutate(md = exp(estimate), md_lo = exp(lo), md_up = exp(up)
-  ) 
+degree_ci_fun <- 
+function(avg.matrix, contact_location.){
+degree_matrix <- 
+avg.matrix %>% filter(contact_location == contact_location.) %>% select(`0-9y`:`60+y`) %>% as.data.frame()
 
-# nodefactor
-## glm mestimate
-  out[[2]] <-df %>%
-  filter(!(duration_contact %in% filter.duration_contact)) %>% # filter out contact with duratioin ≤ 15 mins
-  group_by(id,  contact_location, participant_age, fromdayone) %>%
-  summarize(n = n()) %>% ungroup() %>% 
-  mutate(n = case_when(contact_location == "Home" & fromdayone == "Both days" ~ n/2, # for repeated home contacts over two days, we count them once
-                       TRUE ~ n)
-  ) %>% 
-  group_by( id, contact_location, participant_age) %>% # covariate should be the age group of the egocentric population (participant)
-  summarize(n = sum(n)) %>% ungroup() %>% 
-  mutate(n= round(n)) %>% # round non-integer to integer for poisson regression
-     group_by(contact_location) %>% 
-  do(tidy( glm(n ~ -1+ participant_age, data = ., family = poisson())
-  )
-  ) %>% 
-  mutate(lo= estimate-1.96*std.error, up=estimate+1.96*std.error) %>% 
-  mutate(md = exp(estimate), md_lo = exp(lo), md_up = exp(up)
-  ) %>% 
-  mutate(term = str_remove(term, "participant_age")
-  ) %>% 
-  rename(participant_age=term) 
 
-# nodematch
+degree_vec <- c()
+for (i in 1:nrow(degree_matrix)) {
+degree_vec <- c(degree_vec,
+                c(degree_matrix[i, c(1:(i-1))], degree_matrix[-c(1:(i-1)),i]) %>% unlist() %>% as.numeric()
+                )
 
-# Proportion of partnerships in same age group
-df$same.age.grp <- ifelse(df$participant_age == df$contact_age, 1, 0)
+  }
 
-# Model
-out[[3]] <-df %>% 
-  filter(!(duration_contact %in% filter.duration_contact)) %>% # filter out contact with duration ≤ 15 mins
-  group_by(id,  contact_location, participant_age, fromdayone) %>%
-  summarize(n = sum(same.age.grp )
-            ) %>% ungroup() %>% 
-  mutate(n = case_when(contact_location == "Home" & fromdayone == "Both days" ~ n/2, # for repeated home contacts over two days, we count them once
-                       TRUE ~ n)
-  ) %>% 
-  group_by(id, contact_location, participant_age) %>% 
-  summarize(n = sum(n )
-  ) %>% ungroup() %>% 
-  group_by(contact_location) %>% 
-  mutate(n= round(n)) %>% # round non-integer to integer for poisson regression
-  do(tidy( glm(n ~ -1+ participant_age, data = ., family = poisson())
-  )
-  )%>% 
-  mutate(lo= estimate-1.96*std.error, up=estimate+1.96*std.error) %>% 
-  mutate(md.match = exp(estimate), md_lo = exp(lo), md_up = exp(up)
-  ) %>% 
-  mutate(term = str_remove(term, "participant_age")
-         ) %>% 
-  rename(participant_age=term) 
+matrix_deg <- 
+data.frame(
+age.grp=names(degree_matrix) %>% rep(., each=6),
+degree_vec
+) %>% filter(!is.nan(degree_vec) ) # filter NaN value out from the dataframe
 
-names(out) <- c("edges", "nodefactor", "nodematch")
 
-out
+# Overall individual-level degree
+lm_result_overall <- matrix_deg %>%  lm(degree_vec~1, data= .) 
 
+
+# Individual-level degree by age.group
+lm_result_agegrp <- matrix_deg %>%  lm(degree_vec~ -1 +age.grp, data= .) 
+
+rbind(
+cbind(
+lm_result_overall$coefficients, # mean degree
+lm_result_overall%>% confint()  # confidence interval
+),
+cbind(
+lm_result_agegrp$coefficients, # mean degree
+lm_result_agegrp%>% confint()  # confidence interval
+)
+) %>% data.frame() %>% 
+  rename(pt_est=1, lower_cl = 2, upper_cl = 3)
 }
 
-ci_rural <- 
-ci(df=india_mix.rural.6age.grps$india_mix.rural.6age.grps, filter.duration_contact = c("<5 mins", "5-15 mins"))
+layers <- c("Home", "Nonhome", "School", "Work")
 
-ci_urban <- 
-ci(df=india_mix.urban.6age.grps$india_mix.urban.6age.grps, filter.duration_contact = c("<5 mins", "5-15 mins"))
-
-
-
-
-```
-
-### Total edges in each network layer
-```{r,echo=F, warning=F, message=FALSE, error =F}
-rbind(
-ci_rural$edges %>% mutate(network="rural"),
-ci_urban$edges %>% mutate(network="urban")
-) %>% 
-  as.data.frame() %>% 
-  ggplot( aes(x=contact_location, y=md, fill=network#, color=contact_location
-              )
-          ) + 
-   geom_bar( stat = "identity", position = position_dodge()
-  )+
-  geom_errorbar(aes(x=contact_location, ymin=md_lo, ymax=md_up), width=.2,
-                 position = position_dodge(width=0.9)
-                )+
-  #facet_wrap(vars(network))+
-  theme_classic()+
-  xlab("Contact location")+ylab("Number of contact (95% CI)")
+degree_ci <- data_frame( rowname=c("(Intercept)",   "age.grp0-9y",   "age.grp10-19y",
+                                 "age.grp20-29y", "age.grp30-39y" ,"age.grp40-59y" ,"age.grp60+y"  )
+                               )
+for (i in 1:4) {
+degree_ci_single  <-
+  degree_ci_fun(avg.matrix = avg.matrix,
+          contact_location. = layers[i])
+  #degree_ci_single$layer <- layers[i]
+  degree_ci_single <- 
+  degree_ci_single %>% mutate(pt_est = paste0(round(pt_est, 2),
+                                                  " (",
+                                                  round(lower_cl,2),
+                                                  ",",
+                                                  round(upper_cl, 2),
+                                                  ")"
+                                                  )
+                                  ) %>% 
+    select(pt_est)  %>% rownames_to_column()
   
+  colnames(degree_ci_single)[2] <- layers[i]
+  
+  degree_ci <- left_join(degree_ci, degree_ci_single, by = "rowname")
+  
+    
+}
+degree_ci[1,1] <- "Overall"
+degree_ci
+}
+
+
+degree_ci_all_layers(avg.matrix=avg.matrices.india$avg.matrix.india.rural.6age.grps$avg.matrix) %>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
+
 ```
 
-### Number of edges in each age group
-```{r,echo=F, warning=F, message=FALSE, error =F, fig.width=11, fig.height=6}
-rbind(
-ci_rural$nodefactor %>% select(participant_age, contact_location,  md, md_lo, md_up)%>% mutate(network="rural"),
-ci_urban$nodefactor %>% select(participant_age, contact_location, md, md_lo, md_up)%>% mutate(network="urban")
-) %>% 
-  as.data.frame() %>% 
-  ggplot( aes(x=participant_age, y=md, color=contact_location
-              )
-          ) + 
-  geom_point(position = position_dodge(0.5))+
-  geom_errorbar(aes(ymin=md_lo, ymax=md_up), width=.2,
-                position = position_dodge(0.5),
-                )+facet_wrap(vars(network))+theme_classic()+
-    labs(col="")+
-  xlab("Age group")+ylab("Number of contact (95% CI)")
+In networks (home, non-home) that did not include 0 participant in an age group, the below glm-estimated degrees are the same as their counterparts above. For those network include 0 participants in an age group, the glm-estimated degree is greater than their counterparts above. 
+
+### Individual-level mean degrees and 95% confidence intervals in urban areas
+```{r, echo=F, warning=F, message=FALSE, error =F}
+degree_ci_all_layers(avg.matrix=avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix) %>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-### Number of matched ties of each age group
-```{r,echo=F, warning=F, message=FALSE, error =F, fig.width=11, fig.height=6}
-rbind(
-ci_rural$nodematch %>% select(participant_age, contact_location,  md.match, md_lo, md_up)%>% mutate(network="rural"),
-ci_urban$nodematch %>% select(participant_age, contact_location, md.match, md_lo, md_up)%>% mutate(network="urban")
-) %>% 
-  as.data.frame() %>% 
-  filter(!md.match<0.01) %>% 
-  ggplot( aes(x=participant_age, y=md.match, color=contact_location
-              )
-          ) + 
-  geom_point(position = position_dodge(0.5))+
-  geom_errorbar(aes(ymin=md_lo, ymax=md_up), width=.2,
-                position = position_dodge(0.5),
-                )+facet_wrap(vars(network))+theme_classic()+
-    labs(col="")+
-  xlab("Age group")+ylab("Number of matched contact (95% CI)")
-```
 
 
