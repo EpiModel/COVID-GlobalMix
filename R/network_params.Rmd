@@ -19,20 +19,23 @@ We excluded contacts lasted ≤ 15 mins in analysis. The degree information was 
 
 
 ```{r, echo=F, warning=F, message=FALSE, include = FALSE}
+setwd("~/Documents/GitHub/COVID-GlobalMix")
+getwd()
+"~/"
 # Load libraries and data  ------------------------------------------------
 lapply(c("ggpubr", "statnet", "EpiModel", "tidyverse", "socialmixr", "knitr",  "sjlabelled", "kableExtra", "broom"), require, character.only = TRUE)
 
 
 ## participant data
 india_participant <- 
-#readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_participant_data_aim1.RDS")%>% rename(id = rec_id)
-readRDS("../data/participant_contact/india_participant_data_aim1.RDS")%>% rename(id = rec_id)
+readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_participant_data_aim1.RDS")%>% rename(id = rec_id)
+#readRDS("../Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_participant_data_aim1.RDS")%>% rename(id = rec_id)
 
 
 ## contact data 
 india_contact <- 
- #readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_contact_data_aim1.RDS")%>% rename(id = rec_id)
-readRDS("../data/participant_contact/india_contact_data_aim1.RDS")%>% rename(id = rec_id)
+ readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_contact_data_aim1.RDS")%>% rename(id = rec_id)
+#readRDS("../Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_contact_data_aim1.RDS")%>% rename(id = rec_id)
 
 # Note - validated study_site of participant is exactly the same as those in contact
 
@@ -113,9 +116,6 @@ For a contact checked non of the categories, we assigned an NA to this contact.
 india_mix %>% select(participant_age, contact_age, location_contact___2, location_contact___3) %>% mutate(sum = location_contact___2+location_contact___3) %>% filter(sum==2) %>% select(-sum)%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-
-
-
 ```{r, echo=F, warning=F, message=FALSE, fig.show='hide', results='hide'}
 ## Distribution of indoor/outdoor status
 #The following is a break down of the observed categories of the variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted with a contact both in- and out-doors.  Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" into the "Indoors" category. We will adjust for this status as a nodefactor. For building the transmission model, we will assign lower risk for the "Outdoors" category during simulation.
@@ -127,264 +127,12 @@ india_mix %>% mutate(where_contact2=case_when(where_contact %in% c("Indoors", "B
                      )
 
 india_mix %>% 
+  
   group_by( where_contact2, study_site) %>%
   tally() %>%  spread(study_site, n) %>% kable()%>%
    kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 
 #chisq.test(table(india_mix$contact_location, india_mix$study_site))
-```
-
-## Repeated contacts
-For repeated contacts at the home layer, we deduplicate them in the analysis. Current investigation is ongoing to decide how to deal with replicated contact in the other layers.
-
-```{r, echo=F, warning=F, message=FALSE, fig.show='hide', results='hide'}
-### Distribution of unique/repeated contacts
-#The following table shows the distribution of repeated/unique contact by network layers of each network. The levels of replicated contact is high across layers in both networks.
-
-
-kbl(list(
-           india_mix %>% filter(study_site == "Rural") %>% #drop_na(fromdayone, contact_location) %>%
-             group_by(fromdayone, contact_location) %>% tally() %>%
-  spread(contact_location, n) ,
-           
-           india_mix %>% filter(study_site == "Urban") %>% #drop_na(fromdayone, contact_location) %>% 
-    group_by(fromdayone, contact_location) %>% tally() %>%
-  spread(contact_location, n)
-           )
-      ) %>% kable_classic(full_width = F, html_font = "Cambria") %>%
-  footnote(general = "The left and right tables are for the rural and urban networks, respectively.")
-
-```
-### Descriptive analysis of repeated/unique contacts in the school, work, and other non-home category
-```{r, echo=F, warning=F, message=FALSE}
-nonhome_dup_descib <- function(mix, network){
-  
-  output <- list()
-  
-# Frequency of contact type
-output$overall_freq <- 
-  mix %>% filter(study_site==network & contact_location %in% c( "Nonhome",  "School",    "Work" )) %>% group_by(fromdayone) %>% 
-  summarize(n=n()
-            ) %>% 
-  mutate(prop = n/sum(n)) %>% # ~2/3 of the contacts in the nonhome category were duplicated 
-  mutate_if(is.numeric, round, 3)
-
-
-# Frequency of contact repeated contact by contact location
-location_labs <- as.character(get_label(mix))
-location_labs <-as.character(location_labs)[which(location_labs=="My home"):which(location_labs=="Other")]
-
-location_freq <- 
-mix %>% filter(study_site==network & contact_location %in% c( "Nonhome",  "School",    "Work" ) & fromdayone == "Both days")%>%
-  select(location_contact___0:location_contact___19) %>% `colnames<-`(location_labs)  %>% colSums() %>% sort(., decreasing =T) # most contacts occurred at school, street, and other's home 
- 
-output$location_freq <- 
-location_freq[location_freq>100] 
-
-
-
-output
-
-}
-
-
-nonhome_dup_rural <- 
-nonhome_dup_descib(mix = india_mix, network = "Rural")
-
-
-nonhome_dup_urban <- 
-nonhome_dup_descib(mix = india_mix, network = "Urban")
-```
-
-The following figure shows the frequency of duplicated non-home contacts by contact location of the two-day study period. Contact locations with frequencies > 100 were shown.
-
-```{r, echo=F, warning=F, message=FALSE}
-par(mfrow = c(1, 2), mar=c(5, 4, 4, 2) + 0.5) 
-barplot(nonhome_dup_rural$location_freq, main = "Rural", ylab = "Frequency", ylim = c(0, 1100),
-        las = 2, 
-        cex.names = 1)
-
-barplot(nonhome_dup_urban$location_freq, main = "Urban", ylim = c(0,1100),
-        las = 2, cex.names = 1)
-
-
-
-```
-
-### Contact frequency by duration of replicated contact at nonhome settings
-In rural and urban non-home areas, the non-home contacts other than school/work were more frequent than the school and work contacts when the contact duration is less than 4 hrs. For contacts with duration more than 4 hrs, the school contacts were the most frequent. 
-
-```{r, echo=F, warning=F, message=FALSE, fig.width=10, fig.height=6}
-
-# Duration of repeated contact by layer
-india_mix %>% 
-  filter( contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          & fromdayone == "Both days"
-          ) %>% 
-  group_by(study_site, contact_location, duration_contact) %>% summarize(n=n()) %>% 
-  ggplot( mapping = aes(x = duration_contact,y = n)
-        )+ 
-  geom_col(aes(fill = contact_location) , position = position_dodge()
-           )+
-  facet_wrap(~study_site)+
-  theme_classic()+
-  geom_text(aes(label = n, group = contact_location), 
-            colour = "black" ,  vjust = -0.2,position = position_dodge(0.8)
-            )+
-  labs(x = "", y = "", color = "contact_location")+theme(legend.position = "top")+
-  guides(fill=guide_legend(title=""))+
- 
-  theme(plot.title = element_text(hjust = 0.5),
-        text = element_text(size=15)
-        )
-
-
-```
-
-#### Duration of replicated contact on street
-In rural area, the most frequent duration of replicated contact was 1-4 hrs. In urban area, the most frequent duration of replicated contact was >4hrs.
-
-```{r, echo=F, warning=F, message=FALSE}
-
-# evaluate contact duration for contact on street
-# Duration of repeated contact by layer
-india_mix %>% 
-  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          location_contact___6 ==1
-          & fromdayone == "Both days"
-          ) %>% 
-  group_by(study_site,  duration_contact) %>% summarize(n=n()) %>% 
-  ggplot( mapping = aes(x = duration_contact,y = n)
-        )+ 
-  geom_col( position = position_dodge()
-           )+
-  facet_wrap(~study_site)+
-  theme_classic()+
-   labs(x = "", y = "")
-
-
-```
-
-
-### Contact frequency vs. duration of knowing the replicated contact
-We tabulate the frequency_contact variable (In the past 6 months, how often have you had contact with this person?) and known_contact variable (How long have you known this person?).
-In the non-home, school, and work layers of both the rural and urban areas, most participants had replicated contacts with the contacts daily. Contacts were commonly known by participants for ≥1 year.
-
-#### Rural contacts
-```{r,  echo=FALSE}
-
-# frequency_contact question is precede by contact_id
-nw <- c("Rural", "Urban")
-layer <-  c( "Nonhome",  "School",    "Work" )
-nws <- c()
-for (i in 1:2) {
-  india_mix_nw <- 
-  india_mix %>% filter(study_site==nw[i])
-  
-  nw_one <- c()
-  for (j in 1:3) {
-    nw_1 <- 
-    india_mix_nw %>% 
-   filter(!is.na(frequency_contact) & !is.na(known_contact)
-          ) %>% 
-   filter(contact_location %in% layer[j] & fromdayone == "Both days") %>%  
-  group_by(frequency_contact, known_contact) %>% 
-  tally() %>% 
-  spread(frequency_contact,n)  # check what these two questions are branched to and see how it branched with / related to contact duration
-    
-    nw_one <- c(nw_one, list(nw_1))
-  }
-  nws <- c(nws, list(nw_one))
-  
-}
-
-
-
-list(nws[[1]][1], nws[[1]][2], nws[[1]][3])%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
-  footnote(general = "The left, middle, and right tables are for the nonhome, school, and work layers, respectively.")
-
-
-```
-
-#### Urban contacts
-```{r,  echo=FALSE}
-list(nws[[2]][1], nws[[2]][2], nws[[2]][3])%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
-  footnote(general = "The left, middle, and right tables are for the nonhome, school, and work layers, respectively.")
-```
-
-#### Contact frequency in other non-home locations 
-To evaluate why the observed frequency of the non-home contacts are high, we tabulate the frequency of contact and the time that the participant has known the contact in other non-home locations. Similar to the above, most contacts were daily. Except for the urban street contact,  most participants have known the contacts > 1 years.   
-
-##### Street
-````{r,  echo=FALSE}
-list(# replicate the above analysis for contact on street
-india_mix  %>% filter(study_site==nw[1]) %>% 
-  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          location_contact___6 ==1
-          & fromdayone == "Both days"
-          ) %>%  group_by(frequency_contact, known_contact) %>% 
-  tally() %>% 
-  spread(frequency_contact,n),
-
-     india_mix  %>% filter(study_site==nw[2]) %>% 
-  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          location_contact___6 ==1
-          & fromdayone == "Both days"
-          ) %>%  group_by(frequency_contact, known_contact) %>% 
-  tally() %>% 
-  spread(frequency_contact,n)
-     
-     
-     )%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
-  footnote(general = "The left, right tables are for the rural and urban networks, respectively.")
-```
-
-##### Other home
-````{r,  echo=FALSE}
-list(# replicate the above analysis for contact on street
-india_mix  %>% filter(study_site==nw[1]) %>% 
-  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          location_contact___1 ==1
-          & fromdayone == "Both days"
-          ) %>%  group_by(frequency_contact, known_contact) %>% 
-  tally() %>% 
-  spread(frequency_contact,n),
-
-     india_mix  %>% filter(study_site==nw[2]) %>% 
-  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          location_contact___1 ==1
-          & fromdayone == "Both days"
-          ) %>%  group_by(frequency_contact, known_contact) %>% 
-  tally() %>% 
-  spread(frequency_contact,n)
-     
-     
-     )%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
-  footnote(general = "The left, right tables are for the rural and urban networks, respectively.")
-```
-
-##### Playground
-````{r,  echo=FALSE}
-list(# replicate the above analysis for contact on street
-india_mix  %>% filter(study_site==nw[1]) %>% 
-  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          location_contact___7 ==1
-          & fromdayone == "Both days"
-          ) %>%  group_by(frequency_contact, known_contact) %>% 
-  tally() %>% 
-  spread(frequency_contact,n),
-
-     india_mix  %>% filter(study_site==nw[2]) %>% 
-  filter( #contact_location %in% c( "Nonhome",  "School",    "Work" ) 
-          location_contact___7 ==1
-          & fromdayone == "Both days"
-          ) %>%  group_by(frequency_contact, known_contact) %>% 
-  tally() %>% 
-  spread(frequency_contact,n)
-     
-     
-     )%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
-  footnote(general = "The left, right tables are for the rural and urban networks, respectively.")
 ```
 
 
@@ -461,22 +209,32 @@ summariseContacts <- function(df,
 ) { 
   
  df %>%
-  select(id,participant_age, fromdayone,contact_age,contact_location, duration_contact) %>% # summarizing degree by contact location
+  select(id,participant_age, fromdayone,contact_age,contact_location) %>% # summarizing degree by contact location
   group_by(participant_age) %>%
   mutate(n_participants = n_distinct(id)) %>%  # total number of participants by age group
   ungroup() %>%
   group_by(contact_location,participant_age,contact_age,n_participants, fromdayone, .drop = FALSE) %>%
   summarise(n_contacts = n()) %>%  # total number of contacts reported over the 2 study days, by contact_location, participant's age group, contact's age group, total number of participants in each age group
+    
+  ## 20230908 ##
+   # filling n_participants == NA in groups (grouped by contact_location participant_age contact_age n_participants fromdayone) didn't exist in data, introducted by .drop -F. This obviated the same script below, which is now muted
+  group_by(participant_age) %>%
+  fill(n_participants,.direction = "downup") %>% 
+  ungroup() %>%
+  ##############  
+    
   mutate(n_contacts = case_when(contact_location == "Home" & fromdayone == "Both days" ~ n_contacts/2, # for repeated home contacts over two days, we count them once
                                 TRUE ~ n_contacts)
          ) %>%
-  filter(!is.na(fromdayone)) %>% # complete case analysis for fromdayone
+  ## 20230908 ##
+  #filter(!is.na(fromdayone)) %>% # complete case analysis for fromdayone, 20230908 muted this line
+  ##############
   group_by(contact_location,participant_age,contact_age,n_participants, .drop = FALSE) %>%
-  summarise(n_contacts = sum(n_contacts)) %>% # summ all the contacts in all categories of "fromdayone" together
+  summarise(n_contacts = sum(n_contacts)) %>% # sum all the contacts in all categories of "fromdayone" together
   ungroup() %>%
   complete(contact_location,participant_age,contact_age) %>% # complete-case analysis
   group_by(contact_location,participant_age) %>%
-  fill(n_participants,.direction = "downup") %>% # filling n_participants in groups with 0 contact
+  #fill(n_participants,.direction = "downup") %>% # filling n_participants in groups with 0 contact
   mutate(degree = (n_contacts/n_participants)/2) %>%   # average mean degree for 1 day, the 2 here is to average 2-day degree
   mutate(total_degree = sum(degree)) %>%  # total degree by contact_location and participant age group
   mutate(prop_degree = degree/total_degree)  %>% # age distribution of contacts by contact_location and participant age
@@ -490,6 +248,12 @@ left_join(no.contacts ,by = c("participant_age")
   mutate(degree = (n_contacts/n_participants)/2) %>%   # average mean degree for 1 day
   mutate(total_degree = sum(degree)) %>%  # total degree by contact_location and participant age
   mutate(prop_degree = degree/total_degree) %>%   # age distribution of contacts by contact_location and participant age
+  ## 20230908 ##
+  # recode NaN caused by total_degree ==0 to 0
+  mutate(prop_degree = case_when(total_degree ==0 ~ 0,
+                                 T~ prop_degree) 
+         ) %>% 
+  ##############
   ungroup()
 
   
@@ -514,16 +278,14 @@ names(india_mix.sum.no15) <- c(
                                "india_mix.sum.no15.rural.6age.grps", "india_mix.sum.no15.urban.6age.grps"
                                )
 
-
-
+#india_mix.sum.no15 <- readRDS("../data/network_params/india_mix.sum.no15.RData")
+#saveRDS(india_mix.sum.no15, file = "../data/network_params/india_mix.sum.no15.RData")
 ```
 
 
 
 
 ```{r, echo=F, warning=F, message=FALSE}
-
-#saveRDS(india_mix.sum.no15, file = "./data/network_params/india_mix.sum.no15.RData")
 
 
 # create symmetrical social mixing matrix by average degree and its proportion ----
@@ -1241,94 +1003,83 @@ $$
 M.D_{i,j} \sim Poisson(\beta_{age.grp}*age.grp_i)
 $$
 
-### Individual-level mean degrees and 95% confidence intervals in rural areas
-```{r, echo=F, warning=F, message=FALSE, error =F}
 
-degree_ci_all_layers <- function(avg.matrix){
+```{r}
 
-degree_ci_fun <- 
-function(avg.matrix, contact_location.){
-degree_matrix <- 
-avg.matrix %>% filter(contact_location == contact_location.) %>% select(`0-9y`:`60+y`) %>% as.data.frame()
+n_contact_location <- # number of contact location
+  india_mix.rural.6age.grps$india_mix.rural.6age.grps$contact_location %>% levels() %>% length()
 
-
-degree_vec <- c()
-for (i in 1:nrow(degree_matrix)) {
-degree_vec <- c(degree_vec,
-                c(degree_matrix[i, c(1:(i-1))], degree_matrix[-c(1:(i-1)),i]) %>% unlist() %>% as.numeric()
-                )
-
-  }
-
-matrix_deg <- 
-data.frame(
-age.grp=names(degree_matrix) %>% rep(., each=6),
-degree_vec
-) %>% filter(!is.nan(degree_vec) ) # filter NaN value out from the dataframe
+id_no_contact <- # participants having no contact
+  india_participant %>%
+  filter(!(id %in% india_contact$id)) %>%
+  filter(study_site == "Rural")
 
 
-# Overall individual-level degree
-lm_result_overall <- matrix_deg %>%  lm(degree_vec~1, data= .) 
+# individual level degree, this does reflect data
+id_p_age <- # nrow equals to 608*4, where 608 is n participant, 4 is the number of contact locations
+  #original <- 
+  india_mix.rural.6age.grps$india_mix.rural.6age.grps %>%
+  # select(id,participant_age, fromdayone,contact_location) %>% # summarizing degree by contact location
+  #group_by(participant_age) %>%
+  # mutate(n_participants = n_distinct(id)) %>%  # total number of participants by age group
+  #ungroup() %>%
+  group_by(id,  contact_location, participant_age,  fromdayone, .drop = F) %>% 
+  summarise(n_contacts = n()) %>%  # total number of contacts reported over the 2 study days, by contact_location, participant's age group, contact's age group, total number of participants in each age group
+  mutate(n_contacts = case_when(contact_location == "Home" & fromdayone == "Both days" ~ n_contacts/2, # for repeated home contacts over two days, we count them once
+                                TRUE ~ n_contacts)
+  ) %>%
+  #filter(!is.na(fromdayone)) %>% # complete case analysis for fromdayone
+  ungroup() %>% 
+  group_by(id, #participant_age, 
+           contact_location) %>%
+  summarise(n_contacts = sum(n_contacts)) %>% # sum all the contacts in all categories of "fromdayone" together
+  ungroup() %>% 
+  # add the 4 participants w/ contact to aboave
+  rbind(., 
+        data.frame(
+          id = rep(as.character(id_no_contact$id), n_contact_location),
+          contact_location= rep(levels(india_mix$contact_location), n_contact_location),
+          n_contacts=rep(0,  nrow(id_no_contact)*n_contact_location)
+        )
+  )
 
 
-# Individual-level degree by age.group
-lm_result_agegrp <- matrix_deg %>%  lm(degree_vec~ -1 +age.grp, data= .) 
+id_p_age %>% View()
+
+# Contact rates based on summarization
+id_p_age %>% group_by(contact_location) %>% summarize(n_contacts = sum(n_contacts), # 608 *6
+                                                      n_participants =n(),
+                                                      frac = (n_contacts/(n_participants))/2
+                                                      #frac = (n_contacts/(n/6))/2
+) %>% View()
+
+
+# Contact rates based on glm
+fit <- 
+  id_p_age %>% #filter(contact_location=="Home") %>%
+  glm(n_contacts~ -1+contact_location, data=., family = poisson) %>% summary() 
+
+fit <- (fit$coefficients%>% as.data.frame() %>% exp())/2 
+  
+fit <- fit %>% rename(sd=2) %>% 
+mutate(lower_ci=Estimate-1.96*sd,
+         upper_ci=Estimate+1.96*sd)
+
+
+# Contact rate based on script adopt from Corp Mix
+india_mix.sum.no15$india_mix.sum.no15.rural.6age.grps %>% group_by(contact_location, participant_age, n_participants) %>% #
+  summarise(n_contacts = sum(n_contacts)) %>%
+  ungroup() %>%
+  group_by(contact_location) %>%
+  summarise(n_contacts = sum(n_contacts),
+            n_participants = sum(n_participants)) %>%
+  mutate(md = (n_contacts/n_participants)/2)
 
 rbind(
-cbind(
-lm_result_overall$coefficients, # mean degree
-lm_result_overall%>% confint()  # confidence interval
-),
-cbind(
-lm_result_agegrp$coefficients, # mean degree
-lm_result_agegrp%>% confint()  # confidence interval
+avg.matrices.india$avg.matrix.india.rural.6age.grps$avg.matrix%>% group_by(contact_location) %>% summarize(mean(total_degree)) %>% rename(Estimate=2),
+fit %>% rownames_to_column() %>% select(1,2) %>% rename(contact_location=1)
 )
-) %>% data.frame() %>% 
-  rename(pt_est=1, lower_cl = 2, upper_cl = 3)
-}
 
-layers <- c("Home", "Nonhome", "School", "Work")
-
-degree_ci <- data_frame( rowname=c("(Intercept)",   "age.grp0-9y",   "age.grp10-19y",
-                                 "age.grp20-29y", "age.grp30-39y" ,"age.grp40-59y" ,"age.grp60+y"  )
-                               )
-for (i in 1:4) {
-degree_ci_single  <-
-  degree_ci_fun(avg.matrix = avg.matrix,
-          contact_location. = layers[i])
-  #degree_ci_single$layer <- layers[i]
-  degree_ci_single <- 
-  degree_ci_single %>% mutate(pt_est = paste0(round(pt_est, 2),
-                                                  " (",
-                                                  round(lower_cl,2),
-                                                  ",",
-                                                  round(upper_cl, 2),
-                                                  ")"
-                                                  )
-                                  ) %>% 
-    select(pt_est)  %>% rownames_to_column()
-  
-  colnames(degree_ci_single)[2] <- layers[i]
-  
-  degree_ci <- left_join(degree_ci, degree_ci_single, by = "rowname")
-  
-    
-}
-degree_ci[1,1] <- "Overall"
-degree_ci
-}
-
-
-degree_ci_all_layers(avg.matrix=avg.matrices.india$avg.matrix.india.rural.6age.grps$avg.matrix) %>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
 
 ```
-
-In networks (home, non-home) that did not include 0 participant in an age group, the below glm-estimated degrees are the same as their counterparts above. For those network include 0 participants in an age group, the glm-estimated degree is greater than their counterparts above. 
-
-### Individual-level mean degrees and 95% confidence intervals in urban areas
-```{r, echo=F, warning=F, message=FALSE, error =F}
-degree_ci_all_layers(avg.matrix=avg.matrices.india$avg.matrix.india.urban.6age.grps$avg.matrix) %>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
-```
-
-
 
