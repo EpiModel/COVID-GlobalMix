@@ -1,7 +1,7 @@
 ---
 title: "Descriptive Degree Summary of GlobalMix India Data"
 author: "Billy Dehao Chen"
-date: "09/07/2023"
+date: "09/25/2023"
 output:
   html_document: default
   word_document: default
@@ -32,7 +32,7 @@ lapply(c("ggpubr", "statnet", "EpiModel", "tidyverse", "socialmixr", "knitr",  "
 ## participant data
 india_participant <- 
 readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_participant_data_aim1.RDS")%>% rename(id = rec_id)
-#readRDS("../Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_participant_data_aim1.RDS")%>% rename(id = rec_id)
+
 
 
 ## contact data 
@@ -55,7 +55,8 @@ india_participant %>%
     )%>% 
   mutate(participant_age= factor(participant_age, levels=c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y",   "60+y")
                                          )
-         ) 
+         ) %>% mutate(participant_ageyr = floor(participant_ageyr)
+                      )
 
 ## contact
 india_contact <- 
@@ -105,7 +106,8 @@ india_mix <- india_participant %>%
          duration_contact = factor(duration_contact,
                                     levels = c( "16-30 mins",  "31 mins-1 hr", "1-4 hrs", ">4 hrs", "Unknown"),
                                     ordered = TRUE)
-         )  
+         )  %>% filter(!is.na(contact_location) # complete-case analysis - exclude contacts didn't have a contact location from analysis
+                      ) 
    
 
 ```
@@ -139,53 +141,6 @@ india_mix %>%
 ```
 
 
-
-```{r, echo=F, warning=F, message=FALSE}
-# split data into urban and rural networks using study site, and get the number of participants with 0 contact in specified age groups
-
-# 20230919 - update this function to get individual-level participants w/o contacts
-data_split <- function(india_mix., india_participant., india_contact., study_site., age.grp){
- out <-  list()
- out[[1]] <-
- india_mix. %>% filter(!is.na(contact_location) # complete-case analysis - exclude contacts didn't have a contact location from analysis
-                      ) %>% 
-  filter(study_site == study_site.) # here we split the dataset into urban or rural samples
-
-
-out[[2]] <- # participants with 0 contacts by study site in India
-  india_participant. %>%
-  filter(!(id %in% india_contact.$id)) %>%
-  filter(study_site == study_site.) %>% # here we split the dataset into urban or rural samples
-  group_by(participant_age) %>%
-  tally(name = "n_participants0")
-
-names(out) <-  c(paste0("india_mix.", tolower(study_site.), age.grp), 
-                 paste0("india.no.contacts.",  tolower(study_site.), age.grp)
-                 )
-
-out
-} 
-
-
-
-india_mix.rural.6age.grps <- # rural mixing, six age groups
-data_split(india_mix. = india_mix, 
-           india_participant. = india_participant, 
-           
-           india_contact. = india_contact,
-           study_site. ="Rural", age.grp = ".6age.grps") # .6age.grps
-
-
-india_mix.urban.6age.grps <- # urban mixing, six age groups
-data_split(india_mix. = india_mix , 
-           india_participant. = india_participant, 
-           
-           india_contact. = india_contact,
-           study_site. ="Urban", age.grp = ".6age.grps") # .6age.grps
-```
-
-
-
 ## Uncertainties of network statistics
 The following characterization of network statistics is adapted from ARTnet. We use the following models to estimate the network statistic's uncertainties in each layer of the rural network.
 $$
@@ -199,21 +154,36 @@ $$
 
 ```{r}
 
-# Data processing
-contact_freq <- 
-function(data, site, india_participant, india_contact){
-  locations <- levels(data$contact_location)
-  
-## participants having no contact
-id_no_contact <- 
-  india_participant %>%
-  filter(!(id %in% india_contact$id)) %>%
-  filter(study_site == site)
+# Function characterizing number of contact at the individual  and the status of if a participant and contact was in the same age group for the contact data
+contact_freq_site <- function(india_mix., india_participant., india_contact., study_site.){
+india_mix.site <- 
+ india_mix.  %>% 
+  filter(study_site == study_site.) # here we split the dataset into urban or rural samples
+
+
+id_no_contact.site <- # participants with 0 contacts by study site in India
+  india_participant. %>%
+  filter(!(id %in% india_contact.$id)) %>%
+  filter(study_site == study_site.) 
+
+# names(out) <-  c(paste0("india_mix.", tolower(study_site.), age.grp), 
+#                  paste0("india.no.contacts.",  tolower(study_site.), age.grp)
+#                  )
+# 
+# out
+
+
+
+# # Data processing
+# contact_freq <- 
+# function(data, site, india_participant, india_contact){
+
+locations <- levels(india_mix.site$contact_location)
 
 
 ## Total number of contacts over two days
 contact_count <- 
-data %>%
+india_mix.site %>%
    group_by(id, contact_location, fromdayone, .drop = F)%>% summarise(n_contacts = n()) %>% # summarizing number of contacts by type
   ungroup() %>% 
   mutate(
@@ -229,25 +199,26 @@ data %>%
    # add the participants w/o contact to the data
   rbind(., 
         data.frame(
-          id = rep(as.character(id_no_contact$id), each = length(locations)),
+          id = rep(as.character(id_no_contact.site$id), each = length(locations)),
           contact_location= rep(locations, 
-                                nrow(id_no_contact)
+                                nrow(id_no_contact.site)
                                 ),
-          n_contacts=rep(0,  nrow(id_no_contact)*length(locations))
+          n_contacts=rep(0,  nrow(id_no_contact.site)*length(locations))
         )
   ) %>% 
   # joining w/ participant's age
-  left_join(india_participant %>% select(id, participant_age),
+  left_join(india_participant. %>% select(id, participant_age),
             by = "id"
             )
 
 ## Number of contacts of the same age group, individual-level
 same.age.grp_count <- 
-data %>% 
+india_mix.site %>% 
   mutate(same.age.grp = ifelse(participant_age == contact_age, 1, 0)
          
            ) %>% 
  mutate(
+   # adjusting replicated contacts
     same.age.grp_1 = case_when(
     contact_location %in% c("Home", "Work","School") ~  same.age.grp, # for these layers, a replicated contact is counted as unique contact
     contact_location %in% c("Nonhome" ) & fromdayone == "Both days" ~ same.age.grp*2, # for non-home layer, a replicated contact is counted as two contact
@@ -258,136 +229,318 @@ data %>%
   select(id,  contact_location, same.age.grp_1,  contact_age) %>% 
   rbind(., 
         data.frame(
-          id = rep(as.character(id_no_contact$id), each = length(locations)),
+          id = rep(as.character(id_no_contact.site$id), each = length(locations)),
           contact_location= rep(locations, 
-                                nrow(id_no_contact)
+                                nrow(id_no_contact.site)
                                 ),
-           same.age.grp_1=rep(0,  nrow(id_no_contact)*length(locations)),
+           same.age.grp_1=rep(0,  nrow(id_no_contact.site)*length(locations)),
           contact_age =NA
         )
         )%>% 
   # joining w/ participant's age
-  left_join(india_participant %>% select(id, participant_age),
+  left_join(india_participant. %>% select(id, participant_age),
             by = "id"
             ) 
 
-  out <-list(contact_count, same.age.grp_count); names(out) <- c("contact_count", "sameage.grp.count")
+ # Replicate each observation/row w/ same.age.grp_1 = 2 twice and recode same.age.grp_1 to 1; for observations w/ same.age.grp_1 = 1/0, we treat them as-is
+same.age.grp_count <-  
+same.age.grp_count %>% filter(same.age.grp_1==2) %>% slice(rep(1:n(), each = 2)) %>% mutate(same.age.grp_1=1) %>% 
+   rbind(., same.age.grp_count %>% filter(same.age.grp_1 !=2)
+         )
+
+
+  
+ out <-list(contact_count, same.age.grp_count); names(out) <- c("contact_count", "sameage.grp.count")
   
   out
 
+#}
+
 }
 
-
-contact_count_rural <- contact_freq(data=india_mix.rural.6age.grps$india_mix.rural.6age.grps, 
-                              site = "Rural",
-                              india_participant = india_participant ,
-                              india_contact = india_contact)
-
-contact_count_urban <- contact_freq(data=india_mix.urban.6age.grps$india_mix.urban.6age.grps, 
-                              site = "Urban",
-                              india_participant = india_participant ,
-                              india_contact = india_contact)
+contact_count_rural <- # rural mixing
+contact_freq_site(india_mix. = india_mix, 
+           india_participant. = india_participant, 
+           india_contact. = india_contact,
+           study_site. ="Rural") 
 
 
-#contact_count_rural$sameage.grp.count %>% View()
+contact_count_urban  <- # urban mixing
+contact_freq_site(india_mix. = india_mix , 
+           india_participant. = india_participant, 
+           
+           india_contact. = india_contact,
+           study_site. ="Urban") 
 
+# Function characterizing network statistics
+network_stats <- function(contact_count_site){
 
-# Fit contact_count to glm 
-#output <- list()
-
+  output <- list()
+  
 ## Edges 
 fit_edge <- 
-  contact_count_rural$contact_count %>% 
+  contact_count_site$contact_count %>% 
   glm(n_contacts~ -1+contact_location, data=., family = poisson) %>% summary() # coefficient for two-day contact rate
-fit_edge
 
-fit_edge <- (fit_edge$coefficients%>% as.data.frame() %>% select(Estimate) %>% exp())/2 # the two is averaging two-day's contact rate to one-day
+fit_edge <- fit_edge$coefficients%>% as.data.frame()  # the two is averaging two-day's contact rate to one-day
 
-#output[[1]] <- fit_edge
+n_participants_site <- 
+contact_count_site$contact_count$id %>% unique() %>% length()  # number of participants
+ 
+fit_edge <- 
+fit_edge %>% 
+            mutate(
+              # single-day mean degree, original scale
+              single_day_md = exp(Estimate)/2,
+              
+              # calculation, log-link scale
+              two_day_sd_link = `Std. Error`*sqrt(n_participants_site), # two-day standard deviation for the coefficient at the log scale
+              single_day_sd_link = two_day_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
+              single_day_se_link = single_day_sd_link/sqrt(n_participants_site), # single-day standard error for the coefficient at the log scale
+              single_day_md_link = log(single_day_md),
+              
+               # uncertainties, original scale
+              single_day_lower95ci = exp(single_day_md_link -1.96*single_day_se_link),
+              single_day_upper95ci =  exp(single_day_md_link +1.96*single_day_se_link)
+                    ) %>% select(single_day_md, single_day_lower95ci, single_day_upper95ci
+                                 )
+
+
+
+output[[1]] <- fit_edge
 
 
 ## nodefactor age.grp
-nf_dat_pred <- 
-data.frame(
-  participant_age=
- contact_count_rural$contact_count$participant_age %>% levels()
- )
+
+n_participants_nf_site <- # number of participants in each age.grp
+contact_count_site$contact_count %>% group_by( participant_age) %>% 
+  summarize(n_participants_nf_site = n_distinct(id)) %>% mutate(participant_age = as.character(participant_age))
 
 nf <- data.frame() #matrix(NA, nrow = length(locations), ncol = length(levels(contact_count$participant_age)))
 for (i in 1:4 #length(locations)
      ) {
   fit_nf_single <- 
-  contact_count_rural$contact_count %>% filter(contact_location == levels(contact_count_rural$contact_count$contact_location)[i]) %>% 
-  glm(n_contacts~ -1+participant_age, data=., family = poisson) # coefficient for two-day contact rate
+  contact_count_site$contact_count %>% filter(contact_location == levels(contact_count_site$contact_count$contact_location)[i]) %>% 
+  glm(n_contacts~ -1+participant_age, data=., family = poisson) %>% summary() # coefficients for two-day contact rate
   
-  nf_single <- fit_nf_single$coefficients %>% exp()/2 # the two is averaging two-day's contact rate to one-day
+  fit_nf_single <- fit_nf_single$coefficients %>% as.data.frame()
+  
+  fit_nf_single <-
+  fit_nf_single%>% rownames_to_column() %>% 
+    rename(participant_age=1) %>% mutate(participant_age= str_remove(participant_age, "participant_age") 
+                                 ) %>% 
+    left_join(
+      n_participants_nf_site
+    )
+  
+  fit_nf_single <- 
+  fit_nf_single %>% 
+            mutate(
+              # single-day mean degree, original scale
+              single_day_nf_md = exp(Estimate)/2,
+              
+              # calculation, log-link scale
+              two_day_nf_sd_link = `Std. Error`*sqrt(n_participants_nf_site), # two-day standard deviation for the coefficient at the log scale
+              single_day_nf_sd_link = two_day_nf_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
+              single_day_nf_se_link = single_day_nf_sd_link/sqrt(n_participants_nf_site), # single-day standard error for the coefficient at the log scale
+              single_day_nf_md_link = log(single_day_nf_md), # single-day mean degree, log scale
+              
+               # uncertainties, original scale
+              single_day_nf_lower95ci = exp(single_day_nf_md_link -1.96*single_day_nf_se_link),
+              single_day_nf_upper95ci =  exp(single_day_nf_md_link +1.96*single_day_nf_se_link)
+                    ) %>% select(participant_age, single_day_nf_md, single_day_nf_lower95ci, single_day_nf_upper95ci
+                                 ) %>% 
+           mutate(contact_location = levels(contact_count_site$contact_count$contact_location)[i]) # specify layer
+
+  
+  
+  
   
   nf <- 
-  rbind(nf, nf_single)
-      #     y_link_nf <- 
-#   predict(fit_nf, 
-#           newdata = nf_dat_pred, 
-#           type = "link",
-#           se.fit = T
-#          )
-#  y <- exp(y_link$fit)
-#   y_up <- exp(y_link$fit+1.96*y_link$se)
-# y_low <- exp(y_link$fit-1.96*y_link$se)
-
+  rbind(nf, fit_nf_single)
 
 }
 
-colnames(nf) <- contact_count_rural$contact_count$participant_age %>% levels()
-row.names(nf) <- levels(contact_count_rural$contact_count$contact_location)
-nf
+output[[2]] <- nf
+
+
 
 
 ### average matched degree across age groups
-contact_count_rural$sameage.grp.count %>% group_by(participant_age) %>% 
-  summarize(mean(same.age.grp_1)/2
-                  )
+expit <- function(x){exp(x)/(1+exp(x))}; logit <- function(x){log(x/(1-x))}
+
+nm <- data.frame() #matrix(NA, nrow = length(locations), ncol = length(levels(contact_count$participant_age)))
+for (i in 1:4 #length(locations)
+     ) {
   
-fit_nm <- glm(same.age.grp_1 ~ -1+ participant_age,
-               data = contact_count_rural$sameage.grp.count, family = binomial
-              )
-#mean(
-predict(fit_nm, newdata = nf_dat_pred, type = "response")/2  
-#)
-### average matched degree regardless of age groups
-mean(data$same.age.grp)
+ 
+  data_nm <- 
+  contact_count_site$sameage.grp.count %>% filter(contact_location == levels(contact_count_site$sameage.grp.count$contact_location)[i]) 
+    
+  n_obs_age.grp <- data_nm %>% group_by(participant_age) %>% summarize(n=n()) %>% mutate(participant_age = as.character(participant_age)
+                                                                                         )
+  
+    
+  fit_nm_single <- 
+    data_nm %>% 
+  glm(same.age.grp_1 ~ -1+ participant_age,
+               data = ., family = "binomial"
+              )  %>% summary() # coefficients for two-day contact rate
+  
+  fit_nm_single <- fit_nm_single$coefficients %>% as.data.frame()
+  
+  fit_nm_single <-
+  fit_nm_single%>% rownames_to_column() %>% 
+    rename(participant_age=1) %>% mutate(participant_age= str_remove(participant_age, "participant_age") 
+                                 ) %>% 
+    left_join(
+      n_obs_age.grp
+    )
+  
+  fit_nm_single <- 
+  fit_nm_single %>% 
+            mutate(
+              # single-day mean degree, original scale
+              single_day_nm_md = expit(Estimate)/2,
+              
+              # calculation, logit-link scale
+              two_day_nm_sd_link = `Std. Error`*sqrt(n), # two-day standard deviation for the coefficient at the logit scale. HEre should be updated
+              single_day_nm_sd_link = two_day_nm_sd_link/2,  # single-day standard deviation for the coefficient at the logit scale
+              single_day_nm_se_link = single_day_nm_sd_link/sqrt(n), # single-day standard error for the coefficient at the logit scale
+              single_day_nm_md_link = logit(single_day_nm_md), # single-day mean degree, logit scale
+              
+               # uncertainties, original scale
+              single_day_nm_lower95ci = expit(single_day_nm_md_link -1.96*single_day_nm_se_link),
+              single_day_nm_upper95ci =  expit(single_day_nm_md_link +1.96*single_day_nm_se_link)
+                    ) %>% select(participant_age, single_day_nm_md, single_day_nm_lower95ci, single_day_nm_upper95ci
+                                 ) %>% 
+           mutate(contact_location = levels(contact_count_site$contact_count$contact_location)[i]) # specify layer
+  
+  nm <- 
+  rbind(nm, fit_nm_single)
 
-fit_nm_1 <- glm(same.age.grp_1 ~ 1,
-               data = contact_count_rural$sameage.grp.count, family =  poisson
-              )
+}
 
-predict(fit_nm_1, newdata = data.frame(1), type = "response") 
+output[[3]] <- nm
 
-##### To be completed - no contacts need to be adjusted
-           
+names(output) <- c("edge", "nf.age.grp", "nm.age.grp")
+
+output
+}
+
+
+network_stats_rural <- network_stats(contact_count_site = contact_count_rural)
+
+network_stats_urban <- network_stats(contact_count_site = contact_count_urban)
+# network_stats_rural[1] %>% data.frame() %>% mutate(single_day_md =paste0(round(edge.single_day_md,2), 
+#                                                                          " (",round(edge.single_day_lower95ci,2), "-",
+#                                                                          round(edge.single_day_upper95ci,2), ")"
+#                                                                          )
+#                                                    ) %>% select(single_day_md) %>% rownames_to_column() %>% rename(Layer=1) %>% mutate(Layer=c("Home", "Nonhome", "School", "Work")) %>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
+
+
+# compare with summarized data, home
+# nodefactor
+network_stats_rural$nf.age.grp %>% filter(contact_location == levels(contact_count_rural$contact_count$contact_location)[1])
+
+test <-
+contact_count_rural$contact_count %>% filter(contact_location == levels(contact_count_rural$contact_count$contact_location)[1]) %>%group_by(participant_age) %>% summarise(n_contact = sum(n_contacts), 
+                      n=n(),
+                      md = (n_contact/n)/2)
+test
+
+# nodematch
+network_stats_rural$nm.age.grp %>% filter(contact_location == levels(contact_count_rural$contact_count$contact_location)[1])
+
+test_1 <-
+contact_count_rural$sameage.grp.count %>%
+  filter(contact_location == levels(contact_count_rural$sameage.grp.count$contact_location)[1]) %>%
+  group_by(participant_age) %>%
+  summarize(
+            matched_degree =sum(same.age.grp_1),
+            n=n(),
+            md= (matched_degree/n)/2
+                  )
+test_1
+
+          
 
 ```
 
 ## Contact durations
 ```{r}
-india_mix.rural.6age.grps$india_mix.rural.6age.grps$duration_contact %>% table(., useNA = "always")
+india_mix_by_site <- list()
 
-india_mix.rural.6age.grps$india_mix.rural.6age.grps <- 
-india_mix.rural.6age.grps$india_mix.rural.6age.grps %>% 
-  #filter(contact_location %in% c("School", "Work")) %>% select(duration_contact, frequency_contact, known_contact)  %>%  
-  mutate(duration_contact_mid =    case_when(duration_contact == "16-30 mins" ~ "23 mins",
-                                          duration_contact == "31 mins-1 hr" ~ "46 mins",
-                                           duration_contact ==  "1-4 hrs"  ~ "2.5 hrs",
-                                             duration_contact ==  ">4 hrs" ~ ">4hrs")
-         )# calculate midpoint here %>% View()
+india_mix_by_site[[1]] <-
+ india_mix %>%
+  filter(study_site == "Rural") # here we split the dataset into urban or rural samples
 
-india_mix.rural.6age.grps$india_mix.rural.6age.grps$duration_contact_mid %>% table()
+ india_mix_by_site[[2]] <-
+ india_mix %>% 
+  filter(study_site == "Urban") # here we split the dataset into urban or urban samples
+
+names(india_mix_by_site) <- 
+c("india_mix_rural", "india_mix_urban")
+
+# frequency_contact question is precede by contact_id
+nw <- c("Rural", "Urban")
+layer <-  c(  "School",    "Work" )
+nws <- c()
+for (i in 1:2) {
+  india_mix_nw <- 
+  india_mix_by_site[[i]]
+  
+  nw_one <- c()
+  for (j in 1:2) {
+    nw_1 <- 
+    india_mix_nw %>% 
+   filter(!is.na(frequency_contact) & !is.na(known_contact)
+          ) %>% 
+   filter(contact_location %in% layer[j] ) %>%  
+  group_by(frequency_contact, known_contact) %>% 
+  tally() %>% 
+  spread(frequency_contact,n)  # check what these two questions are branched to and see how it branched with / related to contact duration
+    
+    nw_one <- c(nw_one, list(nw_1))
+  }
+  nws <- c(nws, list(nw_one))
+  
+}
+
+
+
+list(nws[[1]][1], nws[[1]][2], nws[[2]][1], nws[[2]][2]) %>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")%>%
+  footnote(general = "The tables are for the school and work layers of each network (rural, urban) respectively.")
+
+# characterize known duration of replicated contact
+
+test <- 
+nws[[1]][1] %>% data.frame() %>%
+  select(known_contact, Daily..almost.daily) %>% 
+  rename(daily = Daily..almost.daily) %>% 
+  mutate(know_contact_d = # median duration in days
+           case_when(known_contact=="<1 yr" ~182,
+                     known_contact=="1-2 yrs" ~ 548,
+                     known_contact=="3-5 yrs" ~ 1460,
+                     known_contact=="6-10 yrs" ~ 2922,
+                     T ~ 99999
+                     ),
+         
+         daily_prop = daily/sum(daily)
+                       ) 
+
+# move this frward after receiving age information
+
 ```
 
 ## Correlation between layers
+
 ```{r}
 # rural
 library(GGally)
 
+ 
+# individual-level contact count at different locations by row
 ## data to wide format 
  test_rural  <- 
 contact_count_rural$contact_count %>% data.frame()%>% 
@@ -410,6 +563,29 @@ test_rural %>% select(-c(id, participant_age)) %>% ggpairs(upper = list(continuo
 ## pearson correlation,urban
 test_urban %>% select(-c(id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
 
+```
+With the degree distribution, the degree can be categorized into the categories of 0, 1-2, 3-5, and 6+.
+
+```{r}
+# Create degree category
+test_rural <- 
+test_rural %>% mutate(
+  Nonhome_cat = case_when(Nonhome==0 ~ "0",
+                          Nonhome %in% c(1:2) ~ "1-2",
+                          Nonhome %in% c(3:5) ~ "3-5",
+                          Nonhome >=6 ~ "6+"),
+  Nonhome_cat = factor( Nonhome_cat)
+)
+
+
+# Effect of non-home contact on home 
+glm_h_nh <- 
+test_rural %>% 
+  glm(Home~ -1+ Nonhome_cat, data=., family = poisson)
+glm_h_nh %>% summary()
+# Home ~ Work
+# Home ~ School
+# Home ~ Nonhome + school + work
 
 
 ```
