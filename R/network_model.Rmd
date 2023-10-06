@@ -20,111 +20,26 @@ formation_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_para
 
 dissolution_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/known_dur_school_work.RData")
 
-formation_stats$rural$nf.age.grp %>% View()
+formation_stats$rural$nf.age.grp %>% View() #1005 check Sam
 formation_stats$rural$nf.age.grp$single_day_nf_md_prop[1:6] %>% sum()
-# 'raw'  mixing data by mean degree for one day
-#gm.raw <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/corp_mix_deg/india_mix.sum.no15.RData")
-# daily mixing matrix
-#matrices <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/corp_mix_deg/avg.matrices.india.RData") 
-
-#  daily mixing matrix by mean degree
-
-
-# function to calculate degree information for later deriving of target statistics
-# md.info <- function(raw_contact,sym.matrix){ # it'd be better to organize things in list for this.
-#   
-#   output <- list()
-#   
-#   # mean degree by network layer (contact location)
-#   output[[1]] <- raw_contact  %>% group_by(contact_location, participant_age, n_participants) %>% 
-#   summarise(n_contacts = sum(n_contacts)) %>%
-#   ungroup() %>%
-#   group_by(contact_location) %>%
-#   summarise(n_contacts = sum(n_contacts),
-#             n_participants = sum(n_participants)) %>%
-#   mutate(md = (n_contacts/n_participants)/2)
-#   
-#   # total daily degree of edges per age group for nodefactor()
-#   output[[2]] <- 
-#   rbind(
-#   sym.matrix %>%
-#   filter(contact_location == "Home") %>%
-#   select(total_degree) %>%
-#   as_vector() %>%
-#   as.numeric(),
-#   
-#   sym.matrix %>%
-#   filter(contact_location == "Nonhome") %>%
-#   select(total_degree) %>%
-#   as_vector() %>%
-#   as.numeric(),
-#   
-#   sym.matrix %>%
-#   filter(contact_location == "School") %>%
-#   select(total_degree) %>%
-#   as_vector() %>%
-#   as.numeric(),
-#   
-#   sym.matrix %>%
-#   filter(contact_location == "Work") %>%
-#   select(total_degree) %>%
-#   as_vector() %>%
-#   as.numeric()
-#   
-#   
-#   )
-#   row.names(output[[2]]) <- c("Home", "Nonhome", "School", "Work"); colnames(output[[2]]) <- levels(sym.matrix$age); 
-#   output[[2]] <- as.data.frame(output[[2]])
-#   
-#   # proportion of daily within-age-group matching by contact_location
-#   output[[3]] <- sym.matrix  %>% 
-#   mutate(within_age_edges = total_degree*prop_match) %>% # at the daily scale
-#   select(contact_location,age,total_degree,within_age_edges) %>%
-#   group_by(contact_location) %>%
-#   summarise(total_degree = sum(total_degree),
-#             within_age_edges = sum(within_age_edges)) %>%
-#   mutate(match = within_age_edges/total_degree) %>% as.data.frame() # at the daily scale
-#   
-#   names(output) <- c("md.layer", # md by contact location
-#                      "md.ag", # md by age group
-#                      "within.ag.match.prop")
-#   
-#   output
-# }
-# 
-# md.info.rural <-md.info(raw_contact = gm.raw$india_mix.sum.no15.rural.6age.grps,
-#                         sym.matrix = matrices$avg.matrix.india.rural$avg.matrix %>%
-#                          ungroup()
-#                         ) ## rural
-# 
-# 
-# md.info.urban <- md.info(raw_contact = gm.raw$india_mix.sum.no15.urban.6age.grps,
-#                          sym.matrix =  matrices$avg.matrix.india.urban$avg.matrix %>%
-#                          ungroup()
-#                          ) ## urban
-
 
 
 ```
 
 ## Age distribution of target population
 ```{r, warning=F, message=FALSE, echo=T, fig.height=7}
-# age group of GM
-
+# the six age groups of GM
 target_age_grp <- formation_stats$rural$nf.age.grp$participant_age %>% unique()%>% factor()
-  #matrices$avg.matrix.india.rural.6age.grps$avg.matrix$age %>% levels()
+
+# target population numbers in urban & rural networks 
 total_pop_rural <- c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437)
 total_pop_urban <-c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)
-target_age_dist <- data.frame(target_age_grp=rep(target_age_grp,2),
+target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
                               total_pop=c(total_pop_rural, total_pop_urban),
                               network=rep(c("rural", "urban"), each = length(target_age_grp))
-                              )
-
-# proportion of target population in each age group by network
-target_age_dist <- 
-target_age_dist %>% 
-  group_by(network) %>%
-  mutate(prop=total_pop/sum(total_pop))
+                              )%>% 
+  group_by(network) %>% # proportion (relative frequency) of target population in each age group by network
+  mutate(prop=total_pop/sum(total_pop)) %>% ungroup()
 
 ggarrange(
 target_age_dist %>% ggplot(aes(x=target_age_grp, y=total_pop))+geom_bar(stat = "identity")+facet_wrap(~network)+
@@ -138,49 +53,56 @@ nrow = 2
 ```
 
 
-
-
 ## Set up model attribute and characterize target statistics
 ```{r, warning=F, message=FALSE, echo=T}
 ############## Set up vertex attribute ##############
 # Initiate nodes
-n <- 10000 #each for the two networks
+n <- 1e4 # population size in a network
 nw_rural <- nw_urban <- network_initialize(n)
 
+
 node.age.grp <- 
-  function(target_age_dist, site){
-## nodes in a single site network
+  function(target_age_dist, # age distribution of target population
+           site, 
+           n # total number of node in a network
+           ){
+## number of nodes by age.grp in a network
 target_age_dist_site<- 
 target_age_dist %>% filter(network == site) %>% mutate(n_pop_site.age.grp=round(prop*n)) # number of nodes in each age group
 
-## single nodes indicated by age group; 
-age.grp_site <- 
+## single nodes indicated by numeric age group, corresponding to the six age groups; 
+age.grp.df <- 
 target_age_dist_site %>% rownames_to_column() %>% 
-  rename(age.grp.num=rowname) %>% 
+  rename(age.grp.num=rowname) 
+  
+  
+age.grp.num <- age.grp.df %>% 
   slice(rep(1:n(), times= n_pop_site.age.grp)
-                          ) %>% ungroup(network) %>% 
+                          ) %>% 
   pull(age.grp.num) 
 
-
-## Age bounds of each node
+## Generate age for each node based on the ragne of each age group from a uniform distribution
+### lower and upper boundry of age groups
 min_age <- c(0,10,20,30,40,60); max_age <- c(9,19,29,39,59,100) # age ranges
 
-## Generate age for each node based on age bounds
-age_site <- c()
+age <- c()
 for (i in 1:6) {
-  age_site <-
-    c(age_site,
-  runif(n= target_age_dist_site$n_pop_site.age.grp[i],# the number of node to simulate in each group equals to the number of target target population in each group
+  age <-
+    c(age,
+  runif(n= target_age_dist_site$n_pop_site.age.grp[i],# the number of node to simulate in each group equals to the number of target population in each group
       min=min_age[i], max=max_age[i]
       ) # age range in each age group
   )
 }
 
-data.frame(age.grp_site, age_site)     
+data.frame(age.grp.num, age) %>% 
+  left_join(age.grp.df %>% select(age.grp.num, target_age_grp), by = "age.grp.num")
 }
  
 node.age.grp.rural <- 
- node.age.grp(target_age_dist=target_age_dist, site= "rural") 
+ node.age.grp(target_age_dist=target_age_distribut, site= "rural", n=1e4) 
+
+node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) # check w/ Sam
 
 # node.age.grp.urban <- 
 #  node.age.grp(target_age_dist=target_age_dist, site= "urban") 
@@ -188,51 +110,51 @@ node.age.grp.rural <-
 # Nodes w/ age groups
 ### Initialize a rural network, home layer
 nw_rural <- set_vertex_attribute(nw_rural, "age",
-                                 node.age.grp.rural %>% pull(age_site)
+                                 node.age.grp.rural %>% pull(age)
                                  )
 nw_rural <- set_vertex_attribute(nw_rural, "age.grp",
-                                 node.age.grp.rural %>% pull(age.grp_site)
+                                 node.age.grp.rural %>% pull(age.grp.num)
                                  )
 
 # nw_urban <- set_vertex_attribute(nw_urban, "age",
 #                                  node.age.grp.urban %>% pull(age_site)
 #                                  )
-node.age.grp.rural %>% View()
 
-############## Model target statistics ##############
 
+############## Model target statistics (check w/ Sam) ##############
 
 # Total Edges, edge-level
 formation_stats$rural$edge <- 
 formation_stats$rural$edge %>% mutate(edges=single_day_md*n/2)# the reason /2 is used here is because this is a edge-level statistic
 
-#formation_stats$rural$nf.age.grp %>% View()
-
 # Number of edges per age group, node-level
 formation_stats$rural$nf.age.grp <- 
  formation_stats$rural$nf.age.grp %>% 
   left_join(
-target_age_dist %>% filter(network == "rural")%>% mutate(n_pop_site.age.grp=round(prop*n)) %>% # calculate number of nodes in each age group based on age distribution of the target population
-  rename(participant_age=target_age_grp) %>% select(participant_age, n_pop_site.age.grp), 
+target_age_distribut %>% filter(network == "rural")%>% mutate(n_pop.age.grp=round(prop*n)) %>% # calculate number of nodes in each age group based on relative distribution of age group of the target population
+  rename(participant_age=target_age_grp) %>% select(participant_age, n_pop.age.grp), 
 by = "participant_age"
-  ) %>% mutate(nf.ag = single_day_nf_md_prop*n_pop_site.age.grp) 
-
- 
- 
-# md.h.ag_rural <- # mean degree of edge in each age group
-#   matrices$avg.matrix.india.rural.6age.grps$avg.matrix %>% filter(contact_location == "Home")%>% 
-#   select(total_degree) %>%
-#   as_vector() %>%
-#   as.numeric()
-# nf.h.ag <- md.h.ag_rural * age.grp.num_rural # daily total degree * total number of people in each age group = number of edges per age group
+  ) %>% mutate(nf.ag = single_day_nf_md*n_pop.age.grp # number of edges in each age group = md * number of node of each age group
+                ) 
 
 #  Number of matched edges nodematch(diff=T), edge-level
 formation_stats$rural$nm.age.grp <- 
 formation_stats$rural$nm.age.grp %>% 
+  left_join(
+target_age_distribut %>% filter(network == "rural") %>% # calculate number of nodes in each age group based on relative distribution of age group of the target population
+  rename(participant_age=target_age_grp) %>% select(participant_age, prop), 
+by = "participant_age"
+  ) %>% left_join(formation_stats$rural$edge %>% select(contact_location, edges), by = "contact_location"
+                  ) %>% 
   left_join(formation_stats$rural$nf.age.grp %>% select(participant_age, contact_location, nf.ag)
             ) %>% 
-  mutate(nm.ag = (nf.ag/2)*single_day_nm_md
+  mutate(nm.ag.frp= edges*prop*single_day_nm_md, #(L112 in FRP script)
+         nm.ag.artnet= nf.ag/2*single_day_nm_md #(L372 in ARTnet script) # check with sam, about why two approach differs
            )
+
+
+#%>% mutate(nm.ag = single_day_nm_md*(n_pop.age.grp/2) # number of matched edges in each age group = proportion of matched nodes * number of node of each age group/2
+     #           ) 
 
 ```
 
@@ -244,30 +166,30 @@ formation.edge.nf <- ~edges + nodefactor("age.grp" , levels = 2:6)
 formation.edge.nf.nm <- ~edges + nodefactor("age.grp" , levels = 2:6) + nodematch("age.grp" , levels = 2:6)
 
 # Dissolution model
-diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # 36500 - total number of day in life, very high duration 
+diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # very large number, edge doesn't dissolve
 diss.nh <- dissolution_coefs(dissolution = ~offset(edges), duration = 1) # non-persistent (turnover every day)
 diss.school.rural <- dissolution_coefs(dissolution = ~offset(edges), 
-                                       duration = dissolution_stats %>% filter(study_site=="Rural" & contact_location=="School") %>% pull(know_contact_duration_avg.)
+                                       duration = dissolution_stats %>% filter(study_site=="Rural" & contact_location=="School") %>% pull(know_contact_duration_avg)
                                        ) 
 diss.work.rural <- dissolution_coefs(dissolution = ~offset(edges), 
-                                       duration = dissolution_stats %>% filter(study_site=="Rural" & contact_location=="Work") %>% pull(know_contact_duration_avg.)
+                                       duration = dissolution_stats %>% filter(study_site=="Rural" & contact_location=="Work") %>% pull(know_contact_duration_avg)
                                        ) 
 diss.school.urban <- dissolution_coefs(dissolution = ~offset(edges), 
-                                       duration = dissolution_stats %>% filter(study_site=="Urban" & contact_location=="School") %>% pull(know_contact_duration_avg.)
+                                       duration = dissolution_stats %>% filter(study_site=="Urban" & contact_location=="School") %>% pull(know_contact_duration_avg)
                                        ) 
 diss.work.urban <- dissolution_coefs(dissolution = ~offset(edges), 
-                                       duration = dissolution_stats %>% filter(study_site=="Urban" & contact_location=="Work") %>% pull(know_contact_duration_avg.)
+                                       duration = dissolution_stats %>% filter(study_site=="Urban" & contact_location=="Work") %>% pull(know_contact_duration_avg)
                                        ) 
 
 
 
 # Target statistics, home, rural
-tstats.edge.h.rural <- c(formation_stats$rural$edge[1,4])
+tstats.edge.h.rural <- formation_stats$rural$edge %>% filter(contact_location == "Home" ) %>% pull(edges)
 tstats.edge.nf.h.rural <- c(tstats.edge.h.rural,
                             (formation_stats$rural$nf.age.grp %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1])
 
 tstats.edge.nf.nm.h.rural <- c(tstats.edge.nf.h.rural, 
-                               (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Home" ) %>% pull(nm.ag))[-1])
+                               (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Home" ) %>% pull(nm.ag.artnet))[-1])
 
 
 
@@ -283,7 +205,7 @@ est.h.edges <- netest(nw_rural,
                       formation = formation.edge, 
                       target.stats = tstats.edge.h.rural, 
                       coef.diss =  diss.h,
-                 set.control.ergm = control.ergm(MCMLE.maxit = 100)
+                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
                  )
 
 ## Simulate based on the edge model for only the edge effect
@@ -293,11 +215,9 @@ dx.h.edges_obs<- netdx(est.h.edges, nsims = 20, ncores = 8,
                nwstats.formula = formation.edge, 
                keep.tedgelist = TRUE)
 
-par(mfrow=c(1,2)
+par(mfrow=c(1,3)
     )
-
-plot(dx.h.edges_obs)
-plot(dx.h.edges_obs, type = "duration"); plot(dx.h.edges_obs, type = "dissolution")
+plot(dx.h.edges_obs);plot(dx.h.edges_obs, type = "duration"); plot(dx.h.edges_obs, type = "dissolution")
 
 
 
@@ -309,7 +229,7 @@ dx.h.edges.nf.sim<- netdx(est.h.edges, nsims = 20, ncores = 8,
                keep.tedgelist = TRUE) 
 
 print(dx.h.edges.nf.sim) # the percentage diff of the edge effect is worsen compare to the edge-only model but is still ~ 5%
-
+# 1005  start from here
 
 # Edge + nodefactor(age.grp) model
 ## Fit edge-only model to data

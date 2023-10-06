@@ -262,6 +262,10 @@ contact_freq_site(india_mix. = india_mix,
            india_contact. = india_contact,
            study_site. ="Rural") 
 
+# check w/ Sam for why denominators differs
+contact_count_rural$contact_count %>% group_by(contact_location, participant_age) %>% summarize(n_contact_sum = sum(n_contacts), n=n(), md= (n_contact_sum/n/2))
+contact_count_rural$sameage.grp.count %>% group_by(contact_location, participant_age) %>% summarize(num_sam_age.grp = sum(same.age.grp_1), n=n(), nm.prop = (num_sam_age.grp/n/2))
+
 
 contact_count_urban  <- # urban mixing
 contact_freq_site(india_mix. = india_mix , 
@@ -316,7 +320,7 @@ n_participants_nf_site <- # number of participants in each age.grp
 contact_count_site$contact_count %>% group_by( participant_age) %>% 
   summarize(n_participants_nf_site = n_distinct(rec_id)) %>% mutate(participant_age = as.character(participant_age))
 
-nf <- data.frame() #matrix(NA, nrow = length(locations), ncol = length(levels(contact_count$participant_age)))
+nf <- data.frame() 
 for (i in 1:4 #length(locations)
      ) {
   fit_nf_single <- 
@@ -371,7 +375,7 @@ output[[2]] <- nf
 
 
 
-### average matched degree across age groups
+## porportion of matched edges of each age group
 expit <- function(x){exp(x)/(1+exp(x))}; logit <- function(x){log(x/(1-x))}
 
 nm <- data.frame() #matrix(NA, nrow = length(locations), ncol = length(levels(contact_count$participant_age)))
@@ -406,7 +410,7 @@ for (i in 1:4 #length(locations)
   fit_nm_single %>% 
             mutate(
               # single-day mean degree, original scale
-              single_day_nm_md = expit(Estimate)/2,
+              single_day_nm_md = expit(Estimate)/2, # the reason 2 is here is because we convert 2 day to one day statistics
               
               # calculation, logit-link scale
               two_day_nm_sd_link = `Std. Error`*sqrt(n), # two-day standard deviation for the coefficient at the logit scale. HEre should be updated
