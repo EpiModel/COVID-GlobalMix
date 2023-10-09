@@ -526,7 +526,7 @@ india_mix %>% select(contact_location, hh_membership)
 
 ```{r}
 # rural
-library(GGally)
+
 
  
 # individual-level contact count at different locations by row
@@ -546,35 +546,100 @@ contact_count_urban$contact_count %>% data.frame()%>%
   as.data.frame()
 
 
-## pearson correlation,rural
-contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
 
-## pearson correlation,urban
+
+## spearman correlation,urban
 contact_count_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
 
 ```
 With the degree distribution, the degree can be categorized into the categories of 0, 1-2, 3-5, and 6+.
 
 ```{r}
+
+
+library(GGally)
+# spearman correlation,rural
+## Count predictor
+contact_count_wide_rural %>% select(-c(rec_id, participant_age, Home_cat, Nonhome_cat, School_cat, Work_cat)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
+## Categorical predictor
+contact_count_wide_rural %>% select(-c(rec_id, participant_age, Home, Nonhome, School, Work)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
+
+assoc_btw_layers <- function(contact_count_wide){
+
+  output <-  list()
+  
 # Create degree category
-contact_count_wide_rural <- 
-contact_count_wide_rural %>% mutate(
+  output[[1]] <- 
+contact_count_wide <- 
+contact_count_wide %>% mutate(
   Nonhome_cat = case_when(Nonhome==0 ~ "0",
                           Nonhome %in% c(1:2) ~ "1-2",
                           Nonhome %in% c(3:5) ~ "3-5",
                           Nonhome >=6 ~ "6+"),
-  Nonhome_cat = factor( Nonhome_cat)
-)
+  Nonhome_cat = factor( Nonhome_cat),
+  
+  Home_cat = case_when(Home==0 ~ "0",
+                          Home %in% c(1:2) ~ "1-2",
+                          Home %in% c(3:5) ~ "3-5",
+                          Home >=6 ~ "6+"),
+  Home_cat = factor( Home_cat),
+  
+  School_cat = case_when(School==0 ~ "0",
+                          School %in% c(1:2) ~ "1-2",
+                          School %in% c(3:5) ~ "3-5",
+                          School >=6 ~ "6+"),
+  School_cat = factor( School_cat),
+  
+  Work_cat = case_when(Work==0 ~ "0",
+                          Work %in% c(1:2) ~ "1-2",
+                          Work %in% c(3:5) ~ "3-5",
+                          Work >=6 ~ "6+"),
+  Work_cat = factor( Work_cat),
+    
+)  
+  
+  
+# Assessing disperson of count of each layer (check with Sam to see if how overdispersion problem was handled in ARTnet)
+output[[2]] <- 
+  paste0(
+contact_count_wide %>%  
+  summarise_at(.vars = names(.)[3:6],
+               .funs = c(mean="mean")) %>% as.numeric() %>% round(.,2), " (",
+contact_count_wide %>%  
+  summarise_at(.vars = names(.)[3:6],
+               .funs = c(variance="var")) %>% as.numeric()%>% round(.,2),
+")"
+  )
+  
 
-
+  
 # Effect of non-home contact on home 
-glm_h_nh <- 
-contact_count_wide_rural %>% 
-  glm(Home~ -1+ Nonhome, data=., family = poisson(link=log))
-glm_h_nh %>% summary()
+glm_h_wk <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
+contact_count_wide %>% 
+  glm(Home~ Work_cat, data=., family = poisson(link=log)) %>% summary()
 
-barplot(contact_count_wide_rural$Nonhome_cat, log(contact_count_wide_rural$Home))
-mean(contact_count_wide_rural$Home); var(contact_count_wide_rural$Home) # overdisperson exist in the outcome
+
+glm_h_sch <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
+contact_count_wide %>% 
+  glm(Home~ School_cat, data=., family = poisson(link=log))%>% summary()
+
+
+glm_h_nh_sch_wk <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
+contact_count_wide %>% 
+  glm(Home~ Nonhome_cat + School_cat + Work_cat, data=., family = poisson(link=log))%>% summary()
+ 
+
+output[[3]] <- rbind(glm_h_wk$coefficients, NA, glm_h_sch$coefficients, NA, glm_h_nh_sch_wk$coefficients)
+
+names(output) <- c("df", "mean_variance", "glm_results")
+
+output
+
+}
+
+assoc_btw_layers(contact_count_wide = contact_count_wide_rural)
+
+assoc_btw_layers(contact_count_wide = contact_count_wide_urban)
 
 
 # Home ~ Work

@@ -163,7 +163,8 @@ by = "participant_age"
 # Formulation model
 formation.edge <- ~edges 
 formation.edge.nf <- ~edges + nodefactor("age.grp" , levels = 2:6) 
-formation.edge.nf.nm <- ~edges + nodefactor("age.grp" , levels = 2:6) + nodematch("age.grp" , levels = 2:6)
+formation.edge.nf.nm <- ~edges + nodefactor("age.grp" , levels = 2:6) + nodematch("age.grp" , levels = 2:6, diff=T)
+formation.edge.nf.nm_1 <- ~edges + nodefactor("age.grp", levels = c(2, 3, 5, 6))+ nodematch("age.grp",  levels = 2:6, diff = T)
 
 # Dissolution model
 diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # very large number, edge doesn't dissolve
@@ -197,7 +198,7 @@ tstats.edge.nf.nm.h.rural <- c(tstats.edge.nf.h.rural,
 
 ```
 
-
+## Modeling for rural, home 
 ```{r, warning=F, message=FALSE, echo=T}
 # Edge model
 ## Fit edge-only model to data
@@ -228,16 +229,16 @@ dx.h.edges.nf.sim<- netdx(est.h.edges, nsims = 20, ncores = 8,
                nwstats.formula = ~edges  + nodefactor("age.grp"),  #formation.edge.nf , 
                keep.tedgelist = TRUE) 
 
-print(dx.h.edges.nf.sim) # the percentage diff of the edge effect is worsen compare to the edge-only model but is still ~ 5%
+print(dx.h.edges.nf.sim) 
+#  the percentage diff of the edge effect is worsen compare to the edge-only model but is still ~ 5%
 # 1005  start from here
 
 # Edge + nodefactor(age.grp) model
-## Fit edge-only model to data
 est.h.edges.nf <- netest(nw_rural, 
                       formation = formation.edge.nf, 
                       target.stats = tstats.edge.nf.h.rural, 
                       coef.diss =  diss.h,
-                 set.control.ergm = control.ergm(MCMLE.maxit = 100)
+                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
                  )
 
 ## Simulate based on the edge model 
@@ -250,124 +251,88 @@ dx.h.edges.nf.obs<- netdx(est.h.edges.nf, nsims = 20, ncores = 8,
 
 print(dx.h.edges.nf.obs)
 
-plot(dx.h.edges.nf.obs)
-plot(dx.h.edges.nf.obs, type = "duration")
 
-par(mfrow=c(1,2)
+par(mfrow=c(1,3)
     )
-plot(dx.h.edges.nf.obs, type = "duration"); plot(dx.h.edges.obs, type = "dissolution")
+plot(dx.h.edges.nf.obs); plot(dx.h.edges.nf.obs, type = "duration"); plot(dx.h.edges.obs, type = "dissolution")
 
-## Dropping age group 5, which have a best fit among all nf coefficients
-formation.edge.nf_1 <- ~edges + nodefactor("age.grp" , levels = c(2,3,4,6)
+# Dropping age group 4, which have a best fit among all nf coefficients
+formation.edge.nf_1 <- ~edges + nodefactor("age.grp" , levels = c(2,3,5,6)
                                            )
 
-## Fit edge-only model to data
 est.h.edges.nf_1 <- netest(nw_rural, 
                       formation = formation.edge.nf_1, 
-                      target.stats = tstats.edge.nf.h.rural[-5], 
+                      target.stats = tstats.edge.nf.h.rural[-4], 
                       coef.diss =  diss.h,
                  set.control.ergm = control.ergm(MCMLE.maxit = 100)
                  )
 
-## Simulate based on the edge model 
+## Simulate based on the edge + nodefactor model 
 dx.h.edges.nf.obs_1<- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = formation.edge.nf_1, 
+               nwstats.formula = formation.edge.nf, 
                keep.tedgelist = TRUE
                )
 
-print(dx.h.edges.nf.obs_1) # 
+print(dx.h.edges.nf.obs_1) # After dropping age.grp 4, the simulated target statistics of this group is way off the observed
+tstats.edge.nf.h.rural
 
 plot(dx.h.edges.nf.obs_1)
 par(mfrow=c(1,2)
     )
-plot(dx.h.edges.nf.obs_1, type = "duration"); plot(dx.h.edges.obs_1, type = "dissolution")
+plot(dx.h.edges.nf.obs_1, type = "duration"); plot(dx.h.edges.nf.obs_1, type = "dissolution")
 
-
-
-```
-
-
-
-The table below suggests the edge statistics is still more biased than the edge-only simulation after included the observed nodefactor data
-```{r, warning=F, message=FALSE, echo=T}
-# Model with target statistics of edge and node factor
-## Fit  model to data
-est.h.edges.nf <- netest(nw_rural, formation.edge.nf, target.stats.edges.nf.h, coef.diss.h,
-                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
-                 )
-## Simulate 
-dx.h.edges.nf_obs <- netdx(est.h.edges.nf, nsims = 100, ncores = 8, 
+## Simulate based on the edge + nodefactor (w/o age.grp 4) model, plus the nodematch term
+dx.h.edges.nf.nm_sim<- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
-               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-               nwstats.formula = ~edges  + nodefactor("age.grp"), 
-               keep.tedgelist = TRUE)
-
-dx.h.edges.nf_obs %>% print()
-## Extract summary statistics from simulation
-dx.h.edges.nf_obs$stats.table.formation %>% select(2, 4) %>%
- # filter(!row_number() %in% c(1)) %>% 
-  mutate(Sim_mean_ci_low = `Sim Mean` -1.96*`Sim SE`,
-         Sim_mean_ci_up = `Sim Mean` +1.96*`Sim SE`) %>% 
-  rownames_to_column(var= "age.grp") %>% 
-  mutate(age.grp=str_replace(age.grp,  "nodefactor.age.grp.", "")
-  ) %>% 
- select(-`Sim SE`) %>% cbind(., observed_nf =target.stats.edges.nf.h ) %>% select(1,5,2:4)
-
-```
-
-After adding the nodematch term in the simulation, the bias of the edge effect is lower than the edge-only model. Is this a conincendence?
-```{r, warning=F, message=FALSE, echo=T}
-## Simulate w/ node match
-dx.h.edges.nf.nm_sim <- 
-  netdx(est.h.edges.nf, nsims = 100, ncores = 8, 
-                   nsteps = 1000, dynamic = T,
-               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-               nwstats.formula = ~edges  + nodefactor("age.grp") + nodematch("age.grp"), 
-               keep.tedgelist = TRUE)
-
-dx.h.edges.nf.nm_sim$stats.table.formation %>% select(2, 4) %>%
-  #filter(!row_number() %in% c(1)) %>% 
-  mutate(Sim_mean_ci_low = `Sim Mean` -1.96*`Sim SE`,
-         Sim_mean_ci_up = `Sim Mean` +1.96*`Sim SE`) %>% 
-  rownames_to_column(var= "age.grp") %>% 
-  mutate(age.grp=str_replace(age.grp,  "nodefactor.age.grp.", "")
-  ) %>% 
- select(-`Sim SE`) %>% cbind(., observed_nf = target.stats.edges.nf.nm.h
-                             ) %>% select(1,5,2:4)
-
-
-```
-
-Now the bias of the edge effect is bigger again after including the observed nodematch data.
-```{r, warning=F, message=FALSE, echo=T}
-# Model with target statistics of edge and node factor and node match
-
-## Fit  model to data
-est.h.edges.nf.nm <- netest(nw_rural, formation.edge.nf.nm, target.stats.edges.nf.nm.h, coef.diss.h,
-                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
-                 )
-## Simulate 
-dx.h.edges.nf.nm_obs<- netdx(est.h.edges.nf.nm, nsims = 100, ncores = 8, 
-                   nsteps = 1000, dynamic = T,
-               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-               nwstats.formula = ~edges  + nodefactor("age.grp") + nodematch("age.grp"), 
+               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+               nwstats.formula = formation.edge.nf.nm, 
                keep.tedgelist = TRUE
                )
 
-dx.h.edges.nf.nm_obs %>% print()
-dx.h.edges.nf.nm_obs$stats.table.formation %>% select(2, 4) %>%
-  #filter(!row_number() %in% c(1)) %>% 
-  mutate(Sim_mean_ci_low = `Sim Mean` -1.96*`Sim SE`,
-         Sim_mean_ci_up = `Sim Mean` +1.96*`Sim SE`) %>% 
-  rownames_to_column(var= "age.grp") %>% 
-  mutate(age.grp=str_replace(age.grp,  "nodefactor.age.grp.", "")
-  ) %>% 
- select(-`Sim SE`) %>% cbind(., observed_nf = target.stats.edges.nf.nm.h
-                             )%>% select(1,5,2:4)
+print(dx.h.edges.nf.nm_sim) # print target stat
+tstats.edge.nf.nm.h.rural # observed target stat
+
+plot(dx.h.edges.nf.nm_sim)
+par(mfrow=c(1,2)
+    )
+plot(dx.h.edges.nf.nm_sim, type = "duration"); plot(dx.h.edges.nf.nm_sim, type = "dissolution")
+
+# Fit model with nodematch
+# Edge + nodefactor(age.grp) + nodematch(age.grp) model
+est.h.edges.nf.nm_obs <- netest(nw_rural, 
+                      formation = formation.edge.nf.nm_1, 
+                      target.stats = tstats.edge.nf.nm.h.rural[-4], 
+                      coef.diss =  diss.h,
+                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
+                 )
+
+## Simulate based on the edge model 
+dx.h.edges.nf.nm_obs<- netdx(est.h.edges.nf.nm_obs, nsims = 20, ncores = 8, 
+                   nsteps = 1000, dynamic = T,
+               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+               nwstats.formula = formation.edge.nf.nm, 
+               keep.tedgelist = TRUE
+               )
+
+print(dx.h.edges.nf.nm_obs)
+
+plot(dx.h.edges.nf.nm_obs)
+par(mfrow=c(1,2)
+    )
+plot(dx.h.edges.nf.nm_obs, type = "duration"); plot(dx.h.edges.nf.nm_obs, type = "dissolution")
+tstats.edge.nf.nm.h.rural
 
 ```
+
+
+
+
+
+
+
+
 
 
 
