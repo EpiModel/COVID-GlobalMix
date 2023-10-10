@@ -20,7 +20,7 @@ formation_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_para
 
 dissolution_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/known_dur_school_work.RData")
 
-formation_stats$rural$nf.age.grp %>% View() #1005 check Sam
+formation_stats$rural$nf.age.grp %>% View() #1005 check Sam for proportion
 formation_stats$rural$nf.age.grp$single_day_nf_md_prop[1:6] %>% sum()
 
 
@@ -41,26 +41,9 @@ target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
   group_by(network) %>% # proportion (relative frequency) of target population in each age group by network
   mutate(prop=total_pop/sum(total_pop)) %>% ungroup()
 
-ggarrange(
-target_age_dist %>% ggplot(aes(x=target_age_grp, y=total_pop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-  geom_text(aes(label=total_pop), vjust=-0.3, size=3.5)+
-  theme_classic()+ylab("Population")+xlab("Age group"),
-target_age_dist %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-  geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
-  theme_classic()+ylab("Population proportion")+xlab("Age group"),
-nrow = 2
-)
-```
 
 
-## Set up model attribute and characterize target statistics
-```{r, warning=F, message=FALSE, echo=T}
-############## Set up vertex attribute ##############
-# Initiate nodes
-n <- 1e4 # population size in a network
-nw_rural <- nw_urban <- network_initialize(n)
-
-
+# Function generating nodal's age and age group based on distribution of target population
 node.age.grp <- 
   function(target_age_dist, # age distribution of target population
            site, 
@@ -75,7 +58,7 @@ age.grp.df <-
 target_age_dist_site %>% rownames_to_column() %>% 
   rename(age.grp.num=rowname) 
   
-  
+## generate age group for each simulated node
 age.grp.num <- age.grp.df %>% 
   slice(rep(1:n(), times= n_pop_site.age.grp)
                           ) %>% 
@@ -101,11 +84,43 @@ data.frame(age.grp.num, age) %>%
  
 node.age.grp.rural <- 
  node.age.grp(target_age_dist=target_age_distribut, site= "rural", n=1e4) 
+node.age.grp.urban <- 
+ node.age.grp(target_age_dist=target_age_distribut, site= "urban", n=1e4) 
 
-node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) # check w/ Sam
+
+
+ggarrange(
+target_age_distribut %>% ggplot(aes(x=target_age_grp, y=total_pop))+geom_bar(stat = "identity")+facet_wrap(~network)+
+  geom_text(aes(label=total_pop), vjust=-0.3, size=3.5)+
+  theme_classic()+ylab("Frequency")+xlab("Age group"),
+target_age_distribut %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
+  geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
+  theme_classic()+ylab("Relative frequency (obs.)")+xlab("Age group"),
+
+rbind(
+node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "rural"), # check w/ Sam
+node.age.grp.urban %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "urban")# check w/ Sam
+) %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
+  geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
+  theme_classic()+ylab("Relative frequency (sim.)")+xlab("Age group"),
+
+nrow = 3
+)
 
 # node.age.grp.urban <- 
 #  node.age.grp(target_age_dist=target_age_dist, site= "urban") 
+
+```
+
+
+## Set up model attribute and characterize target statistics
+```{r, warning=F, message=FALSE, echo=T}
+############## Set up vertex attribute ##############
+# Initiate nodes
+n <- 1e4 # population size in a network
+nw_rural <- nw_urban <- network_initialize(n)
+
+
 
 # Nodes w/ age groups
 ### Initialize a rural network, home layer
@@ -131,7 +146,7 @@ formation_stats$rural$edge %>% mutate(edges=single_day_md*n/2)# the reason /2 is
 formation_stats$rural$nf.age.grp <- 
  formation_stats$rural$nf.age.grp %>% 
   left_join(
-target_age_distribut %>% filter(network == "rural")%>% mutate(n_pop.age.grp=round(prop*n)) %>% # calculate number of nodes in each age group based on relative distribution of age group of the target population
+target_age_distribut %>% filter(network == "rural")%>% mutate(n_pop.age.grp=round(prop*n)) %>% #  number of nodes in each age group = relative distribution of age group of the target population * total nodes
   rename(participant_age=target_age_grp) %>% select(participant_age, n_pop.age.grp), 
 by = "participant_age"
   ) %>% mutate(nf.ag = single_day_nf_md*n_pop.age.grp # number of edges in each age group = md * number of node of each age group
@@ -141,30 +156,35 @@ by = "participant_age"
 formation_stats$rural$nm.age.grp <- 
 formation_stats$rural$nm.age.grp %>% 
   left_join(
-target_age_distribut %>% filter(network == "rural") %>% # calculate number of nodes in each age group based on relative distribution of age group of the target population
-  rename(participant_age=target_age_grp) %>% select(participant_age, prop), 
+target_age_distribut %>% filter(network == "rural") %>% 
+  rename(participant_age=target_age_grp) %>% select(participant_age, prop), # joining relative distribution of target population
 by = "participant_age"
-  ) %>% left_join(formation_stats$rural$edge %>% select(contact_location, edges), by = "contact_location"
+  ) %>% left_join(formation_stats$rural$edge %>% select(contact_location, edges), by = "contact_location" # number of edges in each layer
                   ) %>% 
-  left_join(formation_stats$rural$nf.age.grp %>% select(participant_age, contact_location, nf.ag)
+  left_join(formation_stats$rural$nf.age.grp %>% select(participant_age, contact_location, nf.ag)  # number of nodes in age group
             ) %>% 
-  mutate(nm.ag.frp= edges*prop*single_day_nm_md, #(L112 in FRP script)
-         nm.ag.artnet= nf.ag/2*single_day_nm_md #(L372 in ARTnet script) # check with sam, about why two approach differs
+  # check with sam, about why two approach differs
+  mutate(nm.ag.frp= edges*prop*single_day_nm_md, #(L112 in FRP script) - # number of edges in each layer * age proportion * prop of matched nodes
+         nm.ag.artnet= (nf.ag/2)*single_day_nm_md #(L372 in ARTnet script) # (number of nodes in each age group /2) * prop of matched nodes
            )
 
+formation_stats$rural$nm.age.grp
 
-#%>% mutate(nm.ag = single_day_nm_md*(n_pop.age.grp/2) # number of matched edges in each age group = proportion of matched nodes * number of node of each age group/2
-     #           ) 
+
 
 ```
 
 ## Model fitting and simulation
 ```{r, warning=F, message=FALSE, echo=T}
 # Formulation model
-formation.edge <- ~edges 
-formation.edge.nf <- ~edges + nodefactor("age.grp" , levels = 2:6) 
-formation.edge.nf.nm <- ~edges + nodefactor("age.grp" , levels = 2:6) + nodematch("age.grp" , levels = 2:6, diff=T)
-formation.edge.nf.nm_1 <- ~edges + nodefactor("age.grp", levels = c(2, 3, 5, 6))+ nodematch("age.grp",  levels = 2:6, diff = T)
+formation.edge <- 
+  ~edges 
+formation.edge.nf <- 
+  ~edges + nodefactor("age.grp" , levels = 2:6) 
+formation.edge.nf.nm <- 
+  ~edges + nodefactor("age.grp" , levels = 2:6) + nodematch("age.grp" , levels = 2:6, diff=T)
+formation.edge.nf.nm_1 <- # dropping the 4th age group which has the best fit
+  ~edges + nodefactor("age.grp", levels = c(2, 3, 5, 6))+ nodematch("age.grp",  levels = 2:6, diff = T)
 
 # Dissolution model
 diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # very large number, edge doesn't dissolve
@@ -226,12 +246,13 @@ plot(dx.h.edges_obs);plot(dx.h.edges_obs, type = "duration"); plot(dx.h.edges_ob
 dx.h.edges.nf.sim<- netdx(est.h.edges, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = ~edges  + nodefactor("age.grp"),  #formation.edge.nf , 
+               nwstats.formula = formation.edge.nf,
+                 #~edges  + nodefactor("age.grp"),  #formation.edge.nf , 
                keep.tedgelist = TRUE) 
 
-print(dx.h.edges.nf.sim) 
-#  the percentage diff of the edge effect is worsen compare to the edge-only model but is still ~ 5%
-# 1005  start from here
+print(dx.h.edges_obs); print(dx.h.edges.nf.sim) 
+##  the percentage diff of the edge effect is slightly worsen compare to the edge-only model but is still ~ 5%
+
 
 # Edge + nodefactor(age.grp) model
 est.h.edges.nf <- netest(nw_rural, 
@@ -249,50 +270,53 @@ dx.h.edges.nf.obs<- netdx(est.h.edges.nf, nsims = 20, ncores = 8,
                keep.tedgelist = TRUE
                )
 
-print(dx.h.edges.nf.obs)
+print(dx.h.edges.nf.sim); print(dx.h.edges.nf.obs) 
 
-
-par(mfrow=c(1,3)
+plot(dx.h.edges.nf.obs)
+par(mfrow=c(1,2)
     )
-plot(dx.h.edges.nf.obs); plot(dx.h.edges.nf.obs, type = "duration"); plot(dx.h.edges.obs, type = "dissolution")
+ plot(dx.h.edges.nf.obs, type = "duration"); plot(dx.h.edges.nf.obs, type = "dissolution")
 
-# Dropping age group 4, which have a best fit among all nf coefficients
+# Dropping age group 4, which have the best fit among all nf coefficients
 formation.edge.nf_1 <- ~edges + nodefactor("age.grp" , levels = c(2,3,5,6)
                                            )
 
 est.h.edges.nf_1 <- netest(nw_rural, 
                       formation = formation.edge.nf_1, 
-                      target.stats = tstats.edge.nf.h.rural[-4], 
+                      target.stats = tstats.edge.nf.h.rural[-4], # dropping the 4th age group
                       coef.diss =  diss.h,
                  set.control.ergm = control.ergm(MCMLE.maxit = 100)
                  )
 
-## Simulate based on the edge + nodefactor model 
-dx.h.edges.nf.obs_1<- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8, 
+## Simulate based on the full edge + nodefactor model 
+dx.h.edges.nf.obs_1 <- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
                nwstats.formula = formation.edge.nf, 
                keep.tedgelist = TRUE
                )
 
-print(dx.h.edges.nf.obs_1) # After dropping age.grp 4, the simulated target statistics of this group is way off the observed
+print(dx.h.edges.nf.sim); print(dx.h.edges.nf.obs);  print(dx.h.edges.nf.obs_1) 
 tstats.edge.nf.h.rural
+#After dropping age.grp 4, the simulated target statistics of this group is ~ 8817, which is far larger than the observed of 6220. The bias for this age group is even larger than the model only with observed edge data - # Discuss with Sam about why this is biased
+
 
 plot(dx.h.edges.nf.obs_1)
 par(mfrow=c(1,2)
     )
 plot(dx.h.edges.nf.obs_1, type = "duration"); plot(dx.h.edges.nf.obs_1, type = "dissolution")
 
-## Simulate based on the edge + nodefactor (w/o age.grp 4) model, plus the nodematch term
+## Simulate based on the edge + nodefactor (w/o obs. dta of age.grp 4) model, plus the nodematch term
 dx.h.edges.nf.nm_sim<- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = formation.edge.nf.nm, 
+               nwstats.formula = formation.edge.nf.nm, # simulate all categories
                keep.tedgelist = TRUE
                )
 
+## The model-guess target stats for nodematch are way off the observed
 print(dx.h.edges.nf.nm_sim) # print target stat
-tstats.edge.nf.nm.h.rural # observed target stat
+tstats.edge.nf.nm.h.rural # observed target stat. 
 
 plot(dx.h.edges.nf.nm_sim)
 par(mfrow=c(1,2)

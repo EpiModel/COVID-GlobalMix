@@ -73,14 +73,14 @@ india_contact %>%
          )
 
 # merge participants and contact datasets and process data  and basic data processing ------------------------------------------------
-india_mix <- india_participant %>%
+india_mix_1 <- india_participant %>%
   dplyr::select(rec_id,participant_age, participant_ageyr) %>%
   right_join(india_contact,
             by = "rec_id") %>% 
   # characterization of home/nonhome status
    mutate(contact_location = case_when(location_contact___0 == 1  ~ "Home", # 0 - "My home"
-                                            location_contact___2 == 1 & location_contact___0 == 0 ~ "School", # "School" but not "my home"
-                                             location_contact___3 == 1 & location_contact___0 == 0 ~ "Work", # "work" but not "my home"
+                                            location_contact___2 == 1 & location_contact___0 == 0 ~ "School", # "School" but not "my home" 
+                                             location_contact___3 == 1 & (location_contact___0 == 0  | location_contact___2 ==0)~ "Work", # "work" but not "my home" / "school"
                                        
                                        
                                        (
@@ -93,12 +93,11 @@ india_mix <- india_participant %>%
                                        location_contact___15 == 1 | location_contact___16 == 1 | # "Bank", "Movie theatre"
                                        location_contact___17 == 1 | location_contact___18 == 1 | location_contact___19 == 1 #"Exhibition", "Social hall", "Other"
                                        ) &
-                                         !(location_contact___3 == 1 | location_contact___2 == 1) # Excluding work/school
+                                         !(location_contact___3 == 1 | location_contact___2 == 1 | location_contact___0 == 1) # Excluding work/school/home
                                        
-                                       ~ "Nonhome") # assign contacts into home or nonhome layer
+                                       ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
          )  %>% 
   mutate(contact_location = factor(contact_location,
-                                   # levels = c("Home","Nonhome"),
                                     ordered = TRUE)
          ) %>% 
   filter(!(duration_contact %in% c("<5 mins", "5-15 mins"))) %>% # filter out contact with duration ≤ 15 mins
@@ -108,23 +107,19 @@ india_mix <- india_participant %>%
                                     ordered = TRUE)
          )  %>% filter(!is.na(contact_location) # complete-case analysis - exclude contacts didn't have a contact location from analysis, Moses confirmed this is okay
                       ) 
-   
 
-# confirm that those ids of contacts in aim 2 are exclusive of aim 1
-intersect(
-india_contact %>% filter(study_aim ==2) %>% pull(rec_id) %>% unique() ,
-india_contact %>% filter(study_aim ==1) %>% pull(rec_id) %>% unique()
-) # output character(0), confirming no intersection of study participant
+
+
 ```
 
 
 
 
 ## Characterization of network layers
-The network layers is processed from multiple questions asking contact locations. Given these questions are not mutually exclusive due to the check-box design in REDCap, a contact is characterized as at home when any contact with a participant reportedly occurred at the participant's home (i.e., "my home")  regardless of the responses for other contact location types. The contacts occurred at other's home is considered as a non-home contact: given the sociological contact pattern in a participant's residence and other’s home is likely vary, we consider contacts occurring at home and others' home separately.
-For contacts occurred at work or school, we assigned them into one of these categories. For the two contacts (shown below) that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering the contacts were at school age.
+The network layers is processed from multiple questions asking contact locations. Given these questions are not mutually exclusive due to the check-box design in REDCap, we characterized contact location as the location having primary contact follow the order of home, school, work, nonhome.
+For contacts occurred at work or school, we assigned them into one of these categories. For the two contacts (shown below) that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering both the participants and contacts were at school age.
 For non-home contacts excluding work and school, we categorize them into the non-home category.
-For a contact checked non of the categories, we assigned an NA to this contact.
+For a contact checked non of the categories, we assigned an NA to this contact and excluded them considering them as missing data.
 
 ```{r, echo=F, warning=F, message=FALSE}
 india_mix %>% select(participant_age, contact_age, location_contact___2, location_contact___3) %>% mutate(sum = location_contact___2+location_contact___3) %>% filter(sum==2) %>% select(-sum)%>%  kable() %>%  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
@@ -446,12 +441,13 @@ network_stats <-
 list(network_stats_rural, network_stats_urban)
 names(network_stats) <- c("rural", "urban")
 
-saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/formation_stats.RData")
+#saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/formation_stats.RData")
 
 
 ```
 
 ## Contact durations
+For duration at the home layer, we assume it to be non-dissolving so it would be a large number. For duration at the nonhome layer, we assume it refreshes daily. The duration of the school and work layer is characterized in the following way. We tabulate time of knowing a contact and contact frequency to retrieve the distribution of daily contact under categories of the duration of knowing the contact. For a contact is known less than ≤ 10 years, we took the mid point of each know contact category as the duration. For a contact is know > 10 years, we the population average of the mid point between participant's age and 10 year as the duration. We multiple the proportion of daily contact (as weight) and the durations to calculate the durations. 
 ```{r}
 
 know_dur <- function(india_mix.){
@@ -508,10 +504,17 @@ india_mix. %>%
 }
 known_duration <- know_dur(india_mix. = india_mix)
 
-saveRDS(known_duration, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/known_dur_school_work.RData")
+#saveRDS(known_duration, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/known_dur_school_work.RData")
 
-# Association between layer and household status
-## Moses indicates that frequency_contact and known_contact were only surveyed for non-household contacts from participants. We check whether there are HH member having contact at school/work. There are 4 school/work contact and 58 nonhome of household members. Of these non-home (school, work, other non-home) contacts that are of household members, Billy thinks they can be re-classified as home contact.
+
+india_mix %>% filter(known_contact == ">10 yrs" & contact_location %in% c( "School", "Work" )
+                                  ) %>%
+    mutate(known_duration = (participant_ageyr - 10)/2) %>% filter(known_duration<0)
+
+# Association between layer and household status, check with Sam
+## Moses indicates that frequency_contact and known_contact were only surveyed for non-household contacts from participants. We check whether there are HH member having contact at school/work. There are 4 school/work and 58 nonhome contacts  of household members. Since these non-home (school, work, other non-home) contacts that are of household members, Billy thinks they can be re-classified as home contact.
+
+
 table(
 india_mix$contact_location,
 india_mix$hh_membership
