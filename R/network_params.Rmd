@@ -14,19 +14,14 @@ editor_options:
 This is a descriptive summary of contact degree of the India GlobalMix diary data.
 
 # Method
-There are two ways to derive target statistics for ERGM, one is using poisson model based on individual-count data, the other is based on the symmetric contact matrix, the approach for Corporate Mix. Given the symmetric contact matrix may not account for the different number of participants among age group, we go with the glm-based approach to calculate the summary network statistics.
-
-We adapted the code Maria developed for the CorporateMix data to the GlobalMix data to calculate degree information. The degree information was summarized into four separate networks for two different epidemic models (one rural, one urban). We consider the mixing occurs within locations (urban, rural) and across two types of network layers (home/school/work/nonhome [other than school/work], indoors/outdoors). We do not model contacts across layers, as we assume they are mutually exclusive across environments. We regrouped the age categories in the first two decades of life by decade.
-
-
-We excluded contacts lasted ≤ 15 mins in analysis. The degree information was summarized as the arithmetic mean of signle-day degrees of contact between group A and group B and between group B and group A of the two-day visits. Given the data were egocentric, we use $M.D.=\frac{edges}{n}$ for the relationship between mean degree ($M.D.$) and the number of edges.
+There are two ways to derive target statistics for ERGM, one is using poisson model based on individual-count data, the other is based on the symmetric contact matrix, the approach for Corporate Mix. Given the symmetric contact matrix may not account for the difference of distributions between the study and target populations, we go with the glm-based approach to calculate the summary network statistics. We regrouped the age categories in the first two decades of life by decade. We excluded contacts lasted ≤ 15 mins in analysis. The degree information was summarized as the arithmetic mean of signle-day degrees of contact between group A and group B and between group B and group A of the two-day visits. Given the data were egocentric, we use $M.D.=\frac{edges}{n}$ for the relationship between mean degree ($M.D.$) and the number of edges.
 
 
 ```{r, echo=F, warning=F, message=FALSE, include = FALSE}
 setwd("~/Documents/GitHub/COVID-GlobalMix")
 
 # Load libraries and data  ------------------------------------------------
-lapply(c("ggpubr", "statnet", "EpiModel", "tidyverse", "socialmixr", "knitr",  "sjlabelled", "kableExtra", "broom", "stringr"), require, character.only = TRUE)
+lapply(c("ggpubr", "statnet", "EpiModel", "tidyverse", "socialmixr", "knitr",  "sjlabelled", "kableExtra", "broom", "stringr", "GGally"), require, character.only = TRUE)
 
 
 ## participant data
@@ -73,7 +68,7 @@ india_contact %>%
          )
 
 # merge participants and contact datasets and process data  and basic data processing ------------------------------------------------
-india_mix_1 <- india_participant %>%
+india_mix <- india_participant %>%
   dplyr::select(rec_id,participant_age, participant_ageyr) %>%
   right_join(india_contact,
             by = "rec_id") %>% 
@@ -97,6 +92,13 @@ india_mix_1 <- india_participant %>%
                                        
                                        ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
          )  %>% 
+   ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household member contacts in the nonhome, school, and work layers. We reclassify these as home contacts
+  mutate(
+    contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home", 
+                                 T ~ contact_location
+                                 )
+    
+  ) %>% 
   mutate(contact_location = factor(contact_location,
                                     ordered = TRUE)
          ) %>% 
@@ -108,7 +110,16 @@ india_mix_1 <- india_participant %>%
          )  %>% filter(!is.na(contact_location) # complete-case analysis - exclude contacts didn't have a contact location from analysis, Moses confirmed this is okay
                       ) 
 
+table(
+india_mix$contact_location,
+india_mix$hh_membership
+)
 
+# Evaluate characteristics of non-members at home
+test <- 
+india_mix %>% filter(hh_membership == "Non-member" & contact_location =="Home")
+
+apply(test[,c(17:42)], 2, table)
 
 ```
 
@@ -117,7 +128,7 @@ india_mix_1 <- india_participant %>%
 
 ## Characterization of network layers
 The network layers is processed from multiple questions asking contact locations. Given these questions are not mutually exclusive due to the check-box design in REDCap, we characterized contact location as the location having primary contact follow the order of home, school, work, nonhome.
-For contacts occurred at work or school, we assigned them into one of these categories. For the two contacts (shown below) that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering both the participants and contacts were at school age.
+For the two contacts (shown below) that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering both the participants and contacts were at school age.
 For non-home contacts excluding work and school, we categorize them into the non-home category.
 For a contact checked non of the categories, we assigned an NA to this contact and excluded them considering them as missing data.
 
@@ -447,7 +458,7 @@ names(network_stats) <- c("rural", "urban")
 ```
 
 ## Contact durations
-For duration at the home layer, we assume it to be non-dissolving so it would be a large number. For duration at the nonhome layer, we assume it refreshes daily. The duration of the school and work layer is characterized in the following way. We tabulate time of knowing a contact and contact frequency to retrieve the distribution of daily contact under categories of the duration of knowing the contact. For a contact is known less than ≤ 10 years, we took the mid point of each know contact category as the duration. For a contact is know > 10 years, we the population average of the mid point between participant's age and 10 year as the duration. We multiple the proportion of daily contact (as weight) and the durations to calculate the durations. 
+For duration at the home layer, we assume it to be non-dissolving so it would be a large number. For duration at the nonhome layer, we assume it refreshes daily. The duration of the school and work layer is characterized in the following way. We tabulate time of knowing a contact and contact frequency to retrieve the distribution of daily contact under categories of the duration of knowing the contact. For a contact is known less than ≤ 10 years, we took the mid point of each know contact category as the duration. For a contact is know > 10 years, we the population average of the mid point between participant's age and 10 year as the duration. We multiple the proportion of daily contact (as weight) and the duration to calculate the duration. 
 ```{r}
 
 know_dur <- function(india_mix.){
@@ -509,18 +520,11 @@ known_duration <- know_dur(india_mix. = india_mix)
 
 india_mix %>% filter(known_contact == ">10 yrs" & contact_location %in% c( "School", "Work" )
                                   ) %>%
-    mutate(known_duration = (participant_ageyr - 10)/2) %>% filter(known_duration<0)
+    mutate(known_duration = (participant_ageyr - 10)/2) %>% filter(known_duration<0) %>% select(participant_ageyr, known_contact, known_duration)
 
 # Association between layer and household status, check with Sam
 ## Moses indicates that frequency_contact and known_contact were only surveyed for non-household contacts from participants. We check whether there are HH member having contact at school/work. There are 4 school/work and 58 nonhome contacts  of household members. Since these non-home (school, work, other non-home) contacts that are of household members, Billy thinks they can be re-classified as home contact.
 
-
-table(
-india_mix$contact_location,
-india_mix$hh_membership
-)
-
-india_mix %>% select(contact_location, hh_membership)
 
 
 ```
@@ -560,19 +564,21 @@ With the degree distribution, the degree can be categorized into the categories 
 ```{r}
 
 
-library(GGally)
+
 # spearman correlation,rural
 ## Count predictor
-contact_count_wide_rural %>% select(-c(rec_id, participant_age, Home_cat, Nonhome_cat, School_cat, Work_cat)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
-## Categorical predictor
-contact_count_wide_rural %>% select(-c(rec_id, participant_age, Home, Nonhome, School, Work)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
+contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
+                                                                                          )
+                                                                             )
 
-assoc_btw_layers <- function(contact_count_wide){
+
+assoc_btw_layers <- function(contact_count_wide, category_type){
 
   output <-  list()
   
 # Create degree category
-  output[[1]] <- 
+  if(category_type != "binary"){
+ 
 contact_count_wide <- 
 contact_count_wide %>% mutate(
   Nonhome_cat = case_when(Nonhome==0 ~ "0",
@@ -597,9 +603,33 @@ contact_count_wide %>% mutate(
                           Work %in% c(1:2) ~ "1-2",
                           Work %in% c(3:5) ~ "3-5",
                           Work >=6 ~ "6+"),
-  Work_cat = factor( Work_cat),
-    
-)  
+  Work_cat = factor( Work_cat)
+  )
+  
+  
+
+} else{ # binarized coefficient
+  contact_count_wide <- 
+contact_count_wide %>% mutate(
+  Nonhome_cat = case_when(Nonhome==0 ~ 0,
+                          Nonhome >0 ~ 1),
+  Nonhome_cat = factor( Nonhome_cat),
+  
+    Home_cat = case_when(Home==0 ~ 0,
+                          Home >0 ~ 1),
+  Home_cat = factor( Home_cat),
+  
+    School_cat = case_when(School==0 ~ 0,
+                          School >0 ~ 1),
+  School_cat = factor( School_cat),
+  
+    Work_cat = case_when(Work==0 ~ 0,
+                          Work >0 ~ 1),
+  Work_cat = factor( Work_cat)
+)
+}
+  
+  output[[1]] <- contact_count_wide 
   
   
 # Assessing disperson of count of each layer (check with Sam to see if how overdispersion problem was handled in ARTnet)
@@ -621,6 +651,10 @@ glm_h_wk <- # For an intercept only model, the coefficient is positive in in val
 contact_count_wide %>% 
   glm(Home~ Work_cat, data=., family = poisson(link=log)) %>% summary()
 
+glm_h_nh <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
+contact_count_wide %>% 
+  glm(Home~ Nonhome_cat, data=., family = poisson(link=log)) %>% summary()
+
 
 glm_h_sch <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
 contact_count_wide %>% 
@@ -632,7 +666,7 @@ contact_count_wide %>%
   glm(Home~ Nonhome_cat + School_cat + Work_cat, data=., family = poisson(link=log))%>% summary()
  
 
-output[[3]] <- rbind(glm_h_wk$coefficients, NA, glm_h_sch$coefficients, NA, glm_h_nh_sch_wk$coefficients)
+output[[3]] <- rbind(glm_h_wk$coefficients, NA, glm_h_nh$coefficients, NA, glm_h_sch$coefficients, NA, glm_h_nh_sch_wk$coefficients)
 
 names(output) <- c("df", "mean_variance", "glm_results")
 
@@ -640,15 +674,15 @@ output
 
 }
 
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural)
+assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary")
 
-assoc_btw_layers(contact_count_wide = contact_count_wide_urban)
+assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "nonbinary")
 
 
 # Home ~ Work
-# Home ~ School
+# Home ~ School, 
 # Home ~ Nonhome + school + work
- 
+# we domn't model cor(school. home). We include correlation between work & home
  # 20230927 still couldn't get head around this.
 
 

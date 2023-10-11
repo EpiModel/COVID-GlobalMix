@@ -151,6 +151,7 @@ target_age_distribut %>% filter(network == "rural")%>% mutate(n_pop.age.grp=roun
 by = "participant_age"
   ) %>% mutate(nf.ag = single_day_nf_md*n_pop.age.grp # number of edges in each age group = md * number of node of each age group
                 ) 
+formation_stats$rural$nf.age.grp %>% View()
 
 #  Number of matched edges nodematch(diff=T), edge-level
 formation_stats$rural$nm.age.grp <- 
@@ -168,7 +169,7 @@ by = "participant_age"
          nm.ag.artnet= (nf.ag/2)*single_day_nm_md #(L372 in ARTnet script) # (number of nodes in each age group /2) * prop of matched nodes
            )
 
-formation_stats$rural$nm.age.grp
+formation_stats$rural$nm.age.grp %>% View()
 
 
 
