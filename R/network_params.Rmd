@@ -94,11 +94,11 @@ india_mix <- india_participant %>%
          )  %>% 
    ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household member contacts in the nonhome, school, and work layers. We reclassify these as home contacts
   mutate(
-    contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home", 
+    contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
                                  T ~ contact_location
                                  )
-    
-  ) %>% 
+
+  ) %>%
   mutate(contact_location = factor(contact_location,
                                     ordered = TRUE)
          ) %>% 
@@ -165,6 +165,197 @@ $$
 $$
 M.D_{i,j} \sim Poisson(\beta_{age.grp}*age.grp_i)
 $$
+
+## Correlation between layers
+
+```{r}
+# rural
+
+
+ 
+# individual-level contact count at different locations by row
+## data to wide format 
+ contact_count_wide_rural  <- 
+contact_count_rural$contact_count %>% data.frame()%>% 
+  tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
+                     ) %>%  # 608 rows, each row for a participant
+  as.data.frame()
+ 
+ # urban
+## data to wide format 
+ contact_count_wide_urban  <- 
+contact_count_urban$contact_count %>% data.frame()%>% 
+  tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
+                     ) %>%  # 608 rows, each row for a participant
+  as.data.frame()
+
+
+
+
+## spearman correlation,urban
+contact_count_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
+
+```
+With the degree distribution, the degree can be categorized into the categories of 0, 1-2, 3-5, and 6+.
+
+```{r}
+
+
+
+# spearman correlation,rural
+## Count predictor
+contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
+                                                                                          )
+                                                                             )
+
+
+assoc_btw_layers <- function(contact_count_wide, category_type){
+
+  output <-  list()
+  
+# Create degree category
+  if(category_type != "binary"){
+ 
+contact_count_wide <- 
+contact_count_wide %>% mutate(
+  Nonhome_cat = case_when(Nonhome==0 ~ "0",
+                          Nonhome %in% c(1:2) ~ "1-2",
+                          Nonhome %in% c(3:5) ~ "3-5",
+                          Nonhome >=6 ~ "6+"),
+  Nonhome_cat = factor( Nonhome_cat),
+  
+  Home_cat = case_when(Home==0 ~ "0",
+                          Home %in% c(1:2) ~ "1-2",
+                          Home %in% c(3:5) ~ "3-5",
+                          Home >=6 ~ "6+"),
+  Home_cat = factor( Home_cat),
+  
+  School_cat = case_when(School==0 ~ "0",
+                          School %in% c(1:2) ~ "1-2",
+                          School %in% c(3:5) ~ "3-5",
+                          School >=6 ~ "6+"),
+  School_cat = factor( School_cat),
+  
+  Work_cat = case_when(Work==0 ~ "0",
+                          Work %in% c(1:2) ~ "1-2",
+                          Work %in% c(3:5) ~ "3-5",
+                          Work >=6 ~ "6+"),
+  Work_cat = factor( Work_cat)
+  )
+  
+  
+
+} else{ # binarized coefficient
+  contact_count_wide <- 
+contact_count_wide %>% mutate(
+  Nonhome_cat = case_when(Nonhome==0 ~ 0,
+                          Nonhome >0 ~ 1),
+  Nonhome_cat = factor( Nonhome_cat),
+  
+    Home_cat = case_when(Home==0 ~ 0,
+                          Home >0 ~ 1),
+  Home_cat = factor( Home_cat),
+  
+    School_cat = case_when(School==0 ~ 0,
+                          School >0 ~ 1),
+  School_cat = factor( School_cat),
+  
+    Work_cat = case_when(Work==0 ~ 0,
+                          Work >0 ~ 1),
+  Work_cat = factor( Work_cat)
+)
+}
+  
+
+# Effects on home contact
+output[[1]] <- 
+contact_count_wide %>% 
+  glm(Home~ Work_cat, data=., family = poisson(link=log))
+
+output[[2]] <- 
+contact_count_wide %>% 
+  glm(Home~ Nonhome_cat, data=., family = poisson(link=log)) 
+
+output[[3]] <- 
+contact_count_wide %>% 
+  glm(Home~ School_cat, data=., family = poisson(link=log))
+
+output[[4]] <- 
+contact_count_wide %>% 
+  glm(Home~ Nonhome_cat + School_cat + Work_cat, data=., family = poisson(link=log))
+
+# Effects on Nonhome contact
+output[[5]] <- 
+contact_count_wide %>% 
+  glm(Nonhome~ Home_cat, data=., family = poisson(link=log))
+
+output[[6]] <- 
+contact_count_wide %>% 
+  glm(Nonhome~ School_cat , data=., family = poisson(link=log))
+
+output[[7]] <- 
+contact_count_wide %>% 
+  glm(Nonhome~ Work_cat , data=., family = poisson(link=log))
+
+# Effects on School contact
+output[[8]] <- 
+contact_count_wide %>% 
+  glm(School~ Home_cat, data=., family = poisson(link=log))
+
+output[[9]] <- 
+contact_count_wide %>% 
+  glm(School~ Nonhome_cat , data=., family = poisson(link=log))
+
+output[[10]] <- 
+contact_count_wide %>% 
+  glm(School~ Work_cat , data=., family = poisson(link=log))
+
+# Effects on Work contact
+output[[11]] <- 
+contact_count_wide %>% 
+  glm(Work~ Home_cat, data=., family = poisson(link=log))
+
+output[[12]] <- 
+contact_count_wide %>% 
+  glm(Work~ School_cat , data=., family = poisson(link=log))
+
+output[[13]] <- 
+contact_count_wide %>% 
+  glm(Work~ Nonhome_cat , data=., family = poisson(link=log))
+
+
+
+names(output) <- c(  "h_w", "h_nh", "h_s", "h_nh_s_w", "nh_h", "nh_s", "nh_w", "s_h", "s_nh", "s_w", "w_h", "w_s", "w_nh")
+
+output
+
+}
+
+test_1 <- 
+assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary")
+
+test <- 
+assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "nonbinary")
+
+lapply(test, summary)
+
+
+
+contact_count_wide_rural %>% View()
+
+test_1$h_w
+
+
+
+
+h_w <- predict(test_1$h_w, newdata = data.frame(Work_cat = factor(1)
+                                                 ), 
+                type = "response", interval = "confidence")
+
+```
+
+
+
 
 
 ```{r}
@@ -445,12 +636,18 @@ output
 
 network_stats_rural <- network_stats(contact_count_site = contact_count_rural)
 
+
+
+
+
 network_stats_urban <- network_stats(contact_count_site = contact_count_urban)
 
 
 network_stats <- 
 list(network_stats_rural, network_stats_urban)
 names(network_stats) <- c("rural", "urban")
+
+network_stats$rural$correlate$h_w <- h_w
 
 #saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/formation_stats.RData")
 
@@ -529,162 +726,5 @@ india_mix %>% filter(known_contact == ">10 yrs" & contact_location %in% c( "Scho
 
 ```
 
-## Correlation between layers
 
-```{r}
-# rural
-
-
- 
-# individual-level contact count at different locations by row
-## data to wide format 
- contact_count_wide_rural  <- 
-contact_count_rural$contact_count %>% data.frame()%>% 
-  tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
-                     ) %>%  # 608 rows, each row for a participant
-  as.data.frame()
- 
- # urban
-## data to wide format 
- contact_count_wide_urban  <- 
-contact_count_urban$contact_count %>% data.frame()%>% 
-  tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
-                     ) %>%  # 608 rows, each row for a participant
-  as.data.frame()
-
-
-
-
-## spearman correlation,urban
-contact_count_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
-
-```
-With the degree distribution, the degree can be categorized into the categories of 0, 1-2, 3-5, and 6+.
-
-```{r}
-
-
-
-# spearman correlation,rural
-## Count predictor
-contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
-                                                                                          )
-                                                                             )
-
-
-assoc_btw_layers <- function(contact_count_wide, category_type){
-
-  output <-  list()
-  
-# Create degree category
-  if(category_type != "binary"){
- 
-contact_count_wide <- 
-contact_count_wide %>% mutate(
-  Nonhome_cat = case_when(Nonhome==0 ~ "0",
-                          Nonhome %in% c(1:2) ~ "1-2",
-                          Nonhome %in% c(3:5) ~ "3-5",
-                          Nonhome >=6 ~ "6+"),
-  Nonhome_cat = factor( Nonhome_cat),
-  
-  Home_cat = case_when(Home==0 ~ "0",
-                          Home %in% c(1:2) ~ "1-2",
-                          Home %in% c(3:5) ~ "3-5",
-                          Home >=6 ~ "6+"),
-  Home_cat = factor( Home_cat),
-  
-  School_cat = case_when(School==0 ~ "0",
-                          School %in% c(1:2) ~ "1-2",
-                          School %in% c(3:5) ~ "3-5",
-                          School >=6 ~ "6+"),
-  School_cat = factor( School_cat),
-  
-  Work_cat = case_when(Work==0 ~ "0",
-                          Work %in% c(1:2) ~ "1-2",
-                          Work %in% c(3:5) ~ "3-5",
-                          Work >=6 ~ "6+"),
-  Work_cat = factor( Work_cat)
-  )
-  
-  
-
-} else{ # binarized coefficient
-  contact_count_wide <- 
-contact_count_wide %>% mutate(
-  Nonhome_cat = case_when(Nonhome==0 ~ 0,
-                          Nonhome >0 ~ 1),
-  Nonhome_cat = factor( Nonhome_cat),
-  
-    Home_cat = case_when(Home==0 ~ 0,
-                          Home >0 ~ 1),
-  Home_cat = factor( Home_cat),
-  
-    School_cat = case_when(School==0 ~ 0,
-                          School >0 ~ 1),
-  School_cat = factor( School_cat),
-  
-    Work_cat = case_when(Work==0 ~ 0,
-                          Work >0 ~ 1),
-  Work_cat = factor( Work_cat)
-)
-}
-  
-  output[[1]] <- contact_count_wide 
-  
-  
-# Assessing disperson of count of each layer (check with Sam to see if how overdispersion problem was handled in ARTnet)
-output[[2]] <- 
-  paste0(
-contact_count_wide %>%  
-  summarise_at(.vars = names(.)[3:6],
-               .funs = c(mean="mean")) %>% as.numeric() %>% round(.,2), " (",
-contact_count_wide %>%  
-  summarise_at(.vars = names(.)[3:6],
-               .funs = c(variance="var")) %>% as.numeric()%>% round(.,2),
-")"
-  )
-  
-
-  
-# Effect of non-home contact on home 
-glm_h_wk <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
-contact_count_wide %>% 
-  glm(Home~ Work_cat, data=., family = poisson(link=log)) %>% summary()
-
-glm_h_nh <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
-contact_count_wide %>% 
-  glm(Home~ Nonhome_cat, data=., family = poisson(link=log)) %>% summary()
-
-
-glm_h_sch <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
-contact_count_wide %>% 
-  glm(Home~ School_cat, data=., family = poisson(link=log))%>% summary()
-
-
-glm_h_nh_sch_wk <- # For an intercept only model, the coefficient is positive in in valid so we add the intercept back
-contact_count_wide %>% 
-  glm(Home~ Nonhome_cat + School_cat + Work_cat, data=., family = poisson(link=log))%>% summary()
- 
-
-output[[3]] <- rbind(glm_h_wk$coefficients, NA, glm_h_nh$coefficients, NA, glm_h_sch$coefficients, NA, glm_h_nh_sch_wk$coefficients)
-
-names(output) <- c("df", "mean_variance", "glm_results")
-
-output
-
-}
-
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary")
-
-assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "nonbinary")
-
-
-# Home ~ Work
-# Home ~ School, 
-# Home ~ Nonhome + school + work
-# we domn't model cor(school. home). We include correlation between work & home
- # 20230927 still couldn't get head around this.
-
-
-```
 
