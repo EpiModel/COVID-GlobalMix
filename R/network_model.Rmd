@@ -20,7 +20,7 @@ formation_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_para
 
 dissolution_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/known_dur_school_work.RData")
 
-#formation_stats$rural$nf.age.grp %>% View() #1005 check Sam for proportion
+formation_stats$rural$nf.age.grp %>% View() #1005 check Sam for proportion
 formation_stats$rural$nf.age.grp$single_day_nf_md_prop[1:6] %>% sum()
 
 
@@ -162,6 +162,7 @@ formation_stats$rural$nf.age.grp %>% group_by(contact_location) %>% summarize(ed
 by = "contact_location"
 ) 
 
+formation_stats$rural$edge
 formation_stats$rural$edge # check with Sam
 
 
@@ -281,24 +282,22 @@ dx.h.edges.nf_ag.sim<- netdx(est.h.edges, nsims = 20, ncores = 8,
                nwstats.formula = formation.edge.nf_ag,
                  #~edges  + nodefactor("age.grp"),  #formation.edge.nf , 
                keep.tedgelist = TRUE) 
-
-print(dx.h.edges_obs); print(dx.h.edges.nf_ag.sim) 
-
+### Diagnosis
 dx.h.edges.nf_ag.sim$stats.table.formation%>% 
   mutate(Target = tstats.edge.nf_ag.h.rural,
          `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.h.rural)/tstats.edge.nf_ag.h.rural )
-##  the percentage diff of the edge effect is slightly worsen compare to the edge-only model but is still ~ 5%
+###  the percentage diff for age.grp 3 is less than 5%, so we exclude it in the below model
 
 
-# Edge + nodefactor(age.grp) model
+# model with data of Edge + nodefactor(age.grp) 
 est.h.edges.nf <- netest(nw_rural_h, 
-                      formation = formation.edge.nf_ag, 
-                      target.stats = tstats.edge.nf_ag.h.rural, 
+                      formation = ~edges + nodefactor("age.grp", levels = c(2,4,5,6)), 
+                      target.stats = tstats.edge.nf_ag.h.rural[-3], 
                       coef.diss =  diss.h,
                  set.control.ergm = control.ergm(MCMLE.maxit = 500)
                  )
 
-## Simulate based on the above model 
+## Simulate based on the above estimates using full edge + nodefactor(age.grap) model
 dx.h.edges.nf.obs<- netdx(est.h.edges.nf, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
@@ -306,19 +305,18 @@ dx.h.edges.nf.obs<- netdx(est.h.edges.nf, nsims = 20, ncores = 8,
                keep.tedgelist = TRUE
                )
 
-print(dx.h.edges.nf.sim); print(dx.h.edges.nf.obs) 
-
 plot(dx.h.edges.nf.obs)
-par(mfrow=c(1,2)
-    )
- plot(dx.h.edges.nf.obs, type = "duration"); plot(dx.h.edges.nf.obs, type = "dissolution")
+### Diagnosis
+dx.h.edges.nf.obs$stats.table.formation%>% 
+  mutate(Target = tstats.edge.nf_ag.h.rural,
+         `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.h.rural)/tstats.edge.nf_ag.h.rural )
+### After adjusting for the observed data, the bias in grp 3 is bigger than the threshold, indicating the need to keep its observed data. grp 4 now has the smallest bias
 
-# Dropping age group 4, which have the best fit among all nf coefficients
-formation.edge.nf_ag_1 <- ~edges + nodefactor("age.grp" , levels = c(2,3,5,6)
-                                           )
 
+# Dropping age group 4
 est.h.edges.nf_1 <- netest(nw_rural_h, 
-                      formation = formation.edge.nf_ag_1, 
+                      formation = ~edges + nodefactor("age.grp" , levels = c(2,3,5,6)
+                                           ), 
                       target.stats = tstats.edge.nf_ag.h.rural[-4], # dropping the 4th age group
                       coef.diss =  diss.h,
                  set.control.ergm = control.ergm(MCMLE.maxit = 100)
@@ -332,58 +330,19 @@ dx.h.edges.nf.obs_1 <- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8,
                keep.tedgelist = TRUE
                )
 
-print(dx.h.edges.nf.sim); print(dx.h.edges.nf.obs);  print(dx.h.edges.nf.obs_1) 
 
 dx.h.edges.nf.obs_1$stats.table.formation  %>% 
   mutate(Target = tstats.edge.nf_ag.h.rural,
          `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.h.rural)/tstats.edge.nf_ag.h.rural )# good fit <5%
+### Since age.grp has has bias < 5% after fitting to other observed data, we exclude the observed data for grp 4 moving forward.
 
 
 
-plot(dx.h.edges.nf.obs_1)
-par(mfrow=c(1,2)
-    )
-plot(dx.h.edges.nf.obs_1, type = "duration"); plot(dx.h.edges.nf.obs_1, type = "dissolution")
-
-
-# Dropping age group 4, which have the best fit among all nf coefficients
-formation.edge.nf_ag_2 <- ~edges + nodefactor("age.grp" , levels = c(2,5,6)
-                                           )
-
-est.h.edges.nf_2 <- netest(nw_rural_h, 
-                      formation = formation.edge.nf_ag_2, 
-                      target.stats = tstats.edge.nf.h.rural[-c(3,4)], # dropping the 4th age group
-                      coef.diss =  diss.h,
-                 set.control.ergm = control.ergm(MCMLE.maxit = 100)
-                 )
-
-## Simulate based on the full edge + nodefactor model 
-dx.h.edges.nf.obs_2 <- netdx(est.h.edges.nf_2, nsims = 20, ncores = 8, 
-                   nsteps = 1000, dynamic = T,
-               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = formation.edge.nf_ag, 
-               keep.tedgelist = TRUE
-               )
-
- print(dx.h.edges.nf.obs_2) 
-
-
-
-dx.h.edges.nf.obs_2$stats.table.formation  %>% 
-  mutate(Target = tstats.edge.nf_ag.h.rural,
-         `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.h.rural)/tstats.edge.nf_ag.h.rural ) # >5%, use the former model moving forward.
-
-
-plot(dx.h.edges.nf.obs_2)
-par(mfrow=c(1,2)
-    )
-plot(dx.h.edges.nf.obs_2, type = "duration"); plot(dx.h.edges.nf.obs_2, type = "dissolution")
-
-## Simulate based on the edge + nodefactor (w/o obs. dta of age.grp 4) model, plus the nodefactor term
+## Simulate using the above setting, plus the nodefactor term
 dx.h.edges.nf.obs.nf_w.sim <- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = ~edges + nodefactor("age.grp", levels = -1) + nodefactor("h_w", levels =2), 
+               nwstats.formula = ~edges + nodefactor("age.grp", levels = -1) + nodefactor("h_w", levels =2), # for h_2, level 1 corresponds to 0, level 2 corresponds to 1
                keep.tedgelist = TRUE
                )
 
@@ -391,23 +350,25 @@ dx.h.edges.nf.obs.nf_w.sim
 tstats.edge.nf_ag.nm.nf_w.h.rural 
 
 dx.h.edges.nf.obs.nf_w.sim$stats.table.formation  %>% 
-  mutate(Target = c(tstats.edge.nf_ag.h.rural, n*formation_stats$rural$correlate %>% as.numeric()*1),
+  mutate(Target = c(tstats.edge.nf_ag.h.rural, n*formation_stats$rural$correlate$h_w* formation_stats$rural$correlate$deg_w_dist[2]),
          `Pct Diff` = 100*(`Sim Mean`-Target)/Target ) # this indicate the need to adjust for the correlation effect from the other layer
+
 
 #  fit the correlation stat into the model
 est.h.edges.nf_3 <-
                netest(nw_rural_h, 
-                      formation = ~edges + nodefactor("age.grp", levels = -1) + nodefactor("h_w", levels =2), 
+                      formation = ~edges + nodefactor("age.grp", levels = c(2,3,5,6)) + nodefactor("h_w", levels =2), 
                       target.stats = 
-                        c(tstats.edge.nf_ag.h.rural, n*formation_stats$rural$correlate %>% as.numeric()*1), # dropping the 4th age group
+                        c(tstats.edge.nf_ag.h.rural[-4], 
+                          n*formation_stats$rural$correlate$h_w* formation_stats$rural$correlate$deg_w_dist[2] %>% as.numeric()), # dropping the 4th age group
                       coef.diss =  diss.h,
                  set.control.ergm = control.ergm(MCMLE.maxit = 100)
-                 )
+                 ) # unable to run model - check with Sam
 
 dx.h.edges.nf.obs.nf_w.obs <- netdx(est.h.edges.nf_3, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = ~edges + nodefactor("age.grp", levels = -1) + nodefactor("h_w", levels =2), 
+               nwstats.formula = ~edges + nodefactor("age.grp", levels = c(2,3,5,6))  + nodefactor("h_w", levels =2), 
                keep.tedgelist = TRUE
                ) # 20231013 here, take very long to estimate
 
