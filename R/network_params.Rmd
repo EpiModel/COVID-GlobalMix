@@ -93,7 +93,7 @@ india_mix <- india_participant %>%
                                        
                                        ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
          )  %>% 
-   ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household member contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts. 
+   ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household member contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
   mutate(
     contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
                                  hh_membership == "Non-member" & contact_location %in% c("Home") ~ "Nonhome",
@@ -131,7 +131,6 @@ india_mix$hh_membership
 
 
 ## Uncertainties of network statistics
-
 
 ```{r}
 
@@ -182,7 +181,7 @@ india_mix.site %>%
             )
 
 #### Number of contacts of the same age group, individual-level, for nodematch ####
-same.age.grp_count <- 
+same.age.grp_degree <- 
 india_mix.site %>% 
   mutate(same.age.grp = ifelse(participant_age == contact_age, 1, 0)
          
@@ -197,7 +196,7 @@ india_mix.site %>%
     )  
     ) %>%
   select(rec_id,  contact_location, participant_age, contact_age, same.age.grp
-         ) %>% 
+         )
   # Given nodematch is defined at the edge, I think the following code with 0 contact (i.e., w/o edge) don't need to be accounted
   # rbind(., 
   #       data.frame(
@@ -211,9 +210,10 @@ india_mix.site %>%
   #       )%>%
 
  # Replicate each observation/row w/ same.age.grp == 2 twice and recode these observations' same.age.grp to 1; for observations w/ same.age.grp = 1/0, we treat them as-is
-   filter(same.age.grp==2) %>% slice(rep(1:n(), each = 2)) %>% mutate(same.age.grp=1) %>% 
-    rbind(., same.age.grp_count %>% filter(same.age.grp !=2)
-          ) %>% rename(same.age.grp = same.age.grp) # reanme to a similar name
+same.age.grp_degree <- 
+  same.age.grp_degree %>% filter(same.age.grp==2) %>% slice(rep(1:n(), each = 2)) %>% mutate(same.age.grp=1) %>% 
+    rbind(., same.age.grp_degree %>% filter(same.age.grp !=2)
+          ) 
 
 
 #### Status of whether one group matched to another, for nodemix ####
@@ -301,7 +301,10 @@ age.grp_mix_degree <- list()
 names(age.grp_mix_degree)<- colnames(age.grp_mix %>% select(age.grp1_1:age.grp6_6)) # adding mixing as name to the list
     
    
- out <-list(contact_count, same.age.grp_count, age.grp_mix_degree); names(out) <- c("contact_degree", "sameage.grp.degree", "age.grp_mix_degree")
+ out <-list(contact_count, same.age.grp_degree#, age.grp_mix_degree
+            );
+ names(out) <- c("contact_degree", "same.age.grp_degree" #, "age.grp_mix_degree"
+                 )
   
   out
 
@@ -330,13 +333,13 @@ network_stats <- function(contact_count_site){
   
 # Edges 
 fit_edge <- 
-  contact_count_site$contact_count %>% 
+  contact_count_site$contact_degree %>% 
   glm(n_contacts~ -1+contact_location, data=., family = poisson) %>% summary() # coefficient for two-day contact rate
 
 fit_edge <- fit_edge$coefficients%>% as.data.frame()  # the two is averaging two-day's contact rate to one-day
 
 n_participants_site <- 
-contact_count_site$contact_count$rec_id %>% unique() %>% length()  # number of participants
+contact_count_site$contact_degree$rec_id %>% unique() %>% length()  # number of participants of a network
  
 fit_edge <- 
 fit_edge %>% 
@@ -364,15 +367,15 @@ output[[1]] <- fit_edge %>% rownames_to_column(var="contact_location") %>%
 
 
 # nodefactor - age.grp
-n_participants_nf_site <- # number of participants in each age.grp
-contact_count_site$contact_count %>% group_by( participant_age) %>% 
+n_participants_nf_site <- # number of participants in each age.grp in a network
+contact_count_site$contact_degree %>% group_by( participant_age) %>% 
   summarize(n_participants_nf_site = n_distinct(rec_id)) %>% mutate(participant_age = as.character(participant_age))
 
 nf <- data.frame() 
 for (i in 1:4 # characterize mean degree and uncertainties for each layer
      ) {
   fit_nf_single <- 
-  contact_count_site$contact_count %>% filter(contact_location == levels(contact_count_site$contact_count$contact_location)[i]) %>% 
+  contact_count_site$contact_degree %>% filter(contact_location == levels(contact_count_site$contact_degree$contact_location)[i]) %>% 
   glm(n_contacts~ -1+participant_age, data=., family = poisson) %>% summary() # coefficients for two-day contact rate
   
   fit_nf_single <- fit_nf_single$coefficients %>% as.data.frame()
@@ -402,7 +405,7 @@ for (i in 1:4 # characterize mean degree and uncertainties for each layer
               single_day_nf_upper95ci =  exp(single_day_nf_md_link +1.96*single_day_nf_se_link)
                     ) %>% select(participant_age, single_day_nf_md, single_day_nf_lower95ci, single_day_nf_upper95ci
                                  ) %>% 
-           mutate(contact_location = levels(contact_count_site$contact_count$contact_location)[i]) # specify layer
+           mutate(contact_location = levels(contact_count_site$contact_degree$contact_location)[i]) # specify layer
 
   
   
@@ -426,15 +429,15 @@ for (i in 1:4 #length(locations)
   
  
   data_nm <- 
-  contact_count_site$sameage.grp.count %>% filter(contact_location == levels(contact_count_site$sameage.grp.count$contact_location)[i]) 
+  contact_count_site$same.age.grp_degree %>% filter(contact_location == levels(contact_count_site$same.age.grp_degree$contact_location)[i]) 
     
   n_obs_age.grp <- data_nm %>% group_by(participant_age) %>% summarize(n=n()) %>% mutate(participant_age = as.character(participant_age)
-                                                                                         )
+                                                                                         ) # "n" is the total number of edges in each age agoup in a network
   
     
   fit_nm_single <- 
     data_nm %>% 
-  glm(same.age.grp_1 ~ -1+ participant_age,
+  glm(same.age.grp ~ -1+ participant_age,
                data = ., family = "binomial"
               )  %>% summary() # coefficients for two-day contact rate
   
@@ -465,7 +468,7 @@ for (i in 1:4 #length(locations)
               single_day_nm_upper95ci =  expit(single_day_nm_md_link +1.96*single_day_nm_se_link)
                     ) %>% select(participant_age, single_day_nm_md, single_day_nm_lower95ci, single_day_nm_upper95ci
                                  ) %>% 
-           mutate(contact_location = levels(contact_count_site$contact_count$contact_location)[i]) # specify layer
+           mutate(contact_location = levels(contact_count_site$same.age.grp_degree$contact_location)[i]) # specify layer
   
   nm <- 
   rbind(nm, fit_nm_single)
@@ -475,7 +478,7 @@ for (i in 1:4 #length(locations)
 output[[3]] <- nm
 
 
-# nodemix - porportion of edges of specific mixing among all the edges
+# nodemix TB finished - porportion of edges of specific mixing among all the edges
 
 
 
@@ -734,16 +737,25 @@ network_stats$rural$correlate$deg_w_dist <- deg.h_w.dist
 ```
 
 ## Contact durations
-For duration at the home layer, we assume it to be non-dissolving so it would be a large number. For duration at the nonhome layer, we assume it refreshes daily. The duration of the school and work layer is characterized in the following way. We tabulate time of knowing a contact and contact frequency to retrieve the distribution of daily contact under categories of the duration of knowing the contact. For a contact is known less than ≤ 10 years, we took the mid point of each know contact category as the duration. For a contact is know > 10 years, we the population average of the mid point between participant's age and 10 year as the duration. We multiple the proportion of daily contact (as weight) and the duration to calculate the duration. 
+For duration at the home layer, we assume it to be non-dissolving so it would be a large number. For duration at the nonhome layer, we assume it refreshes daily. The duration of the school and work layer is characterized in the following way. We tabulate time of knowing a contact and contact frequency to retrieve the distribution of daily contact under categories of the duration of knowing the contact. For a contact is known less than ≤ 10 years, we took the mid point of each know contact category as the duration. For a contact is know > 10 years, we the population average of the mid point between participant's age and 10 year as the duration. We multiple the proportion of daily contact (as weight) and the duration to calculate the known duration. There are few contact whose participants' age is less than the reported know contact duration of > 10 yrs, randering the characterized duration to be <0; we used the participant's age as the duration for these observations.
 ```{r}
 
 know_dur <- function(india_mix.){
   
-known_dur_gt_10yr <- india_mix. %>% filter(known_contact == ">10 yrs" & contact_location %in% c( "School", "Work" )
+  #  Characterize the known duration for known_contact >10 yrs
+known_dur_gt_10yr <- india_mix. %>% 
+  filter(known_contact == ">10 yrs" & contact_location %in% c( "School", "Work" )
                                   ) %>%
-    mutate(known_duration = (participant_ageyr - 10)/2) 
-#known_dur_gt_10yr %>% filter(known_duration<0) # participants w/ age < contact duration, discuss w/ Sam
+  #  the known duration is the middle point between 10 yrs and participants age
+    mutate(known_duration = (participant_ageyr - 10)/2
+           ) %>% 
+  # for participants whose characterized know duration < 0, we consider the known duration the same as participant's age.
+    mutate(
+      known_duration = case_when(known_duration <= 0 ~ participant_ageyr,
+                                 known_duration > 0 ~ known_duration) 
+    )
 
+  # Avg. known duration of contact in days by network and layer
 known_dur_gt_10yr <- 
 known_dur_gt_10yr %>% 
   group_by(study_site, contact_location) %>% 
@@ -751,6 +763,7 @@ known_dur_gt_10yr %>%
 
 known_duration <-
 india_mix. %>% 
+  # characterize  frequency of daily contact 
   filter(contact_location %in% c("School", "Work")) %>% 
   group_by(study_site, contact_location, frequency_contact, known_contact) %>% 
   tally() %>% 
@@ -758,14 +771,14 @@ india_mix. %>%
   select(study_site, contact_location, known_contact, daily ) %>% 
   filter(!is.na(known_contact)) %>% # filter out the empty category
   ungroup() %>% 
-  # characterize mid point for known duration for categories except >10yrs
+  # characterize mid point for known duration for categories except <= 10yrs
     mutate(know_contact_d = # median duration in days
            case_when(known_contact=="Never met before" ~0, 
                      known_contact=="<1 yr" ~182, # mid. point
                      known_contact=="1-2 yrs" ~ 548,# mid. point
                      known_contact=="3-5 yrs" ~ 1460,# mid. point
                      known_contact=="6-10 yrs" ~ 2922,# mid. point
-                     # avg. midpoint of knowing the contacts, based on participant's age, for those having know the contacts for > 10yrs
+                     # Avg. know duration of contact for known_contact >10 yrs
                      known_contact==">10 yrs" & study_site == "Rural" & contact_location == "School" ~ 
                        known_dur_gt_10yr %>% filter( study_site == "Rural" & contact_location == "School") %>% 
                        select(known_contact_avg) %>% as.numeric(),
@@ -781,10 +794,12 @@ india_mix. %>%
                      )
            ) %>% 
   group_by(study_site, contact_location) %>% 
+  
   mutate(
-     daily_prop = daily/sum(daily, na.rm = T), # proportion of daily contact,
-     weighted_known_contact_d = know_contact_d*daily_prop
-  ) %>%   # The script until here create a data frame of the midpoint of known duration of contact and daily proportion
+     daily_prop = daily/sum(daily, na.rm = T), # proportion of daily contact under each know_contact cateogry
+     weighted_known_contact_d = know_contact_d*daily_prop # duration of known contact weighted by daily contact proportion
+  ) %>%   
+  # weighted avg. of duration of contact
   summarize(know_contact_duration_avg = sum(weighted_known_contact_d, na.rm = T)
             ) %>% ungroup()
   
@@ -794,12 +809,8 @@ known_duration <- know_dur(india_mix. = india_mix)
 #saveRDS(known_duration, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/known_dur_school_work.RData")
 
 
-india_mix %>% filter(known_contact == ">10 yrs" & contact_location %in% c( "School", "Work" )
-                                  ) %>%
-    mutate(known_duration = (participant_ageyr - 10)/2) %>% filter(known_duration<0) %>% select(participant_ageyr, known_contact, known_duration)
 
-# Association between layer and household status, check with Sam
-## Moses indicates that frequency_contact and known_contact were only surveyed for non-household contacts from participants. We check whether there are HH member having contact at school/work. There are 4 school/work and 58 nonhome contacts  of household members. Since these non-home (school, work, other non-home) contacts that are of household members, Billy thinks they can be re-classified as home contact.
+
 
 
 
