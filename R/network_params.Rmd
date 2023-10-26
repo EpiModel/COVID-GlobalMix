@@ -222,7 +222,8 @@ india_mix.site %>%
   # select subset of variables for ouput
   select(rec_id, contact_location, participant_age, contact_age, fromdayone) %>% 
   
-  # The following levels are used to code the age groups "0-9y"~1, "10-19y"~2, "20-29y"~3, "30-39y"~4, "40-59y"~5, "60+y"~6  
+  # The following levels are used to code the age groups "0-9y"~1, "10-19y"~2, "20-29y"~3, "30-39y"~4, "40-59y"~5, "60+y"~6. 
+  # If an edge/contact's age groups matched with one of the 36 patterns, it will be assigned 1 for the corresponding matching pattern
   mutate(age.grp1_1 = ifelse(participant_age == "0-9y" & contact_age ==  "0-9y", 1, 0),
          age.grp1_2 = ifelse(participant_age == "0-9y" & contact_age ==  "10-19y", 1, 0),
          age.grp1_3 = ifelse(participant_age == "0-9y" & contact_age ==  "20-29y" , 1, 0),
@@ -267,7 +268,7 @@ india_mix.site %>%
          
            ) %>% 
  mutate(
-   # adjusting replicated contacts
+   # adjusting for replicated contacts
     across(
       c(age.grp1_1:age.grp6_6),
       ~case_when(
@@ -277,7 +278,7 @@ india_mix.site %>%
     T ~ . # for observation with fromdayone information missed, we return the original data
     )  )
     )
-# for each mixing, we replicate with contact with count == 2 into two rows and save each mixing as a component in list
+# for each mixing, we replicate contact with count == 2 into two rows and save each mixing as a component in list
 age.grp_mix_degree <- list()
 
   for (i in 6:ncol(age.grp_mix)
@@ -295,15 +296,18 @@ age.grp_mix_degree <- list()
   
   colnames(age.grp_single_mix)[length(colnames(age.grp_single_mix))] <- colnames(age.grp_mix)[i] # rename col back to its original name
   
-  age.grp_mix_degree[[i-5]] <- age.grp_single_mix %>% select(-fromdayone)
+  age.grp_mix_degree[[i-5]] <- age.grp_single_mix %>% select(-fromdayone) # store output in each iteration into a list
   }
 
 names(age.grp_mix_degree)<- colnames(age.grp_mix %>% select(age.grp1_1:age.grp6_6)) # adding mixing as name to the list
+
+# Check with Sam about the next steps
+
     
    
- out <-list(contact_count, same.age.grp_degree#, age.grp_mix_degree
+ out <-list(contact_count, same.age.grp_degree, age.grp_mix_degree
             );
- names(out) <- c("contact_degree", "same.age.grp_degree" #, "age.grp_mix_degree"
+ names(out) <- c("contact_degree", "same.age.grp_degree" , "age.grp_mix_degree"
                  )
   
   out
@@ -324,6 +328,97 @@ contact_freq_site(india_mix. = india_mix ,
            
            india_contact. = india_contact,
            study_site. ="Urban") 
+
+
+
+
+
+contact_count_rural$age.grp_mix_degree$age.grp1_2 %>% filter(contact_location == "Home") %>% 
+  group_by(participant_age, contact_location) %>% summarize(age.grp1_2 = mean(age.grp1_2)
+                                                            ) 
+
+
+
+contact_count_rural$age.grp_mix_degree$age.grp1_1 <- contact_count_rural$age.grp_mix_degree$age.grp2_2 <- contact_count_rural$age.grp_mix_degree$age.grp3_3 <- contact_count_rural$age.grp_mix_degree$age.grp4_4 <- 
+  contact_count_rural$age.grp_mix_degree$age.grp5_5 <- contact_count_rural$age.grp_mix_degree$age.grp6_6 <- NULL
+
+contact_count_rural$age.grp_mix_degree
+
+
+prop_mix_degree <- 
+function(mix_degree, age.grp.a, age.grp.b, contact_loc){
+
+dir_1 <-   paste0("age.grp", age.grp.a, "_",age.grp.b) # contact direction between participant in age group a and contact in age group b
+dir_2 <-   paste0("age.grp", age.grp.b, "_", age.grp.a)# contact direction between participant in age group b and contact in age group a 
+
+age_cats <- 
+mix_degree[[dir_1]] %>% filter(contact_location == contact_loc) %>% pull(participant_age) %>% levels()
+
+glm_nmix_dir_1 <-
+mix_degree[[dir_1]] %>% filter(contact_location == contact_loc) %>% rename_at(ncol(.), ~ "degree") %>% 
+  glm(degree ~ -1+ participant_age,
+               data = ., family = "binomial"
+              )  %>% summary()
+
+
+
+
+glm_nmix_dir_2 <-
+mix_degree[[dir_2]] %>% filter(contact_location == contact_loc) %>% rename_at(ncol(.), ~ "degree") %>%
+  glm(degree ~ -1+ participant_age,
+               data = ., family = "binomial"
+              )  %>% summary()
+
+mean(
+glm_nmix_dir_1$coefficients %>% as.data.frame() %>% rownames_to_column(var = "age.grp") %>% 
+  mutate(age.grp = str_replace(age.grp, "participant_age", "")) %>% filter(age.grp == age_cats[age.grp.a]) %>% pull(Estimate) %>% expit(),
+
+glm_nmix_dir_2$coefficients %>% as.data.frame() %>% rownames_to_column(var = "age.grp") %>% 
+  mutate(age.grp = str_replace(age.grp, "participant_age", "")) %>% filter(age.grp == age_cats[age.grp.b]) %>% pull(Estimate) %>% expit() )
+
+}
+
+mix_matrix <- 
+  matrix(NA, nrow = 6, ncol = 6) %>% 
+    as.data.frame(., 
+    row.names = c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y")
+    ) %>% rename("0-9y"=1, "10-19y"=2, "20-29y"=3, "30-39y"=4, "40-59y"=5, "60+y"=6)
+    
+## participant age.group == "0-9y"    
+for (j in 2:6) {
+  mix_matrix[1, j] <- 
+  prop_mix_degree(mix_degree = contact_count_rural$age.grp_mix_degree, age.grp.a = 1, age.grp.b = j, contact_loc = "Home") 
+}
+
+## participant age.group == "10-19y"    
+for (j in 3:6) {
+  mix_matrix[2, j] <- 
+  prop_mix_degree(mix_degree = contact_count_rural$age.grp_mix_degree, age.grp.a = 2, age.grp.b = j, contact_loc = "Home") 
+}
+
+## participant age.group == "20-29y"
+for (j in 4:6) {
+  mix_matrix[3, j] <- 
+  prop_mix_degree(mix_degree = contact_count_rural$age.grp_mix_degree, age.grp.a = 3, age.grp.b = j, contact_loc = "Home") 
+}
+
+## participant age.group == "30-39y"
+for (j in 5:6) {
+  mix_matrix[4, j] <- 
+  prop_mix_degree(mix_degree = contact_count_rural$age.grp_mix_degree, age.grp.a = 4, age.grp.b = j, contact_loc = "Home") 
+}
+
+## participant age.group == "40-59y"
+mix_matrix[5, 6] <- prop_mix_degree(mix_degree = contact_count_rural$age.grp_mix_degree, age.grp.a = 5, age.grp.b = 6, contact_loc = "Home") 
+
+mix_matrix # 20231025 start from here
+# # script for QC calculation in the function for nodemix stat
+# contact_count_rural$age.grp_mix_degree$age.grp1_2 %>% filter(contact_location == "Home") %>% group_by(participant_age) %>% 
+#    summarize(avg = mean(age.grp1_2), sum= sum(age.grp1_2), n = n()) 
+# contact_count_rural$age.grp_mix_degree$age.grp2_1 %>% filter(contact_location == "Home") %>% group_by(participant_age) %>% 
+#    summarize(avg = mean(age.grp2_1), sum= sum(age.grp2_1), n = n()) 
+
+
 
 # Function characterizing network statistics
 # 20231019 reach here - think how to characterize md for nodemmix - averaging the two direction?
@@ -478,8 +573,7 @@ for (i in 1:4 #length(locations)
 output[[3]] <- nm
 
 
-# nodemix TB finished - porportion of edges of specific mixing among all the edges
-
+#### nodemix TB finished - porportion of edges of specific mixing among all the edges ###
 
 
 names(output) <- c("edge", "nf.age.grp", "nm.age.grp")
