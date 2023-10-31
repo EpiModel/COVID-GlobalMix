@@ -8,7 +8,7 @@ editor_options:
 ---
 
 # Background
-Calculates the final target statistics for the network models by applying individual-level network statistics against the population size and structure.
+Calculates the target statistics for the network models by applying individual-level network statistics against the population size and structure.
 
 
 ```{r, echo=F, warning=F, message=FALSE}
@@ -138,7 +138,7 @@ nw_rural <- set_vertex_attribute(nw_rural, "age.grp",
 
 ############## Target statistics ##############
 
-# Number of edges per age group, node-level
+# Number of edges per age group, node-level, for nodefactor
 formation_stats$rural$nf.age.grp <- 
  formation_stats$rural$nf.age.grp %>% 
   left_join(
@@ -148,50 +148,92 @@ by = "participant_age"
   ) %>% mutate(nf.ag = single_day_nf_md*n_pop.age.grp # number of edges in each age group = md of each age group * number of node of each age group
                 ) 
 
-# Total Edges, edge-level
+ 
+# Total Edges, edge-level, for edge
 formation_stats$rural$edge <- 
 formation_stats$rural$edge %>% 
   mutate(edges=(single_day_md*n) /2
          ) %>% # the reason /2 is used here is because this is a edge-level statistic, this way didn't adjust for the age distribution of the target population.
   left_join( 
-formation_stats$rural$nf.age.grp %>% group_by(contact_location) %>% summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution
+formation_stats$rural$nf.age.grp %>% group_by(contact_location) %>% summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
 ),
 by = "contact_location"
-) 
+) %>% select(-edges) # given we decided to go with the total number edges adjust for age distribution of target population, we exclude this variable  
 
-formation_stats$rural$edge # check with Sam
+formation_stats$rural$edge 
 
 
-#  Number of matched edges, edge-level
-
+#  Number of matched edges in the same age group, edge-level, for node match
 ## nodematch(diff=T)
 formation_stats$rural$nm.age.grp <- 
 formation_stats$rural$nm.age.grp %>% 
-  left_join(
-target_age_distribut %>% filter(network == "rural") %>% 
-  rename(participant_age=target_age_grp) %>% select(participant_age, prop), # joining relative distribution of target population
-by = "participant_age"
-  ) %>% left_join(formation_stats$rural$edge %>% select(contact_location, edges_adj_age), by = "contact_location" # number of edges in each layer
-                  ) %>% 
   left_join(formation_stats$rural$nf.age.grp %>% select(participant_age, contact_location, nf.ag), by = c("participant_age", "contact_location")  # number of nodes in age group
             ) %>% 
-  # check with sam, about why two approach differs
-  mutate(nm.ag.frp= edges_adj_age*prop*single_day_nm_md, #(L112 in FRP script) - # number of edges in each layer * age proportion * prop of matched nodes
-         nm.ag.artnet= (nf.ag/2)*single_day_nm_md #(L372 in ARTnet script) # (number of nodes in each age group /2) * prop of matched nodes
+  mutate(
+         nm.ag= (nf.ag/2)*single_day_nm_md # adapted from ARTnet: (number of nodes in each age group /2) * prop of matched nodes
            )
 
 
-### Investigate components discuss w/ Sam
-# edge_ag_1 = [sum(single_day_nf_md*(prop*n))/2]*prop
-#edge_ag_2=[single_day_nf_md*(prop*n)]/2
-formation_stats$rural$nm.age.grp %>% mutate(edge_ag_1= edges_adj_age*prop, # this scenario doesn't account for the heterogeneity of the  observed mean degree at each age group as such heterogeneity is lost when summing the edges - hence,  1 is the marginal effect of 2
-                                            edge_ag_2 = nf.ag/2 # a more desirable approach
-                                            ) %>% View()# note 
-
 ## nodematch(diff=F)
 formation_stats$rural$nm.age.grp.sum <- 
-formation_stats$rural$nm.age.grp %>% group_by( contact_location) %>% summarize(nm_age.grp.sum = sum(nm.ag.artnet)
+formation_stats$rural$nm.age.grp %>% group_by( contact_location) %>% summarize(nm_age.grp.sum = sum(nm.ag)
                                                                                                )
+
+#  Number of matched edges in different age groups, edge-level, for node mix
+## Function for calculating target statistics of nodemix 
+target_stat_nmix <- 
+function(mix_matrix, nf.age.grp, layer){
+  mix_matrix[[layer]] %>% 
+  rownames_to_column(., var = "participant_age") %>% 
+   mutate(
+     `10-19y` = (nf.age.grp  %>% filter(contact_location == layer) %>% select(participant_age,  nf.ag) %>% filter(participant_age == "10-19y") %>% pull(nf.ag)/2 # check with Sam, should the proportion here be the average proportion of the two age groups or the age group of the egocentric node
+                 )*`10-19y`,
+     `20-29y` = (nf.age.grp  %>% filter(contact_location == layer) %>% select(participant_age,  nf.ag) %>% filter(participant_age == "20-29y") %>% pull(nf.ag)/2 
+                 )*`20-29y`,
+     `30-39y` = (nf.age.grp  %>% filter(contact_location == layer) %>% select(participant_age,  nf.ag) %>% filter(participant_age == "30-39y") %>% pull(nf.ag)/2 
+                 )*`30-39y`,
+     `40-59y` = (nf.age.grp  %>% filter(contact_location == layer) %>% select(participant_age,  nf.ag) %>% filter(participant_age == "40-59y") %>% pull(nf.ag)/2 
+                 )*`40-59y`,
+     `60+y` = (nf.age.grp  %>% filter(contact_location == layer) %>% select(participant_age,  nf.ag) %>% filter(participant_age == "60+y") %>% pull(nf.ag)/2 
+               )*`60+y`
+    #20-29y     30-39y     40-59y       60+y
+        # nm.ag= (nf.ag/2)*single_day_nm_md # adapted from ARTnet: (number of nodes in each age group /2) * prop of matched nodes
+           ) 
+  
+}
+## Home
+target_stat_nmix(
+   layer = "Home",
+mix_matrix = formation_stats$rural$nodemix,
+nf.age.grp = formation_stats$rural$nf.age.grp
+                  )
+
+## School
+target_stat_nmix(
+   layer = "School",
+mix_matrix = formation_stats$rural$nodemix,
+nf.age.grp = formation_stats$rural$nf.age.grp
+                  )
+## Work
+target_stat_nmix(
+   layer = "Work",
+mix_matrix = formation_stats$rural$nodemix,
+nf.age.grp = formation_stats$rural$nf.age.grp
+                  )
+
+## Nonhome
+target_stat_nmix(
+   layer = "Nonhome",
+mix_matrix = formation_stats$rural$nodemix,
+nf.age.grp = formation_stats$rural$nf.age.grp
+                  )
+ 
+## nodematch(diff=F)
+formation_stats$rural$nm.age.grp.sum <- 
+formation_stats$rural$nm.age.grp %>% group_by( contact_location) %>% summarize(nm_age.grp.sum = sum(nm.ag)
+                                                                                               )
+
+
 
 # Effect from another layer
 ## this effect = n* md_{h_w}* (proportion): The script for calculating it is in 735-746 in NetParam
@@ -246,7 +288,7 @@ tstats.edge.nf_ag.h.rural <- c(formation_stats$rural$edge %>% filter(contact_loc
 
 ## nodematch, diff = T
 tstats.edge.nf_ag.nm.h.rural <- c(tstats.edge.nf_ag.h.rural, 
-                               (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Home" ) %>% pull(nm.ag.artnet))[-1])
+                               (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Home" ) %>% pull(nm.ag))[-1])
 
 ## nodematch, diff = F
 tstats.edge.nf_ag.nmunif.h.rural <- c(tstats.edge.nf_ag.h.rural, 
