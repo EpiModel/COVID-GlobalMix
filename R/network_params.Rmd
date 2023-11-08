@@ -663,36 +663,33 @@ names(network_stats) <- c("rural", "urban")
 ## Correlation between layers
 We tabulated the degrees between layers. In both the rural and urban networks, the contacts at school and work are relatively separated
 ```{r}
-
-# rural
-# individual-level contact count at different locations by row
-## converting long format data to wide format 
- contact_degree_wide_rural  <- 
+# Getting individual-level contact count at different locations by row through converting long format data to wide format 
+## rural 
+contact_count_wide_rural  <- 
 contact_count_rural$contact_degree %>% data.frame()%>% 
   tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
                      ) %>%  # 608 rows, each row for a participant
   as.data.frame()
  
- # urban
-## data to wide format 
- contact_degree_wide_urban  <- 
+## urban
+ contact_count_wide_urban  <- 
 contact_count_urban$contact_degree %>% data.frame()%>% 
   tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
                      ) %>%  # 624 rows, each row for a participant
   as.data.frame()
 
-
-# spearman correlation,rural
-contact_degree_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
+# Visally evaluation correlation between layers
+## spearman correlation,rural
+contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
                                                                                           )
                                                                              )
 
-# spearman correlation,urban
-contact_degree_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
+## spearman correlation,urban
+contact_count_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
 
 
 
-# Poisson regression for associations of degree between layers
+# Function to conduction bivariate Poisson regression for associations of degree between layers
 assoc_btw_layers <- function(contact_count_wide, category_type, output_type){
 
   output_model <-   list()
@@ -828,69 +825,68 @@ contact_count_wide
 }
 }
 
-## Rural
-### Bivariate predictors
+# Rural, Bivariate predictors, assessing association between layers
 layer_rural_assoc_bi <- 
 assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "model")
 layer_rural_assoc_bi_summary <- 
 assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "summary")
 layer_rural_assoc_bi_summary[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),]
-layer_rural_assoc_bi_data <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "data")
 
+
+## Effect of the work layer on home layer
 #### The following script is adapted from "NetParams.R" in ARTnet
 h_w <- predict(layer_rural_assoc_bi$h_w, newdata = data.frame(Work_cat = factor(1) # characterize the MD of home explained by work contact 
                                                  ), 
                 type = "response", interval = "confidence") %>% as.numeric()/2 # we add 2 here to covert the two-day MD to single-day MD
 
 
-deg.h_w.dist <- prop.table(table(layer_rural_assoc_bi_data$Work_cat))
-
-##### Given the non home layer is also significant, we use a multivariate model to adjust for the effects of work and nonhome on home
+## effect of the work and non-home layers on home layer 
+###Given the non home layer is also significant, we use a multivariate model to adjust for the effects of work and nonhome on home
+ layer_rural_assoc_bi_data <- 
+ assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "data")
 layer_rural_assoc_h_w_nh <- 
 layer_rural_assoc_bi_data %>% 
   glm(Home~ Work_cat + Nonhome_cat, data=., family = poisson(link=log)
       ) 
 
-layer_rural_assoc_h_w_nh %>% summary() # both layer predictors are significant in the multivariate model
+layer_rural_assoc_h_w_nh %>% summary() # both layer predictors are significant and negative in the multivariate model
 
+#### characterize the MD of home explained by work and nonhome contacts 
 h_w_nh <-  predict(layer_rural_assoc_h_w_nh, 
-                   newdata = data.frame(Work_cat = factor(1), # characterize the MD of home explained by work contact 
+                   newdata = data.frame(Work_cat = factor(1), 
                                         Nonhome_cat = factor(1)
                                                  ), 
                 type = "response", interval = "confidence") %>% as.numeric()/2
 
 #### compare h_w and h_w_nh to the observed overall MD at home
-network_stats_rural$edge; h_w; h_w_nh # as expected, the MD adjusting for the two other layers is lower. 
+network_stats_rural$edge %>% filter(contact_location == "Home") ; h_w; h_w_nh # as expected, the MD adjusting for the two other layers is lower. 
 
-#### 20231103 start from here -  see how to character target stats with multiple predictor...866
+# Characterize target stats 
+## When the predictor is one layer
+deg.h_w.dist <- prop.table(table(layer_rural_assoc_bi_data$Work_cat))
+##  nodefactor("deg.work") under 1 predictor, the proportion is (total nodes)*prop(==1)*(predicted MD)
+1e4*deg.h_w.dist[-1]*h_w
 
-
-### Multivariate predictors
-layer_rural_assoc_multi  <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "nonbinary", output_type = "model")
-
-layer_rural_assoc_multi_summary  <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "nonbinary", output_type = "summary")
-
-
+## When the predictors are two layers
+### line 419 -428 
+### line 427 get a proportion of in both home and work? seems hard to adapt as the two layers are not the same as the causal attribute and geography in ARTnet
 
 
-
-
-
-## Urban
-### Bivariate predictors
+## Urban, Bivariate predictors, assessing all association between layers
 layer_urban_assoc_bi <- 
 assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "binary", output_type = "model")
 layer_urban_assoc_bi_summary <- 
 assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "binary", output_type = "summary")
 layer_urban_assoc_bi_summary[-c(2,4,6, 9,11,13, 16, 18, 20, 21, 23, 25, 27),]
-### Multivariate predictors
-layer_urban_assoc_multi  <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "nonbinary", output_type = "model")
 
-layer_urban_assoc_multi_summary  <- 
+
+# Multivariate predictors
+layer_rural_assoc_multi  <- 
+assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "nonbinary", output_type = "summary"
+                 )
+
+
+layer_urban_assoc_multi  <- 
 assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "nonbinary", output_type = "summary")
 
 

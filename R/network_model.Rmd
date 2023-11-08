@@ -137,12 +137,19 @@ nw_rural <- set_vertex_attribute(nw_rural, "age.grp",
 
 
 ############## Target statistics ##############
-
+# Baseline target statistics
+## function to calculate formation target stats for ~ edge + nodefactor(age.grp) + nodematch(age.grp)
+target_stats_form_base <- 
+   function(form_stat, 
+            target_age_dist,
+            n_node
+            ){
+  
 # Number of edges per age group, node-level, for nodefactor
-formation_stats$rural$nf.age.grp <- 
- formation_stats$rural$nf.age.grp %>% 
+form_stat$nf.age.grp <- 
+ form_stat$nf.age.grp %>% 
   left_join(
-target_age_distribut %>% filter(network == "rural")%>% mutate(n_pop.age.grp=round(prop*n)) %>% #  number of nodes in each age group = relative distribution of age group of the target population * total nodes
+target_age_dist %>% mutate(n_pop.age.grp=round(prop*n_node)) %>% #  number of nodes in each age group = relative distribution of age group of the target population * total network nodes 
   rename(participant_age=target_age_grp) %>% select(participant_age, n_pop.age.grp), 
 by = "participant_age"
   ) %>% mutate(nf.ag = single_day_nf_md*n_pop.age.grp # number of edges in each age group = md of each age group * number of node of each age group
@@ -150,24 +157,24 @@ by = "participant_age"
 
  
 # Total Edges, edge-level, for edge
-formation_stats$rural$edge <- 
-formation_stats$rural$edge %>% 
-  mutate(edges=(single_day_md*n) /2
+form_stat$edge <- 
+form_stat$edge %>% 
+  mutate(edges=(single_day_md*n_node) /2 
          ) %>% # the reason /2 is used here is because this is a edge-level statistic, this way didn't adjust for the age distribution of the target population.
   left_join( 
-formation_stats$rural$nf.age.grp %>% group_by(contact_location) %>% summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
+form_stat$nf.age.grp %>% group_by(contact_location) %>% summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
 ),
 by = "contact_location"
 ) %>% select(-edges) # given we decided to go with the total number edges adjust for age distribution of target population, we exclude this variable  
 
-formation_stats$rural$edge 
+
 
 
 #  Number of matched edges in the same age group, edge-level, for node match
 ## nodematch(diff=T)
-formation_stats$rural$nm.age.grp <- 
-formation_stats$rural$nm.age.grp %>% 
-  left_join(formation_stats$rural$nf.age.grp %>% select(participant_age, contact_location, nf.ag), by = c("participant_age", "contact_location")  # number of nodes in age group
+form_stat$nm.age.grp <- 
+form_stat$nm.age.grp %>% 
+  left_join(form_stat$nf.age.grp %>% select(participant_age, contact_location, nf.ag), by = c("participant_age", "contact_location")  # number of nodes in age group
             ) %>% 
   mutate(
          nm.ag= (nf.ag/2)*single_day_nm_md # adapted from ARTnet: (number of nodes in each age group /2) * prop of matched nodes
@@ -175,14 +182,42 @@ formation_stats$rural$nm.age.grp %>%
 
 
 ## nodematch(diff=F)
-formation_stats$rural$nm.age.grp.sum <- 
-formation_stats$rural$nm.age.grp %>% group_by( contact_location) %>% summarize(nm_age.grp.sum = sum(nm.ag)
+form_stat$nm.age.grp.sum <- 
+form_stat$nm.age.grp %>% group_by( contact_location) %>% summarize(nm_age.grp.sum = sum(nm.ag)
                                                                                                )
 
+form_stat
+   }
+
+formation_stats$rural <- 
+target_stats_form_base(form_stat = formation_stats$rural, 
+                       target_age_dist = target_age_distribut %>% filter(network == "rural"),
+                       n_node = n
+                       )
+
+
+formation_stats$urban <- 
+target_stats_form_base(form_stat = formation_stats$urban, 
+                       target_age_dist = target_age_distribut %>% filter(network == "urban"),
+                       n_node = n
+                       )
+
+# Evaluating target stats
+## nf
+formation_stats$rural$nf.age.grp %>% select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)
+formation_stats$urban$nf.age.grp %>% select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)
+
+## nm
+formation_stats$rural$nm.age.grp %>% select(participant_age, contact_location, nm.ag ) %>% pivot_wider(names_from = participant_age, values_from = nm.ag) # NA mean the edge wasn't observed
+formation_stats$urban$nm.age.grp %>% select(participant_age, contact_location, nm.ag ) %>% pivot_wider(names_from = participant_age, values_from = nm.ag)
+ 
 #  Number of matched edges in different age groups, edge-level, for node mix
-## Function for calculating target statistics of nodemix 
+## Function for calculating target statistics of nodemix - talk to Sam about this 11/10 meeting.
 target_stat_nmix <- 
-function(mix_matrix, nf.age.grp, layer){
+function(mix_matrix, 
+         nf.age.grp, # 
+         layer # network layer
+         ){
   mix_matrix[[layer]] %>% 
   rownames_to_column(., var = "participant_age") %>% 
    mutate(
@@ -207,6 +242,8 @@ target_stat_nmix(
 mix_matrix = formation_stats$rural$nodemix,
 nf.age.grp = formation_stats$rural$nf.age.grp
                   )
+
+formation_stats$rural$nodemix$Home
 
 ## School
 target_stat_nmix(
@@ -244,27 +281,57 @@ n*formation_stats$rural$correlate$h_w* formation_stats$rural$correlate$deg_w_dis
 
 ```
 
-## Model fitting and simulation
+
+
+
+## Model arguments set up
+By default, we exclude the 1st age group (0-10 years old)
 ```{r, warning=F, message=FALSE, echo=T}
 # Formulation model
-# formation.edge <- 
-#   ~edges 
-formation.edge.nf_ag <- 
-  ~edges + nodefactor("age.grp" , levels = 2:6) 
-formation.edge.nf_ag.nm <- 
+## model for home and nonhome layers, rural
+formation.edge_age.nf.nm <- 
   ~edges + nodefactor("age.grp" , levels = 2:6) + nodematch("age.grp" , levels = 2:6, diff=T)
-formation.edge.nf_ag.nm_1 <- # dropping the 4th age group which has the best fit
-  ~edges + nodefactor("age.grp", levels = c(2, 3, 5, 6))+ nodematch("age.grp",  levels = 2:6, diff = T)
 
-formation.edge.nf_h_w <- 
-  ~edges + nodefactor("h_w" , levels = 1)
 
+## other formaulation
+# ###   ~edges
+# formation.edge.nf_ag <-
+#   ~edges + nodefactor("age.grp" , levels = 2:6)
+# 
+# formation.edge.nf_ag.nm_1 <- # dropping the 4th age group which has the best fit
+#   ~edges + nodefactor("age.grp", levels = c(2, 3, 5, 6))+ nodematch("age.grp",  levels = 2:6, diff = T)
+# 
+# formation.edge.nf_h_w <-
+#   ~edges + nodefactor("h_w" , levels = 1)
+# 
+
+# Target statistics of formation
+## home, rural
+tstats.edge_age.nf.nm.h.rural <- c(formation_stats$rural$edge %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age), # edge
+                            (formation_stats$rural$nf.age.grp %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1],  # nodefactor
+                            (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Home" ) %>% pull(nm.ag))[-1]  # nodematch
+                            )
+## nonhome, rural
+tstats.edge_age.nf.nm.nonh.rural <- c(formation_stats$rural$edge %>% filter(contact_location == "Nonhome" ) %>% pull(edges_adj_age), # edge
+                            (formation_stats$rural$nf.age.grp %>% filter(contact_location == "Nonhome" ) %>% pull(nf.ag))[-1],  # nodefactor
+                            (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Nonhome" ) %>% pull(nm.ag))[-1]  # nodematch
+                            )
+## school, rural
+tstats.edge_age.nf.s.rural <- c(formation_stats$rural$edge %>% filter(contact_location == "School" ) %>% pull(edges_adj_age), # edge
+                            (formation_stats$rural$nf.age.grp %>% filter(contact_location == "School" ) %>% pull(nf.ag))[-1]  # nodefactor, remove the oldest group, which has the lowest number of nodes (<10)
+                            )
+
+## Work, rural
+tstats.edge_age.nf.w.rural <- c(formation_stats$rural$edge %>% filter(contact_location == "Work" ) %>% pull(edges_adj_age), # edge
+                            (formation_stats$rural$nf.age.grp %>% filter(contact_location == "Work" ) %>% pull(nf.ag))[-c(1)]  # nodefactor, remove the first two youngest groups , which has the lowest number of nodes (<10)
+                            )
 
 
 
 # Dissolution model
 diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # very large number, edge doesn't dissolve
 diss.nh <- dissolution_coefs(dissolution = ~offset(edges), duration = 1) # non-persistent (turnover every day)
+
 diss.school.rural <- dissolution_coefs(dissolution = ~offset(edges), 
                                        duration = dissolution_stats %>% filter(study_site=="Rural" & contact_location=="School") %>% pull(know_contact_duration_avg)
                                        ) 
@@ -280,79 +347,51 @@ diss.work.urban <- dissolution_coefs(dissolution = ~offset(edges),
 
 
 
-# Target statistics, home, rural
-# tstats.edge.h.rural <- formation_stats$rural$edge %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age)
 
-tstats.edge.nf_ag.h.rural <- c(formation_stats$rural$edge %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age),
-                            (formation_stats$rural$nf.age.grp %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1])
-
-## nodematch, diff = T
-tstats.edge.nf_ag.nm.h.rural <- c(tstats.edge.nf_ag.h.rural, 
-                               (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Home" ) %>% pull(nm.ag))[-1])
-
-## nodematch, diff = F
-tstats.edge.nf_ag.nmunif.h.rural <- c(tstats.edge.nf_ag.h.rural, 
-                               formation_stats$rural$nm.age.grp.sum %>% filter(contact_location == "Home" ) %>% pull(nm_age.grp.sum))
-
-tstats.edge.nf_ag.nm.nf_w.h.rural <- c(tstats.edge.nf_ag.nm.h.rural, n*formation_stats$rural$correlate$h_w* formation_stats$rural$correlate$deg_w_dist[2])
 
 
 
 ```
 
-## Modeling for rural, home 
-```{r, warning=F, message=FALSE, echo=T}
+## Model fitting and simulation
+## Rural network
+### Home
+```{r echo=T, message=FALSE, warning=FALSE}
 # model with data of Edge + nodefactor(age.grp) 
-est.h.edges.nf <- netest(nw_rural_h, 
-                      formation = ~edges + nodefactor("age.grp", levels = c(2,3,4,5,6)), 
-                      target.stats = tstats.edge.nf_ag.h.rural, 
+
+
+est.h.edges.nf.nm <- netest(nw_rural, 
+                      formation = formation.edge_age.nf.nm, 
+                      target.stats = tstats.edge_age.nf.nm.h.rural, 
                       coef.diss =  diss.h,
                  set.control.ergm = control.ergm(MCMLE.maxit = 500)
                  )
 
-est.h.edges.nf_1 <- netest(nw_rural, 
-                      formation = ~edges + nodefactor("age.grp", levels = c(2,3,4,5,6)), 
-                      target.stats = tstats.edge.nf_ag.h.rural, 
-                      coef.diss =  diss.h,
-                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
-                 )
-
-
-
-
-dx.h.edges.nf.obs_1<- netdx(est.h.edges.nf_1, nsims = 20, ncores = 8, 
+dx.h.edges.nf.nm <- netdx(est.h.edges.nf.nm, nsims = 20, ncores = 8, 
                    nsteps = 1000, dynamic = T,
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = formation.edge.nf_ag, 
-               keep.tedgelist = TRUE
-               )
-
-## Simulate based on the above estimates using full edge + nodefactor(age.grap) model + nodematch diff =  T
-### diff = F
-dx.h.edges.nf.nm.sim<- netdx(est.h.edges.nf, nsims = 20, ncores = 8, 
-                   nsteps = 1000, dynamic = T,
-               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = formation.edge.nf_ag.nm, 
+               nwstats.formula = formation.edge_age.nf.nm, 
                keep.tedgelist = TRUE
                )
 
 
-dx.h.edges.nf.nm.sim$stats.table.formation  %>% 
-  mutate(Target = tstats.edge.nf_ag.nm.h.rural,
-         `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.nm.h.rural)/tstats.edge.nf_ag.nm.h.rural )
 
-## Simulate based on the above estimates using full edge + nodefactor(age.grap) model + nodematch diff =  F
-dx.h.edges.nf.nmunif.sim<- netdx(est.h.edges.nf, nsims = 20, ncores = 8, 
-                   nsteps = 1000, dynamic = T,
-               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = 
-                 ~edges + nodefactor("age.grp", levels = 2:6) + nodematch("age.grp", diff = F), 
-               keep.tedgelist = TRUE
-               )
-
-dx.h.edges.nf.nmunif.sim$stats.table.formation  %>% 
-  mutate(Target = tstats.edge.nf_ag.nmunif.h.rural,
-         `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.nmunif.h.rural)/tstats.edge.nf_ag.nmunif.h.rural )
+# dx.h.edges.nf.nm.sim$stats.table.formation  %>% 
+#   mutate(Target = tstats.edge.nf_ag.nm.h.rural,
+#          `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.nm.h.rural)/tstats.edge.nf_ag.nm.h.rural )
+# 
+# ## Simulate based on the above estimates using full edge + nodefactor(age.grap) model + nodematch diff =  F
+# dx.h.edges.nf.nmunif.sim<- netdx(est.h.edges.nf, nsims = 20, ncores = 8, 
+#                    nsteps = 1000, dynamic = T,
+#                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+#                nwstats.formula = 
+#                  ~edges + nodefactor("age.grp", levels = 2:6) + nodematch("age.grp", diff = F), 
+#                keep.tedgelist = TRUE
+#                )
+# 
+# dx.h.edges.nf.nmunif.sim$stats.table.formation  %>% 
+#   mutate(Target = tstats.edge.nf_ag.nmunif.h.rural,
+#          `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_ag.nmunif.h.rural)/tstats.edge.nf_ag.nmunif.h.rural )
 
 
 #  fit the correlation stat into the model
@@ -419,9 +458,93 @@ dx.h.edges.nf.nmunif.sim$stats.table.formation  %>%
 
 ```
 
+### Nonhome
+```{r, warning=F, message=FALSE, echo=T}
+# model with data of Edge + nodefactor(age.grp) 
+
+est.nh.edges.nf.nm <- netest(nw_rural, 
+                      formation = formation.edge_age.nf.nm, 
+                      target.stats = tstats.edge_age.nf.nm.nonh.rural, 
+                      coef.diss =  diss.nh,
+                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
+                 )
+
+dx.nh.edges.nf.nm <- netdx(est.nh.edges.nf.nm, nsims = 1000, ncores = 8,  # incease n sim
+                   #nsteps = 1000, 
+                   dynamic = F, # this is an ERGM rather than TERGM
+               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+               nwstats.formula = formation.edge_age.nf.nm, 
+               keep.tedgelist = TRUE
+             ) 
+
+dx.nh.edges.nf.nm
+
+```
+
+### School
+```{r, warning=F, message=FALSE, echo=T}
+# model with data of Edge + nodefactor(age.grp) 
+est.s.edges.nf <- netest(nw_rural, 
+                      formation = ~edges + nodefactor("age.grp" , levels = 1:5) , 
+                      target.stats = tstats.edge_age.nf.s.rural, # we are passing low values. Its trying to find the value for the 6 one.
+                      coef.diss =  diss.school.rural,
+                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
+                 )
+
+# dx.s.edges.nf <- netdx(est.s.edges.nf, nsims = 20, ncores = 8, 
+#                    nsteps = 1000, 
+#                    dynamic = T, 
+#                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+#                nwstats.formula = ~edges + nodefactor("age.grp" , levels = 1:5), 
+#                keep.tedgelist = TRUE
+#                )
+
+# dx.s.edges.nf 
 
 
 
+
+```
+
+### Work
+```{r, warning=F, message=FALSE, echo=T}
+# model with data of Edge + nodefactor(age.grp) 
+est.w.edges.nf <- netest(nw_rural, 
+                      formation = ~edges + nodefactor("age.grp" , levels = 3:6) , 
+                      target.stats = tstats.edge_age.nf.w.rural, 
+                      coef.diss =  diss.work.rural,
+                 set.control.ergm = control.ergm(MCMLE.maxit = 500)
+                 )
+
+dx.w.edges.nf<- netdx(est.w.edges.nf, nsims = 20, ncores = 8, 
+                   nsteps = 1000, 
+                   dynamic = T, 
+               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+               nwstats.formula = ~edges + nodefactor("age.grp" , levels = 3:6), 
+               keep.tedgelist = TRUE
+               )
+
+dx.w.edges.nf 
+
+# simulation adding an extra term
+dx.w.edges.nf.nm_sim <- netdx(est.w.edges.nf, nsims = 20, ncores = 8, 
+                   nsteps = 1000, 
+                   dynamic = T, 
+               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+               nwstats.formula = ~edges + nodefactor("age.grp" , levels = 3:6) + nodematch("age.grp" , levels = 3:6, diff = T), 
+               keep.tedgelist = TRUE
+               )
+
+dx.w.edges.nf.nm_sim 
+
+tstats.edge.nf_nm.work.rural <- 
+c(tstats.edge_age.nf.w.rural, (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Work" ) %>% pull(nm.ag))[3:6])
+
+ dx.w.edges.nf.nm_sim$stats.table.formation  %>% 
+   mutate(Target = tstats.edge.nf_nm.work.rural,
+          `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_nm.work.rural)/tstats.edge.nf_nm.work.rural )
+
+```
 
 
 
