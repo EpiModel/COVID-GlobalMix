@@ -94,13 +94,14 @@ india_mix <- india_participant %>%
                                        ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
          )  %>% 
    ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household member contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
-  mutate(
-    contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
-                                 hh_membership == "Non-member" & contact_location %in% c("Home") ~ "Nonhome",
-                                 T ~ contact_location
-                                 )
-
-  ) %>%
+  # Note unmute this after analysis replicated contact
+  # mutate(
+  #   contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
+  #                                hh_membership == "Non-member" & contact_location %in% c("Home") ~ "Nonhome",
+  #                                T ~ contact_location
+  #                                )
+  # 
+  # ) %>%
   mutate(contact_location = factor(contact_location,
                                     levels = c("Home", "School", "Work", "Nonhome")
                                    )
@@ -129,6 +130,61 @@ india_mix$hh_membership
 
 
 ```
+
+
+
+## Repeated contacts
+
+
+### Descriptive analysis of repeated/unique contacts in the school, work, and other non-home category
+```{r, echo=F, warning=F, message=FALSE}
+nonhome_dup_descib <- function(mix, network){
+  
+  output <- list()
+  
+# Frequency of contact type
+output$overall_freq <- 
+  mix %>% filter(study_site==network & contact_location %in% c( "Nonhome",  "School",    "Work" )) %>% group_by(fromdayone) %>% 
+  summarize(n=n()
+            ) %>% 
+  mutate(prop = n/sum(n)) %>% # ~2/3 of the contacts in the nonhome category were duplicated 
+  mutate_if(is.numeric, round, 3)
+# Frequency of contact repeated contact by contact location
+location_labs <- as.character(sjlabelled::get_label(mix))
+location_labs <-as.character(location_labs)[which(location_labs=="My home"):which(location_labs=="Other")]
+location_freq <- 
+mix %>% filter(study_site==network & contact_location %in% c( "Nonhome",  "School",    "Work" ) & fromdayone == "Both days")%>%
+  select(location_contact___0:location_contact___19) %>% `colnames<-`(location_labs)  %>% colSums() %>% sort(., decreasing =T) # most contacts occurred at school, street, and other's home 
+ 
+output$location_freq <- 
+location_freq[location_freq>100] 
+output
+}
+nonhome_dup_rural <- 
+nonhome_dup_descib(mix = india_mix, network = "Rural")
+nonhome_dup_urban <- 
+nonhome_dup_descib(mix = india_mix, network = "Urban")
+```
+The following figure shows the frequency of duplicated non-home contacts by contact location of the two-day study period. Contact locations with frequencies > 100 were shown.
+```{r, echo=F, warning=F, message=FALSE}
+n_participant_rural <- india_participant %>% filter(study_site == "Rural") %>% pull(rec_id) %>% unique() %>% length()
+n_participant_urban <- india_participant %>% filter(study_site == "Urban") %>% pull(rec_id) %>% unique() %>% length()
+par(mfrow = c(2, 2), mar=c(5, 4, 4, 2) + 0.5) 
+barplot(nonhome_dup_rural$location_freq, main = "Rural", ylab = "Total frequency of the whole population", ylim = c(0, 1100),
+        las = 2, 
+        cex.names = 1)
+barplot(nonhome_dup_urban$location_freq, main = "Urban", ylab = "Total frequency of the whole population", ylim = c(0,1100),
+        las = 2, cex.names = 1)
+
+barplot(nonhome_dup_rural$location_freq/n_participant_rural, main = "Rural", ylab = "Mean contacts per participant", ylim = c(0, 2),
+        las = 2, 
+        cex.names = 1)
+barplot(nonhome_dup_urban$location_freq/n_participant_urban, main = "Urban", ylab = "Mean contacts per participant", ylim = c(0,2),
+        las = 2, cex.names = 1)
+
+```
+
+
 
 
 ## Uncertainties of network statistics

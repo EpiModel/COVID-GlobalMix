@@ -359,6 +359,7 @@ diss.work.urban <- dissolution_coefs(dissolution = ~offset(edges),
 ```{r echo=T, message=FALSE, warning=FALSE}
 # model with data of Edge + nodefactor(age.grp) 
 
+# 20231107 reach here, start by supplying 0 to low degree levels.
 
 est.h.edges.nf.nm <- netest(nw_rural, 
                       formation = formation.edge_age.nf.nm, 
