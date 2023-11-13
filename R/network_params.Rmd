@@ -286,14 +286,14 @@ age.grp_mix_degree <- list()
   for (i in 6:ncol(age.grp_mix)
        ) {
     age.grp_single_mix <- 
-      age.grp_mix%>% select(rec_id:fromdayone, all_of(i)) %>% 
-      rename(mix_count =ncol(.) # give a temporal col name to facilitate data manipulation
+      age.grp_mix%>% select(rec_id:fromdayone, all_of(i)) %>% #select variables of rec_id, contact_location, participant_age, contact_age, fromdayone and the status of whether an edge exist for a mixing pattern
+      rename(mix_count =ncol(.) # give a temporal col name "mix_count" to facilitate data manipulation
              )  
-     # Replicate each observation/row w/ mix_count == 2 twice and recode these observations' mix_count to 1; for observations w/ mix_count = 1/0, we treat them as-is
+     # Replicate each observation/row w/ mix_count == 2 twice and recode these observations' mix_count to 1 after the replication; for observations w/ mix_count = 1/0, we treat them as-is
   age.grp_single_mix <- 
     age.grp_single_mix %>% 
-  filter(mix_count==2) %>% slice(rep(1:n(), each = 2)) %>% mutate(mix_count=1) %>%
-   rbind(., age.grp_single_mix %>% filter(mix_count !=2)
+  filter(mix_count==2) %>% slice(rep(1:n(), each = 2)) %>% mutate(mix_count=1) %>% # these are the replicated contacts who were replicated twice, and we duplicate each of them into two edges (rows)
+   rbind(., age.grp_single_mix %>% filter(mix_count !=2) # these are the non-replicated contacts, we treat them as-is
          ) 
   
   colnames(age.grp_single_mix)[length(colnames(age.grp_single_mix))] <- colnames(age.grp_mix)[i] # rename col back to its original name
@@ -332,7 +332,7 @@ contact_freq_site(india_mix. = india_mix ,
            study_site. ="Urban") 
 
 
-# Function calculating directional mixing proportion for single mixing at the age group level, with age.grp.a as the age group of the egocentric population
+# Function calculating directional mixing proportion for single mixing at the age group level (mixing between grp 1 and grp 2 and between grp 2 and grp 1), with argument age.grp.a as the age group of the egocentric population
 mix_prop <- # discuss with Sam
 function(mix_degree, age.grp.a, age.grp.b, contact_loc){
 
@@ -389,96 +389,73 @@ data.frame(matrix(c(prop_dir_1, prop_dir_2), nrow =1, ncol =2)) %>% setNames(c(d
 }
 
 
-# Function calculating 
-avg_mix_prop_all_layers <- 
-function(mix_degree_site){
- mix_matrices <- list()
- layers <- c("Home", "School", "Work", "Nonhome")
- 
-# calculating for each layer
-for (i in 1:4) { 
-  print(layers[i])
-
-# empty dataframe to store result 
-mix_matrix <- 
+# Function calculating 1. unweighted mean of the mixing proportion of the two direction or 2. the proportion of each direction for the whole mixing matrix
+avg_mix_prop_all_layers <- function(mix_degree_site, layers){ # number leveling of age group a
+   
+  # defining empty dataframes to store result 
+   ## symmetric mixing matrix
+mix_matrix_sym <-
   matrix(NA, nrow = 6, ncol = 6) %>% 
     as.data.frame(., 
     row.names = c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y")
     ) %>% rename("0-9y"=1, "10-19y"=2, "20-29y"=3, "30-39y"=4, "40-59y"=5, "60+y"=6)
+
+   ## asymmetric mixing matrix
+mix_matrix_asym <-
+  matrix(NA, nrow = 6, ncol = 6) %>% 
+    as.data.frame(., 
+    row.names = paste0("ego.", c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y")
+                       ),
+    ); colnames(mix_matrix_asym ) <- paste0("contact.", c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y"))
+   
+  ## list to save the above matrices for each layer
+    mix_matrices_sym <- mix_matrices_asym <-  list() 
+  
+   
+  for (i in 1:length(layers) # apply calculation for each of the four layers
+       ) {
+    loc <- layers[i]
     
-# of each layer, calculation for  participant age.group == "0-9y"    
-for (j in 2:6) {
+  for (a.num in 1:5) {  # apply calculation for each egocentric age group
+    
+  for (j in (a.num+1):6
+       ) { # under each egocentric age group, calculate proportion of mixing between the age group of this egocentric node and other age groups
   
   directional_prop <- 
-   mix_prop(mix_degree = mix_degree_site, age.grp.a = 1, age.grp.b = j, contact_loc = layers[i]) 
+   mix_prop(mix_degree = mix_degree_site, age.grp.a = a.num, age.grp.b = j, contact_loc = loc) 
   
-  print(directional_prop)
-  
-   mix_matrix[1, j] <-  directional_prop %>% as.numeric() %>% mean(., na.rm = T) # mean proportion of a mixing
+  # storing result in a symmetric mixing matrix where the value of each cell is the mean proportion of two direction of contact
+   mix_matrix_sym[a.num, j] <-  directional_prop %>% as.numeric() %>% mean(., na.rm = T) # mean proportion of mixings of the two directions
  
+  # storing result in an asymmetric mixing matrix where the value of each cell is the proportion of contact in a single direction
+  mix_matrix_asym[a.num, j] <-  directional_prop[1] %>% as.numeric() # mixing between group a and b
+  mix_matrix_asym[j, a.num] <-  directional_prop[2] %>% as.numeric() # mixing between group b and a
+  mix_matrix_asym
  
-}
-
-# of each layer, calculation for participant age.group == "10-19y"    
-for (j in 3:6) {
+  }
+  }
+    
+  mix_matrices_asym[[i]] <-  mix_matrix_asym
   
+  mix_matrices_sym[[i]] <- mix_matrix_sym
+    
+  }
   
-  directional_prop <- 
-   mix_prop(mix_degree = mix_degree_site, age.grp.a = 2, age.grp.b = j, contact_loc = layers[i]) 
+   names(mix_matrices_asym) <- names(mix_matrices_sym) <- layers # assign layers' name to the matrices
+    
+   
+   output <- list(mix_matrices_asym, mix_matrices_sym); names(output) <- c("asymmetric_matrices", "symmetric_matrices")
+   
+   output
+    
   
-  print(directional_prop)
-  
-   mix_matrix[2, j] <-  directional_prop %>% as.numeric() %>% mean(., na.rm = T) # mean proportion of a mixing
-  
-}
-
-# of each layer, calculation for participant age.group == "20-29y"
-for (j in 4:6) {
-  
-    directional_prop <- 
-   mix_prop(mix_degree = mix_degree_site, age.grp.a = 3, age.grp.b = j, contact_loc = layers[i]) 
-  
-  print(directional_prop)
-  
-   mix_matrix[3, j] <-  directional_prop %>% as.numeric() %>% mean(., na.rm = T) # mean proportion of a mixing
-  
-  
-}
-
-# of each layer, calculation for participant age.group == "30-39y"
-for (j in 5:6) {
-   directional_prop <- 
-   mix_prop(mix_degree = mix_degree_site, age.grp.a = 4, age.grp.b = j, contact_loc = layers[i]) 
-  
-  print(directional_prop)
-  
-   mix_matrix[4, j] <-  directional_prop %>% as.numeric() %>% mean(., na.rm = T) # mean proportion of a mixing
-}
-
-# of each layer, calculation for participant age.group == "40-59y"
-  directional_prop <- 
-   mix_prop(mix_degree = mix_degree_site, age.grp.a = 5, age.grp.b = 6, contact_loc = layers[i]) 
-  
-  print(directional_prop)
-  
-   mix_matrix[5, 6] <-  directional_prop %>% as.numeric() %>% mean(., na.rm = T) # mean proportion of a mixing
-
- directional_prop <- NULL # remove this intermediate df when calculation is done
-
-  mix_matrices[[i]] <-  mix_matrix 
+ }
  
-# # script for QC calculation in the function for nodemix stat
-# mix_degree_site$age.grp1_2 %>% filter(contact_location == "Home") %>% group_by(participant_age) %>% 
-#    summarize(avg = mean(age.grp1_2), sum= sum(age.grp1_2), n = n()) 
-# mix_degree_site$age.grp2_1 %>% filter(contact_location == "Home") %>% group_by(participant_age) %>% 
-#    summarize(avg = mean(age.grp2_1), sum= sum(age.grp2_1), n = n()) 
-}
- names(mix_matrices) <- layers
- 
- mix_matrices
-}
 
-rural_mix_prop <- avg_mix_prop_all_layers(mix_degree_site = contact_count_rural$age.grp_mix_degree)
+
+rural_mix_prop <- avg_mix_prop_all_layers(mix_degree_site = contact_count_rural$age.grp_mix_degree, 
+                                          layers = c("Home", "School", "Work", "Nonhome")
+                                          )
  
 rural_mix_prop
 
@@ -679,17 +656,6 @@ contact_count_urban$contact_degree %>% data.frame()%>%
                      ) %>%  # 624 rows, each row for a participant
   as.data.frame()
 
-# Visally evaluation correlation between layers
-## spearman correlation,rural
-contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
-                                                                                          )
-                                                                             )
-
-## spearman correlation,urban
-contact_count_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
-
-
-
 # Function to conduction bivariate Poisson regression for associations of degree between layers
 assoc_btw_layers <- function(contact_count_wide, category_type, output_type){
 
@@ -823,14 +789,29 @@ output_model_summary <- rbind(c("h", rep(NA,3)),
                               c("w", rep(NA,3)),
                                summary(output_model[[10]])$coefficients %>% round(.,2) ,  summary(output_model[[11]])$coefficients %>% round(.,2) ,  summary(output_model[[12]])$coefficients %>% round(.,2) )
 
-output_model_summary[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),]
+output_model_summary
 
 } else if (output_type == "model") {
 output_model
 } else if (output_type == "data") { # categorized data
 contact_count_wide
 }
-}
+} 
+ 
+# Visally evaluation correlation between layers
+## spearman correlation,rural
+contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
+                                                                                          )
+                                                                             )
+assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "summary")[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),c(1,4)] 
+
+
+## spearman correlation,urban
+contact_count_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
+assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "binary", output_type = "summary")[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),c(1,4)]
+
+
+
 
 # Rural, Bivariate predictors, assessing bivariate association between layers
 layer_rural_assoc_bi_data <- # outputting binarized contact data
@@ -839,7 +820,7 @@ assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = 
 layer_rural_assoc_bi <- # outputting the bivariatemodeling result
 assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "model")
 
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "summary")
+
 
 
 
