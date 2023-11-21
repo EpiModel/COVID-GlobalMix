@@ -1,3 +1,4 @@
+
 ---
 title: "Descriptive Degree Summary of GlobalMix India Data"
 author: "Billy Dehao Chen"
@@ -656,46 +657,14 @@ contact_count_urban$contact_degree %>% data.frame()%>%
                      ) %>%  # 624 rows, each row for a participant
   as.data.frame()
 
-# Function to conduction bivariate Poisson regression for associations of degree between layers
-assoc_btw_layers <- function(contact_count_wide, category_type, output_type){
+# Function for bivariate Poisson regression for associations of degree between layers
+assoc_btw_layers <- function(contact_count_wide, output_type){
 
   output_model <-   list()
   
 # Create degree category - binarized, or ordinal
   
-  if(category_type != "binary"){
- 
-    # With the degree distribution, the degree can be categorized into the categories of 0, 1-2, 3-5, and 6+.
-contact_count_wide <- 
-contact_count_wide %>% mutate(
-  Nonhome_cat = case_when(Nonhome==0 ~ "0",
-                          Nonhome %in% c(1:2) ~ "1-2",
-                          Nonhome %in% c(3:5) ~ "3-5",
-                          Nonhome >=6 ~ "6+"),
-  Nonhome_cat = factor( Nonhome_cat),
-  
-  Home_cat = case_when(Home==0 ~ "0",
-                          Home %in% c(1:2) ~ "1-2",
-                          Home %in% c(3:5) ~ "3-5",
-                          Home >=6 ~ "6+"),
-  Home_cat = factor( Home_cat),
-  
-  School_cat = case_when(School==0 ~ "0",
-                          School %in% c(1:2) ~ "1-2",
-                          School %in% c(3:5) ~ "3-5",
-                          School >=6 ~ "6+"),
-  School_cat = factor( School_cat),
-  
-  Work_cat = case_when(Work==0 ~ "0",
-                          Work %in% c(1:2) ~ "1-2",
-                          Work %in% c(3:5) ~ "3-5",
-                          Work >=6 ~ "6+"),
-  Work_cat = factor( Work_cat)
-  )
-  
-  
-
-} else{ # binarized coefficient
+ # binarized coefficient
   contact_count_wide <- 
 contact_count_wide %>% mutate(
   Nonhome_cat = case_when(Nonhome==0 ~ 0,
@@ -714,7 +683,6 @@ contact_count_wide %>% mutate(
                           Work >0 ~ 1),
   Work_cat = factor( Work_cat)
 )
-}
   
 
 # Effects of other layers on home 
@@ -729,20 +697,6 @@ contact_count_wide %>%
 output_model[[3]] <- 
 contact_count_wide %>% 
   glm(Home~ School_cat, data=., family = poisson(link=log))
-
-
-# Effects of other layers on Nonhome
-output_model[[4]] <- 
-contact_count_wide %>% 
-  glm(Nonhome~ Home_cat, data=., family = poisson(link=log))
-
-output_model[[5]] <- 
-contact_count_wide %>% 
-  glm(Nonhome~ School_cat , data=., family = poisson(link=log))
-
-output_model[[6]] <- 
-contact_count_wide %>% 
-  glm(Nonhome~ Work_cat , data=., family = poisson(link=log))
 
 
 # Effects of other layers on School
@@ -772,28 +726,48 @@ contact_count_wide %>%
   glm(Work~ Nonhome_cat , data=., family = poisson(link=log))
 
 
+# Effects of other layers on Nonhome
+output_model[[4]] <- 
+contact_count_wide %>% 
+  glm(Nonhome~ Home_cat, data=., family = poisson(link=log))
+
+output_model[[5]] <- 
+contact_count_wide %>% 
+  glm(Nonhome~ School_cat , data=., family = poisson(link=log))
+
+output_model[[6]] <- 
+contact_count_wide %>% 
+  glm(Nonhome~ Work_cat , data=., family = poisson(link=log))
+
+
+
 
 names(output_model) <- c(  "h_w", "h_nh", "h_s",  
-                           "nh_h", "nh_s", "nh_w", 
                            "s_h", "s_nh", "s_w", 
-                           "w_h", "w_s", "w_nh")
+                           "w_h", "w_s", "w_nh",
+                           "nh_h", "nh_s", "nh_w" 
+                           )
 
-if (output_type == "summary"){
+if (output_type == "summary"){ # outputting coefficients
 
 output_model_summary <- rbind(c("h", rep(NA,3)),
-               summary(output_model[[1]])$coefficients %>% round(.,2),  summary(output_model[[2]])$coefficients %>% round(.,2) ,  summary(output_model[[3]])$coefficients %>% round(.,2)  ,
-                              c("nh", rep(NA,3)),
-                               summary(output_model[[4]])$coefficients %>% round(.,2) ,  summary(output_model[[5]])$coefficients %>% round(.,2) , summary(output_model[[6]])$coefficients %>% round(.,2) , 
+               summary(output_model[[1]])$coefficients %>% round(.,3),  summary(output_model[[2]])$coefficients %>% round(.,3) ,  summary(output_model[[3]])$coefficients %>% round(.,3),
                               c("s", rep(NA,3)),
-                               summary(output_model[[7]])$coefficients %>% round(.,2) ,  summary(output_model[[8]])$coefficients %>% round(.,2) ,  summary(output_model[[9]])$coefficients %>% round(.,2) ,
+                               summary(output_model[[7]])$coefficients %>% round(.,3) ,  summary(output_model[[8]])$coefficients %>% round(.,3) ,  summary(output_model[[9]])$coefficients %>% round(.,3) ,
                               c("w", rep(NA,3)),
-                               summary(output_model[[10]])$coefficients %>% round(.,2) ,  summary(output_model[[11]])$coefficients %>% round(.,2) ,  summary(output_model[[12]])$coefficients %>% round(.,2) )
+                               summary(output_model[[10]])$coefficients %>% round(.,3) ,  summary(output_model[[11]])$coefficients %>% round(.,3) ,  summary(output_model[[12]])$coefficients %>% round(.,3) ,
+                              c("nh", rep(NA,3)),
+                               summary(output_model[[4]])$coefficients %>% round(.,3) ,  summary(output_model[[5]])$coefficients %>% round(.,3) , summary(output_model[[6]])$coefficients %>% round(.,3) 
+                              
+               )
 
 output_model_summary
 
-} else if (output_type == "model") {
+} else if (output_type == "models") { # outputting models
+  
 output_model
-} else if (output_type == "data") { # categorized data
+  
+} else if (output_type == "data") { # outputting processed data with binarized predictor fitted by regression
 contact_count_wide
 }
 } 
@@ -803,135 +777,109 @@ contact_count_wide
 contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
                                                                                           )
                                                                              )
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "summary")[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),c(1,4)] 
-
+assoc_btw_layers(contact_count_wide = contact_count_wide_rural,  output_type = "summary")[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),c(1,4)] 
+layer_assoc_rural <- assoc_btw_layers(contact_count_wide = contact_count_wide_rural,  output_type = "models")
 
 ## spearman correlation,urban
 contact_count_wide_urban %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")))
-assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "binary", output_type = "summary")[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),c(1,4)]
+assoc_btw_layers(contact_count_wide = contact_count_wide_urban,  output_type = "summary")[-c(2,4,6, 9,11,13, 16, 18, 20, 23, 25, 27),c(1,4)]
+layer_assoc_urban <- assoc_btw_layers(contact_count_wide = contact_count_wide_urban,  output_type = "models")
 
 
+contact_count_wide_rural$Home %>% mean()/2
+
+exp(layer_assoc_rural$h_w$coefficients[1]+layer_assoc_rural$h_w$coefficients[2]*0)/2
+exp(layer_assoc_rural$h_w$coefficients[1]+layer_assoc_rural$h_w$coefficients[2]*1)/2
 
 
-# Rural, Bivariate predictors, assessing bivariate association between layers
-layer_rural_assoc_bi_data <- # outputting binarized contact data
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "data")
-
-layer_rural_assoc_bi <- # outputting the bivariatemodeling result
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "binary", output_type = "model")
-
-
-
-
-
+# function to characterize the target statistics based on coefficients of Poisson regression
 effect_oth_layers <- 
   function(
-    dta, # binarize contact degree of each layer
-    outcome_layer,
-    predict_layer
+    layer_assoc
     ){
     
-if(length(predict_layer)>1
-   ){
-# association between layers
+out <- 
+c(
+exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*0)/2, # we add 2 here to covert the two-day MD to single-day MD
 
-layers_formula <- paste(outcome_layer, "~", paste(predict_layer[1], "+", predict_layer[2]))
-  
-layer_assoc <- 
-dta %>% 
-  glm(layers_formula,  
-      data=., family = poisson(link=log)
-      ) 
-  
-  
-dta <- # a dataframe listing categories for the two predictive layer
-  data.frame( c(factor(0),factor(1)),  factor(1) )
+exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*1)/2 # we add 2 here to covert the two-day MD to single-day MD
+)
 
-#### proportion of degree == 1 and degree == 0 of the first predictive payer, given the degree in the second predictive layer ==1
-prop.predictive.layer <- prop.table(table(
-  layer_rural_assoc_bi_data[predict_layer[1] # the first predictive layer
-                            ][layer_rural_assoc_bi_data[predict_layer[2]]==1]) # the second predictive layer ==1
-                           )
+names(out) <- paste0( "predict_layer", c("=0", "=1"))
 
-} else{
-  # association between layers
-  
-  layers_formula <- paste(outcome_layer, "~", predict_layer)
-  
-layer_assoc <- 
-dta %>% 
-  glm(layers_formula,  
-      data=., family = poisson(link=log)
-      ) 
-  
-  
-  dta <- # a dataframe listing categories for the single predictive layer
-data.frame( c(factor(0), factor(1))  ) 
-  
-#### proportion of degree == 1 and degree == 0
-prop.predictive.layer <- prop.table(table(
-  layer_rural_assoc_bi_data[predict_layer])
-                           )
-  
-}
+out
 
-colnames(dta) <- predict_layer
-
-
-outcome_predict <- # characterize the MD of outcome layers explained by the predictive layer
-predict(layer_assoc, newdata = dta, 
-                type = "response", interval = "confidence"
-               ) %>% as.numeric()/2 # we add 2 here to covert the two-day MD to single-day MD
-
-### Characterize target stats 
-
-N.predict.layer.degree <- prop.predictive.layer*1e4 # proportion of each category (0 and 1, sequentially)  of the 1st predictive ladder * total number of nodes in the sampled population = total number of nodes of each predictive category of the target population
-
-targ.stat.outcome_predict_layers <- c(outcome_predict[1]* # correspond to the 0 category of the 1st predictive player
-                                        N.predict.layer.degree["0"],
-                     outcome_predict[2]* # correspond to the 1 category of the 1st predictive player
-                       N.predict.layer.degree["1"]
-                     ) 
-
-
-
-names(targ.stat.outcome_predict_layers) <- paste0(predict_layer[1] , names(targ.stat.outcome_predict_layers) )
-
-targ.stat.outcome_predict_layers
+# ### Characterize target stats 
+# 
+# #### proportion of degree == 1 and degree == 0
+# prop.predictive.layer <- prop.table(table(
+#  dta[predict_layer])
+#                            )
+# N.predict.layer.degree <- prop.predictive.layer*1e4 # proportion of each category (0 and 1, sequentially)  of the 1st predictive ladder * total number of nodes in the sampled population = total number of nodes of each predictive category of the target population
+# 
+# targ.stat.outcome_predict_layers <- c(outcome_predict[1]* # correspond to the 0 category of the 1st predictive player
+#                                         N.predict.layer.degree["0"],
+#                      outcome_predict[2]* # correspond to the 1 category of the 1st predictive player
+#                        N.predict.layer.degree["1"]
+#                      ) 
+# 
+# 
+# 
+# names(targ.stat.outcome_predict_layers) <- paste0(predict_layer[1] , names(targ.stat.outcome_predict_layers) )
+# 
+# targ.stat.outcome_predict_layers
 
 }
 
-## effect of the work layer on home layer
+
+# Network statistics on one layer has on the other layer
+rbind(
+## rural network
+### effect of the work layer on home layer
 effect_oth_layers(
-dta = layer_rural_assoc_bi_data,
-outcome_layer = "Home",
-predict_layer = c("Work_cat")
-)
+ layer_assoc = layer_assoc_rural$h_w
+),
 
-## effect of the work layer on home layer, among population having contact (degree ≥ 1) at the nonhome layer
+### effect of the work layer on school layer
 effect_oth_layers(
-dta = layer_rural_assoc_bi_data,
-outcome_layer = "Home",
-predict_layer = c("Work_cat", "Nonhome_cat")
+ layer_assoc = layer_assoc_rural$s_w
+),
+
+### effect of the school layer on work layer
+effect_oth_layers(
+ layer_assoc = layer_assoc_rural$w_s
+),
+
+### effect of the work layer on nonhome layer
+effect_oth_layers(
+ layer_assoc = layer_assoc_rural$nh_w
+),
+
+## urban network
+### effect of the work layer on school layer
+effect_oth_layers(
+ layer_assoc = layer_assoc_urban$s_w
+),
+
+### effect of the school layer on work layer
+effect_oth_layers(
+ layer_assoc = layer_assoc_urban$w_s
+),
+
+### effect of the work layer on nonhome layer
+effect_oth_layers(
+ layer_assoc = layer_assoc_urban$nh_s
 )
-
-
-## Urban, Bivariate predictors, assessing all bivariate association between layers
-layer_urban_assoc_bi <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "binary", output_type = "model")
-layer_urban_assoc_bi_summary <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "binary", output_type = "summary")
-layer_urban_assoc_bi_summary[-c(2,4,6, 9,11,13, 16, 18, 20, 21, 23, 25, 27),]
-
-
-# Multivariate predictors
-layer_rural_assoc_multi  <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_rural, category_type = "nonbinary", output_type = "summary"
-                 )
-
-
-layer_urban_assoc_multi  <- 
-assoc_btw_layers(contact_count_wide = contact_count_wide_urban, category_type = "nonbinary", output_type = "summary")
+) %>% data.frame()%>% 
+  mutate(association = c("h_w, rural",
+                         "s_w, rural", 
+                         "w_s, rural",
+                         "nh_w, rural", 
+                         "s_w, urban", 
+                         "w_s, urban",
+                         "nh_s, urban"
+                         )
+             )
 
 
 
@@ -1035,6 +983,5 @@ known_duration <- know_dur(india_mix. = india_mix)
 
 
 ```
-
 
 

@@ -110,7 +110,7 @@ nrow = 3
 ```
 
 ## Nodal attribute of effect from the other layer
-Discuss with Sam - this nodal effect seems to be the expect number of nodes of the other layers if single other layer is considered. But I am not sure about what if multiple other layers are considered
+Discuss with Sam - this nodal effect seems to be the expect number of nodes of the other layers if single other layer is considered. For example, if 60% nodes has any contact in layer b and 40% do not have contact, we generate 1e4*60% and 1e4*40% of nodes for the vertex attribute But I am not sure about what if multiple other layers are considered
 ```{r, warning=F, message=FALSE, echo=T}
 
 
@@ -394,10 +394,10 @@ tstats.edge_age.nf.s.rural <- c(formation_stats$rural$edge %>% filter(contact_lo
                             )
 
 ### target stats for edge + nodefactor + nodematch
-tstats.edge.nf_nm.work.rural <- 
+tstats.edge.nf_nm.s.rural <- 
 c(tstats.edge_age.nf.s.rural, 
   c((formation_stats$rural$nm.age.grp %>% filter(contact_location == "School" ) %>% pull(nm.ag)
-                               )[-c(1,3:5)],0,0,0,0) # the value of the last three groups are <20, we pass 0 to them and the 6th grp, which wasn't observed
+                               )[-c(1,3,4,5)],0,0,0,0) # the value of the last three observed groups of 3,4,5 are <20, we pass 0 to them and the 6th grp, which wasn't observed
   )# excluding the 1st category, considering it as the default reference, passing zero to the 2nd category given low target stat
 
 
@@ -430,18 +430,17 @@ dx.s.edges.nf.nm_sim <- netdx(est.s.edges.nf, nsims = 20, ncores = 8,
                keep.tedgelist = TRUE
                )
 
-dx.s.edges.nf.nm_sim 
 
 
  dx.s.edges.nf.nm_sim$stats.table.formation  %>% 
-   mutate(Target = tstats.edge.nf_nm.work.rural,
-          `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_nm.work.rural)/tstats.edge.nf_nm.work.rural ) 
+   mutate(Target = tstats.edge.nf_nm.s.rural,
+          `Pct Diff` = 100*(`Sim Mean`-tstats.edge.nf_nm.s.rural)/tstats.edge.nf_nm.s.rural ) 
  
  
 # model with data of Edge + nodefactor(age.grp) + nodematch(age.grp)
 est.s.edges.nf.nm <- netest(nw_rural, 
                       formation = formation.edge_age.nf.nm , 
-                      target.stats = tstats.edge.nf_nm.work.rural, 
+                      target.stats = tstats.edge.nf_nm.s.rural, 
                       coef.diss =  diss.work.rural,
                  set.control.ergm = control.ergm(MCMLE.maxit = 500)
                  )
@@ -463,21 +462,23 @@ est.s.edges.nf.nm <- netest(nw_rural,
 ### Work
 ```{r, warning=F, message=FALSE, echo=T}
 ## Work, rural
+
+
 ### target stats for edge + nodefactor 
 tstats.edge_age.nf.w.rural <- c(formation_stats$rural$edge %>% filter(contact_location == "Work" ) %>% pull(edges_adj_age), # edge
-                            c(0, (formation_stats$rural$nf.age.grp %>% filter(contact_location == "Work" ) %>% pull(nf.ag))[-c(1,2)] ) # excluding the 1st category, considering it as the default reference, passing zero to the 2nd category given low target stat
+                            c(0, 0,(formation_stats$rural$nf.age.grp %>% filter(contact_location == "Work" ) %>% pull(nf.ag))[-c(1,2)])[-3] # passing zero to the 1st and 2nd category given low target stat, excluding the 3rd category, considering it as the default reference, 
                             )
 
 ### target stats for edge + nodefactor + nodematch
 tstats.edge.nf_nm.work.rural <- 
 c(tstats.edge_age.nf.w.rural, 
-  c(0,(formation_stats$rural$nm.age.grp %>% filter(contact_location == "Work" ) %>% pull(nm.ag)
-                               )[-c(1,2)])
+  c(0,0, (formation_stats$rural$nm.age.grp %>% filter(contact_location == "Work" ) %>% pull(nm.ag)
+                               )[-c(1,2)])[-3]
   )# excluding the 1st category, considering it as the default reference, passing zero to the 2nd category given low target stat
 
 # model with data of Edge + nodefactor(age.grp) 
 est.w.edges.nf <- netest(nw_rural, 
-                      formation = ~edges + nodefactor("age.grp" , levels = -1) , 
+                      formation = ~edges + nodefactor("age.grp" , levels = -3) , 
                       target.stats = tstats.edge_age.nf.w.rural, 
                       coef.diss =  diss.work.rural,
                  set.control.ergm = control.ergm(MCMLE.maxit = 500)
@@ -487,7 +488,7 @@ dx.w.edges.nf<- netdx(est.w.edges.nf, nsims = 20, ncores = 8,
                    nsteps = 1000, 
                    dynamic = T, 
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = ~edges + nodefactor("age.grp" , levels = -1), 
+               nwstats.formula = ~edges + nodefactor("age.grp" , levels = -3), 
                keep.tedgelist = TRUE
                )
 
@@ -498,7 +499,8 @@ dx.w.edges.nf.nm_sim <- netdx(est.w.edges.nf, nsims = 20, ncores = 8,
                    nsteps = 1000, 
                    dynamic = T, 
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = formation.edge_age.nf.nm, 
+               nwstats.formula =  ~edges + nodefactor("age.grp" , levels = -3)+ nodematch("age.grp", 
+    levels = -3, diff = T), 
                keep.tedgelist = TRUE
                )
 
@@ -514,7 +516,8 @@ dx.w.edges.nf.nm_sim
  
 # model with data of Edge + nodefactor(age.grp) + nodematch(age.grp)
 est.w.edges.nf.nm <- netest(nw_rural, 
-                      formation = formation.edge_age.nf.nm , 
+                      formation =  ~edges + nodefactor("age.grp" , levels = -3)+ nodematch("age.grp", 
+    levels = -3, diff = T), 
                       target.stats = tstats.edge.nf_nm.work.rural,  #c(tstats.edge.nf_nm.work.rural[-length(tstats.edge.nf_nm.work.rural)],0), 
                       coef.diss =  diss.work.rural,
                  set.control.ergm = control.ergm(MCMLE.maxit = 500)
@@ -524,7 +527,8 @@ dx.w.edges.nf.nm <- netdx(est.w.edges.nf.nm, nsims = 20, ncores = 8,
                    nsteps = 1000, 
                    dynamic = T, 
                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-               nwstats.formula = formation.edge_age.nf.nm, 
+               nwstats.formula = ~edges + nodefactor("age.grp" , levels = -3)+ nodematch("age.grp", 
+    levels = -3, diff = T), 
                keep.tedgelist = TRUE
                ) #  the nodematch term for group 6 has bias > 5%. Since it is low, we can exclude it moving forward? 
 
@@ -534,7 +538,17 @@ dx.w.edges.nf.nm
 ```
 
 
+```{r}
+formation_stats$rural$nf.age.grp %>% filter(contact_location == "Work" )
 
+
+### target stats for edge + nodefactor + nodematch
+tstats.edge.nf_nm.s.rural <- 
+c(tstats.edge_age.nf.s.rural, 
+  c((formation_stats$rural$nm.age.grp %>% filter(contact_location == "School" ) %>% pull(nm.ag)
+                               )[-c(1,3,4,5)],0,0,0,0) # the value of the last three observed groups of 3,4,5 are <20, we pass 0 to them and the 6th grp, which wasn't observed
+  )
+```
 
 
 
