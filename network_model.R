@@ -13,7 +13,6 @@ dissolution_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_pa
 target_age_grp <- formation_stats$rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
 
 # target population numbers in urban & rural networks 
-
 target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
                                    total_pop=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural network from DSS
                                                c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)  # number of population in the urban network from DSS
@@ -80,17 +79,33 @@ ggarrange(
     theme_classic()+ylab("Relative frequency (obs.)")+xlab("Age group"),
   
   rbind(
-    node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "rural"), # check w/ Sam
-    node.age.grp.urban %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "urban")# check w/ Sam
+    node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "rural"),
+    node.age.grp.urban %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "urban")
   ) %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
     geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
     theme_classic()+ylab("Relative frequency (sim.)")+xlab("Age group"),
   
   nrow = 3
+) 
+
+## Checking age distribution of study participant vs. target population
+ggarrange(
+
+rbind(
+india_participant %>% filter(study_site == "Rural") %>% pull(participant_age) %>% table() %>% prop.table() %>% data.frame()  %>% mutate(network = "rural"),
+india_participant %>% filter(study_site == "Urban") %>% pull(participant_age) %>% table() %>% prop.table() %>% data.frame()  %>% mutate(network = "urban")
+)%>% rename(agegrp=1) %>% 
+  ggplot(aes(x=agegrp, y=Freq))+geom_bar(stat = "identity")+facet_wrap(~network)+
+  theme_classic()+ylab("Relative frequency (study population)")+xlab("Age group")+
+  geom_text(aes(label=round(Freq,2)), vjust=-0.3, size=3.5), 
+
+target_age_distribut %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
+  geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
+  theme_classic()+ylab("Relative frequency (target population)")+xlab("Age group"),
+
+nrow = 2
+
 )
-
-
-
 # Nodal attribute of effect from the other layer
 ##Discuss with Sam - this nodal effect seems to be the expect number of nodes of the other layers if single other layer is considered. For example, if 60% nodes has any contact in layer b and 40% do not have contact, we generate 1e4*60% and 1e4*40% of nodes for the vertex attribute for layer a.
 formation_stats$rural$assoc_layers
@@ -521,7 +536,6 @@ tstats.edge.nf_nm.s.rural <-
 
 
 # 20231121 things to do
-# (1) contact Rajan for the replicated contacts
 # (2) run model with baseline target states for age.grp 
 # (3) 
 

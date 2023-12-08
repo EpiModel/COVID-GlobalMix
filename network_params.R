@@ -165,47 +165,28 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
               by = "rec_id"
     )
   
-  #### Number of contacts of the same age group, individual-level, for nodematch ####
-  same.age.grp_degree <- 
+  #### Status of whether age groups of participant and contact are the same, edge-level, for nodematch ####
+  same.age.grp_status <- 
     india_mix.site %>% 
-    mutate(same.age.grp = ifelse(participant_age == contact_age, 1, 0)
-           
-    ) %>% 
-    mutate(
-      # adjusting replicated contacts
-      same.age.grp = case_when(
-        contact_location %in% c("Home", "Work","School") ~  same.age.grp, # for these layers, a replicated contact is counted as unique contact
-        contact_location %in% c("Nonhome" ) & fromdayone == "Both days" ~ same.age.grp*2, # for non-home layer, a replicated contact is counted as two contact
-        contact_location %in% c("Nonhome" ) & fromdayone %in% c("Day 1", "Day 2") ~ same.age.grp, # for non-home layer, a unique contact is counted as one contact
-        T ~ same.age.grp # for observation with fromdayone information missed, we return the original same.age.grp
-      )  
-    ) %>%
-    select(rec_id,  contact_location, participant_age, contact_age, same.age.grp
+    mutate(same.age.grp = ifelse(participant_age == contact_age, 1, 0) # characterize whether participant and contact are in the same age group
+    )  %>% 
+    select(rec_id,  contact_location, fromdayone, participant_age, contact_age, same.age.grp
     )
-  # Given nodematch is defined at the edge, I think the following code with 0 contact (i.e., w/o edge) don't need to be accounted
-  # rbind(., 
-  #       data.frame(
-  #         rec_id = rep(as.character(id_no_contact.site$rec_id), each = length(locations)),
-  #         contact_location= rep(locations, 
-  #                               nrow(id_no_contact.site)
-  #                               ),
-  #          same.age.grp=rep(0,  nrow(id_no_contact.site)*length(locations)),
-  #         contact_age =NA
-  #       )
-  #       )%>%
   
-  # Replicate each observation/row w/ same.age.grp == 2 twice and recode these observations' same.age.grp to 1; for observations w/ same.age.grp = 1/0, we treat them as-is
-  same.age.grp_degree <- 
-    same.age.grp_degree %>% filter(same.age.grp==2) %>% slice(rep(1:n(), each = 2)) %>% mutate(same.age.grp=1) %>% 
-    rbind(., same.age.grp_degree %>% filter(same.age.grp !=2)
-    ) 
+  same.age.grp_status <- 
+    same.age.grp_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we treat it as two edges (i.e., two rows).
+    ) %>% 
+    rbind(., 
+          same.age.grp_status %>% filter(
+            (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for a contacts/edges that didn't repeat over the two-day period at the non-home layer or for those having missing value for fromdayone, we treat it as a signle edge (i.e., one row).
+          ) 
+    ) %>% 
+    select(-fromdayone) # exclude this variable as it's not needed
   
   
   #### Status of whether one group matched to another, for nodemix ####
-  age.grp_mix <- 
+  age.grp_mix_status <- 
     india_mix.site %>% 
-    # select subset of variables for ouput
-    select(rec_id, contact_location, participant_age, contact_age, fromdayone) %>% 
     
     # The following levels are used to code the age groups "0-9y"~1, "10-19y"~2, "20-29y"~3, "30-39y"~4, "40-59y"~5, "60+y"~6. 
     # If an edge/contact's age groups matched with one of the 36 patterns, it will be assigned 1 for the corresponding matching pattern
@@ -252,48 +233,24 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
            age.grp6_6 = ifelse(participant_age == "60+y"  & contact_age ==  "60+y", 1, 0)
            
     ) %>% 
-    mutate(
-      # adjusting for replicated contacts
-      across(
-        c(age.grp1_1:age.grp6_6),
-        ~case_when(
-          contact_location %in% c("Home", "Work","School") ~  ., # for these layers, a replicated contact is counted as unique contact
-          contact_location %in% c("Nonhome" ) & fromdayone == "Both days" ~ .*2, # for non-home layer, a replicated contact is counted as two contact
-          contact_location %in% c("Nonhome" ) & fromdayone %in% c("Day 1", "Day 2") ~ ., # for non-home layer, a unique contact is counted as one contact
-          T ~ . # for observation with fromdayone information missed, we return the original data
-        )  )
+    # select subset of variables for ouput
+    select(rec_id, contact_location, fromdayone, participant_age, contact_age, age.grp1_1:age.grp6_6
     )
-  # for each mixing, we replicate contact with count == 2 into two rows and save each mixing as a component in list
-  age.grp_mix_degree <- list()
   
-  for (i in 6:ncol(age.grp_mix)
-  ) {
-    age.grp_single_mix <- 
-      age.grp_mix%>% select(rec_id:fromdayone, all_of(i)) %>% #select variables of rec_id, contact_location, participant_age, contact_age, fromdayone and the status of whether an edge exist for a mixing pattern
-      rename(mix_count =ncol(.) # give a temporal col name "mix_count" to facilitate data manipulation
-      )  
-    # Replicate each observation/row w/ mix_count == 2 twice and recode these observations' mix_count to 1 after the replication; for observations w/ mix_count = 1/0, we treat them as-is
-    age.grp_single_mix <- 
-      age.grp_single_mix %>% 
-      filter(mix_count==2) %>% slice(rep(1:n(), each = 2)) %>% mutate(mix_count=1) %>% # these are the replicated contacts who were replicated twice, and we duplicate each of them into two edges (rows)
-      rbind(., age.grp_single_mix %>% filter(mix_count !=2) # these are the non-replicated contacts, we treat them as-is
-      ) 
-    
-    colnames(age.grp_single_mix)[length(colnames(age.grp_single_mix))] <- colnames(age.grp_mix)[i] # rename col back to its original name
-    
-    age.grp_mix_degree[[i-5]] <- age.grp_single_mix %>% select(-fromdayone) # store output in each iteration into a list
-  }
+  age.grp_mix_status <-
+    age.grp_mix_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we treat it as two edges (i.e., two rows).
+    ) %>% 
+    rbind(., 
+          age.grp_mix_status %>% filter(
+            (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for a contacts/edges that didn't repeat over the two-day period at the non-home layer or for those having missing value for fromdayone, we treat it as a signle edge (i.e., one row).
+          ) 
+    ) %>% 
+    select(-fromdayone) # exclude this variable as it's not needed
   
-  names(age.grp_mix_degree)<- colnames(age.grp_mix %>% select(age.grp1_1:age.grp6_6)) # adding mixing as name to the list
   
-  # we remove the mixing of the same age group from the directional mixing proportion for nodemix
-  age.grp_mix_degree$age.grp1_1 <- age.grp_mix_degree$age.grp2_2 <- age.grp_mix_degree$age.grp3_3 <- age.grp_mix_degree$age.grp4_4 <- 
-    age.grp_mix_degree$age.grp5_5 <- age.grp_mix_degree$age.grp6_6 <- NULL
-  
-  out <-list(contact_count, same.age.grp_degree, age.grp_mix_degree
+  out <-list(contact_count, same.age.grp_status, age.grp_mix_status
   );
-  names(out) <- c("contact_degree", "same.age.grp_degree" , "age.grp_mix_degree"
-  )
+  #names(out) <- c("contact_degree", "same.age.grp_status" , "age.grp_mix_status")
   
   out
   
@@ -315,9 +272,16 @@ contact_count_urban  <- # urban mixing
                     study_site. ="Urban") 
 
 
-# Function calculating directional mixing proportion for single mixing at the age group level (mixing between grp 1 and grp 2 and between grp 2 and grp 1), with argument age.grp.a as the age group of the egocentric population
+# Function calculating single-day directional mixing proportion for both directions of an edge at the age group level (mixing between grp 1 and grp 2 and between grp 2 and grp 1), with argument age.grp.a as the age group of the egocentric population
 mix_prop <- # discuss with Sam
-  function(mix_degree, age.grp.a, age.grp.b, contact_loc){
+  function(mix_degree, 
+           # the list storing the contact status of all the cross-generation mixing of the 4 layers, 
+           # this list is generated by characterizing whether an specific cross-generation edge exist among all the edges in an network. 
+           # If 
+           age.grp.a, # age.grp of the egocentric node
+           age.grp.b, # age.grp of the other node
+           contact_loc # a network layer
+           ){
     
     dir_1 <-   paste0("age.grp", age.grp.a, "_",age.grp.b) # contact direction between participant (i.e., egocentric node) in age group a and contact in age group b
     dir_2 <-   paste0("age.grp", age.grp.b, "_", age.grp.a)# contact direction between participant (i.e., egocentric node) in age group b and contact in age group a 
@@ -371,9 +335,21 @@ mix_prop <- # discuss with Sam
     
   }
 
+# for demonstration
+mix_degree_site = contact_count_rural$age.grp_mix_degree%>% View()
+mix_prop(
+  mix_degree = contact_count_rural$age.grp_mix_degree,
+  age.grp.a = 1,
+  age.grp.b = 2,
+  contact_loc = "Home"
+)
+
+## 20231130 QC calculation of nodemix
+
 
 # Function calculating 1. unweighted mean of the mixing proportion of the two direction or 2. the proportion of each direction for the whole mixing matrix
-avg_mix_prop_all_layers <- function(mix_degree_site, layers){ # number leveling of age group a
+avg_mix_prop_all_layers <- # discuss with Sam
+  function(mix_degree_site, layers){ # numeric leveling of age group a
   
   # defining empty dataframes to store result 
   ## symmetric mixing matrix
@@ -449,7 +425,7 @@ urban_mix_prop <- avg_mix_prop_all_layers(mix_degree_site = contact_count_urban$
 urban_mix_prop
 
 
-# Function characterizing network statistics
+# Function characterizing network statistics of age effect for edge, nodefactor, and nodematch
 edge_node_factor_match <- function(contact_count_site){
   
   output <- list()
@@ -468,7 +444,7 @@ edge_node_factor_match <- function(contact_count_site){
     fit_edge %>% 
     mutate(
       # single-day mean degree, original scale
-      single_day_md = exp(Estimate)/2,
+      single_day_md = exp(Estimate)/2, # the 2 here is two covert the 2 to 1 day scale
       
       # calculation, log-link scale
       two_day_sd_link = `Std. Error`*sqrt(n_participants_site), # two-day standard deviation for the coefficient at the log scale
@@ -757,7 +733,7 @@ assoc_btw_layers <- function(contact_count_wide, output_type){
   }
 } 
 
-## Visally evaluation of correlation between layers and assessing effect sizes
+## Visual evaluation of correlation between layers and assessing effect sizes
 ### spearman correlation,rural
 contact_count_wide_rural %>% select(-c(rec_id, participant_age)) %>% ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
 )
@@ -771,7 +747,7 @@ assoc_btw_layers(contact_count_wide = contact_count_wide_urban,  output_type = "
 layer_assoc_urban <- assoc_btw_layers(contact_count_wide = contact_count_wide_urban,  output_type = "models") # saving regression coefficients for calculating network statistics
 
 
-# Checking frequencies of contacts, discsuss w/ Sam after thanksgiving.
+# frequencies of contacts, will be used to scale up the target population of the effect from anther layer
 gt_0_freq_r <- 
 rbind(
   (contact_count_wide_rural$Home !=0) %>% sum(),
@@ -819,7 +795,7 @@ effect_oth_layers <-
 
 
 ## Network statistics on one layer has on the other layer of the selected associations
-netstat_oth_layers <- 
+netstat_oth_layers <- # at single-day scale 
 rbind(
   ## rural network
   ### effect of the work layer on home layer
@@ -864,11 +840,11 @@ rbind(
   )
 ) %>% data.frame()%>% 
   mutate(association = c("h_w",
-                         "s_w", 
+                         "s_nh", 
                          "w_s",
                          "nh_w", 
                          "h_w",
-                         "s_w", 
+                         "s_nh", 
                          "w_s",
                          "nh_w"),
          network = 
@@ -879,6 +855,20 @@ rbind(
          
   )
 
+netstat_oth_layers
+# discuss with Sam
+netstat_oth_layers %>% cbind(
+  md_main_layer = 
+  c(
+apply(contact_count_wide_rural %>% select(Home, School, Work, Nonhome), MARGIN = 2, mean) %>% as.numeric()/2,
+apply(contact_count_wide_urban %>% select(Home, School, Work, Nonhome), MARGIN = 2, mean) %>% as.numeric()/2
+),
+  md_other_layer =
+  c(
+    apply(contact_count_wide_rural[ , c( "Work", "Nonhome", "School", "Work")], MARGIN = 2, mean) %>% as.numeric()/2,
+    apply(contact_count_wide_urban[ , c( "Work", "Nonhome", "School", "Work")], MARGIN = 2, mean) %>% as.numeric()/2
+  )
+)
 
 
 
@@ -888,12 +878,13 @@ network_stats$urban$assoc_layers <- netstat_oth_layers %>% filter(network == "ur
 
 
 
-saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/formation_stats.RData")
+#saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/formation_stats.RData")
 
 
 
 # ## Contact durations
 # For duration at the home layer, we assume it to be non-dissolving so it would be a large number. For duration at the nonhome layer, we assume it refreshes daily. The duration of the school and work layer is characterized in the following way. We tabulate time of knowing a contact and contact frequency to retrieve the distribution of daily contact under categories of the duration of knowing the contact. For a contact is known less than ≤ 10 years, we took the mid point of each know contact category as the duration. For a contact is know > 10 years, we the population average of the mid point between participant's age and 10 year as the duration. We multiple the proportion of daily contact (as weight) and the duration to calculate the known duration. There are few contact whose participants' age is less than the reported know contact duration of > 10 yrs, randering the characterized duration to be <0; we used the participant's age as the duration for these observations.
+# Since the the following analysis is only applied to the school and work layer, there's no need to adjust for the replicated contacts as we consider them to be unique.
 
 know_dur <- function(india_mix.){
   
