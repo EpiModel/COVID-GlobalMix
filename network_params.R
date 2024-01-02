@@ -65,7 +65,7 @@ india_contact <-
   )
   )
 
-# merge participants and contact datasets and process data  and basic data processing ------------------------------------------------
+# merge participants and contact datasets and process data and basic data processing ------------------------------------------------
 india_mix <- india_participant %>%
   dplyr::select(rec_id,participant_age, participant_ageyr) %>%
   right_join(india_contact,
@@ -324,32 +324,12 @@ contact_count_urban  <- # urban mixing
                     india_contact. = india_contact,
                     study_site. ="Urban") 
 
-# Evaluate if the proportion of nodemix can be used for nodematch
-contact_count_rural$same.age.grp_status %>% filter(contact_location == "Home") %>% group_by( participant_age) %>% summarize(match.prop = mean(same.age.grp)
-                                                                                                      ) %>% View()
-contact_count_rural$age.grp_mix_status %>% filter(contact_location == "Home") %>% group_by( participant_age) %>% 
-  summarize(match.prop1_1 = mean(age.grp1_1), 
-            match.prop2_2 = mean(age.grp2_2),
-            match.prop3_3 = mean(age.grp3_3),
-            match.prop4_4 = mean(age.grp4_4),
-            match.prop5_5 = mean(age.grp5_5),
-            match.prop6_6 = mean(age.grp6_6),
-            match.prop1_2 = mean(age.grp1_2),
-            n=n() # number of contacts belongs to a egocentric group
-            ) %>% View()
 
 
-
-
-# Evaluate if the proportion of nodemix can be used for nodematch
-contact_count_rural$same.age.grp_status %>% filter(contact_location == "Home") %>% group_by( participant_age) %>% summarize(match.prop = mean(same.age.grp)
-) %>% View()
-
-
-# function calculate proportions of mixing between age groups of participant and contact
-mix_prop <-
+# function calculates proportions of mixing between age groups of participant and contact
+mix_prop <- # to-do: characterizing uncertainties 
   function(mix_status_layer,
-           unobserve_ego_age_grp # could be "none", "40+y",  "60+y"
+           unobserve_ego_age_grp # This is an argument indicating which egocentric age groups weren't observed in a layer, which  could be "none", "40+y" (for school in urban),  "60+y" (for school in rural)
            ){
     
     age.grps <- c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y") # the 6 age groups
@@ -367,10 +347,10 @@ mix_prop <-
     ############# GLM-based #############
     all_mix_patterns <- mix_status_layer %>% select(age.grp1_1:age.grp6_6) %>% names() # names of all mixing between age groups
     
-    glm_nmix <- 
+    glm_nmix <- # regress the mixing status of each type on age group, the time scale of the data is in two days
       lapply( all_mix_patterns, function(x) { 
-        
-        glm(substitute(i ~  -1+participant_age,  
+         
+        glm(substitute(i ~  -1+participant_age, # slope-only model, where the sloop is logit(proportion) 
                        list(i = as.name(x))), family = "binomial", data = mix_status_layer) 
         
       } )
@@ -379,12 +359,12 @@ mix_prop <-
     
 
   
-    # fill the two-day proportion to the matrix 
-    if(unobserve_ego_age_grp == "none"){
-      for (i in 1:6
+    # Filling the two-day proportion to the mixing matrix, the row index (i) and column index correspond to the egocentric and contact's age groups
+    if(unobserve_ego_age_grp == "none"){ # if all the 6 egocentric age groups are observed, we fill all the six corresponding matrix rows
+      for (i in 1:6 
       ) {
         
-        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit() # convert the regression to proportion
         mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
         mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
         mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
@@ -393,7 +373,7 @@ mix_prop <-
         
       }
       
-    } else if (unobserve_ego_age_grp == "60+y") {
+    } else if (unobserve_ego_age_grp == "60+y") { # if the oldest egocentric age groups is not observed, we fill the first five corresponding matrix rows
       
       for (i in 1:5
       ) {
@@ -407,7 +387,7 @@ mix_prop <-
         
       }
       
-    } else { # for the scenario of unobserve_ego_age_grp == "40+y"
+    } else { # if the last two oldest egocentric age groups is not observed, we fill the first four corresponding matrix rows
       
       for (i in 1:4
       ) {
@@ -428,8 +408,9 @@ mix_prop <-
    
     ############## crude calculation #########
     # fill the two-day proportion to the matrix 
-    for (i in 1:6
-    ) {
+    for (i in 1:6 # for each egocentric age group, we calculate its proportion of contact with the contact group. 
+         #For egocentric age group that isn't available in a layer, NaN is returned for the corresponding row.
+    ) { 
       mix_status_layer_i <- mix_status_layer %>% filter( participant_age == age.grps[i]) 
       mix_prop_matrix_2d_crude[i, 1] <- mix_status_layer_i[, (5+6*(i-1))] %>% mean()
       mix_prop_matrix_2d_crude[i, 2] <-  mix_status_layer_i[, (6+6*(i-1))] %>% mean()
@@ -447,46 +428,52 @@ mix_prop <-
 
   }
 
+
+# Characterizing mixing proportions by layer
+## define function settings
 locs <- c("Home", "School", "Work", "Nonhome")
 unobs_grp_rural <- c("none", "60+y", "none", "none")
 unobs_grp_urban <- c("none", "40+y", "none", "none")
 mix_prop_rural_layers <- mix_prop_urban_layers <- list()
 
-# Characterizing mixing proportion for the rural network
 for (i in 1:length(locs)
-     ) {
+) {
+## mixing proportions for the rural network
+
   mix_prop_rural_layers[[i]] <- 
     mix_prop(mix_status_layer= contact_count_rural$age.grp_mix_status %>% filter( contact_location == locs[i]),
              unobserve_ego_age_grp  = unobs_grp_rural[i]
              )
-}
+  # add layer's name here
+  names(mix_prop_rural_layers[[i]]) <- paste0(locs[i], "_", names(mix_prop_rural_layers[[i]]))
 
-# Characterizing mixing proportion for the urban network 
-for (i in 1:length(locs)
-) {
+## mixing proportions for the urban network
   mix_prop_urban_layers[[i]] <- 
     mix_prop(mix_status_layer= contact_count_urban$age.grp_mix_status %>% filter( contact_location == locs[i]),
              unobserve_ego_age_grp  = unobs_grp_urban[i]
-    )
+             )
+  # add layer's name here
+  names(mix_prop_urban_layers[[i]]) <- paste0(locs[i], "_", names(mix_prop_urban_layers[[i]]))
+  
 }
 
+## Compare the glm-based and crude proportions, and those proportions of matched age groups based on the ARTnet approach
+### glm-based and crude proportions
+mix_prop_rural_layers[[1]]
+mix_prop_urban_layers
 
-# for demonstration, discuss w/ Sam
-# intercept-only model, w/ edge from group i as data
-test <- glm(age.grp1_2 ~ 1, family = "binomial", 
-            data = contact_count_rural$age.grp_mix_status %>% filter( contact_location == "Home") %>% filter(participant_age =="0-9y") 
-            ) # replicate warning in method 1
-expit(test$coefficients) # the point estimate w/ this formulation is good
-summary(test)
+### proportions of matched age groups based on the ARTnet approach
+contact_count_rural$same.age.grp_status  %>% group_by(contact_location, participant_age) %>% summarize(match.prop = mean(same.age.grp)
+) 
+contact_count_urban$same.age.grp_status  %>% group_by(contact_location, participant_age) %>% summarize(match.prop = mean(same.age.grp)
+) 
 
-# coefficient-only model, w/ edge from all groups as data, this is a simpler approach.
-test_1 <- glm(age.grp1_2 ~ -1+participant_age, family = "binomial", 
-              data = contact_count_rural$age.grp_mix_status %>% filter( contact_location == "Home") ) # replicate warning in method 1
-expit(test_1$coefficients) # the point estimate w/ this formulation is good
-summary(test_1)
+### to-do: 2) compare the uncertainity of matched proportion w. those by nodematch
 
 
-# above are testing script to be removed
+
+
+
 
 
 
