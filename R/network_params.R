@@ -670,9 +670,6 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
   # binarized coefficient
   contact_count_wide <- 
     contact_count_wide %>% mutate(
-      Nonhome_cat = case_when(Nonhome==0 ~ 0,
-                              Nonhome >0 ~ 1),
-      Nonhome_cat = factor( Nonhome_cat),
       
       Home_cat = case_when(Home==0 ~ 0,
                            Home >0 ~ 1),
@@ -684,7 +681,11 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
       
       Work_cat = case_when(Work==0 ~ 0,
                            Work >0 ~ 1),
-      Work_cat = factor( Work_cat)
+      Work_cat = factor( Work_cat),
+      
+      Nonhome_cat = case_when(Nonhome==0 ~ 0,
+                              Nonhome >0 ~ 1),
+      Nonhome_cat = factor( Nonhome_cat)
     )
   
   ############### Characterizing two-day coefficients of the effect of other layers ###############
@@ -857,6 +858,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
     
     ############### Characterizing the proportion of having and not having contact for each layer, and the raw mean degree ###############
     # check with Sam about whether the 2 should be used to divide the proportion for the single-day scale
+    # Overall proportion, w/o stratifying for age
     deg.layer.dist_2days <- 
       rbind( # proportion
       prop.table(table(contact_count_wide$Home_cat)),
@@ -865,19 +867,53 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
       prop.table(table(contact_count_wide$Nonhome_cat))
       ) %>% data.frame() %>% 
       rename(prop_0=1, prop_1=2) %>% 
-      mutate(layer = c("h", "s", "w", "nh"))
+      mutate(layer = c("Home", "School", "Work", "Nonhome"))
+    
+    # age-stratified proportion
+    deg.age.layer.dist_2days <- 
+      rbind(
+        # Home
+        prop.table(
+          table(contact_count_wide$participant_age, contact_count_wide$Home_cat) %>% t(), # transposing to age by column and contact status by row
+          margin = 2 # calculating marginal proportion by column
+        ),
+        # School
+        prop.table(
+          table(contact_count_wide$participant_age, contact_count_wide$School_cat) %>% t(), # transposing to age by column and contact status by row
+          margin = 2 # calculating marginal proportion by column
+        ), 
+        # Work
+        prop.table(
+          table(contact_count_wide$participant_age, contact_count_wide$Work_cat) %>% t(), # transposing to age by column and contact status by row
+          margin = 2 # calculating marginal proportion by column
+        ), 
+        # Nonhome
+        prop.table(
+          table(contact_count_wide$participant_age, contact_count_wide$Nonhome_cat) %>% t(), # transposing to age by column and contact status by row
+          margin = 2 # calculating marginal proportion by column
+        ) 
+      ) %>% as.data.frame() %>% 
+      mutate(
+        contact_status = rep(c(0,1), 4),
+        layer = rep(c("Home", "School", "Work", "Nonhome"), each =2)
+      ); row.names(deg.age.layer.dist_2days) <- NULL
     
     ############### Outputting ###############
-    output$coefficient_summary_2days <- tb_slope; output$mean_deg_1day <-  nf.deg.oth_layers; output$deg.layer.dist_2days <- deg.layer.dist_2days
+    output$coefficient_summary_2days <- tb_slope; output$mean_deg_1day <-  nf.deg.oth_layers;
+    output$deg.layer.dist_2days <- deg.layer.dist_2days; output$deg.age.layer.dist_2days <- deg.age.layer.dist_2days
     output$data_wide <- contact_count_wide
     
     output
     
-} 
+}
+
+
+
  
 layer_assoc_rural <- assoc_btw_layers(contact_count_long=contact_count_rural$contact_degree 
                                       )
 layer_assoc_urban <- assoc_btw_layers(contact_count_long=contact_count_urban$contact_degree) 
+
 
 ## Visual evaluation of correlation between layers and assessing effect sizes
 ### spearman correlation,rural

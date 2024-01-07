@@ -1,16 +1,16 @@
 # Characterization of target statistics and model parameterization
-
 lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
 
+# Total number of nodes in each network
+n_node=1e4
 
-# load network parameters----------------------------------------
-formation_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/formation_stats.RData")
-
-dissolution_stats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/known_dur_school_work.RData")
+# load network parameters
+netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_stats.RData")
 
 
-# Nodal attribute of age
-target_age_grp <- formation_stats$rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
+# Categories in key variabes
+target_age_grp <- netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
+layers <-  netstats$formation$formation_stats_rural$edge_node_factor_match_rural$edge$contact_location %>% unique()
 
 # target population numbers in urban & rural networks 
 target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
@@ -20,40 +20,42 @@ target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
                                    network=rep(c("rural", "urban"), each = length(target_age_grp))
 )%>% 
   group_by(network) %>% # proportion (relative frequency) of target population in each age group by network
-  mutate(prop=total_pop/sum(total_pop)) %>% ungroup()
+  mutate(prop=total_pop/sum(total_pop)) %>% ungroup() %>% 
+  mutate(tar_pop = round(prop*n_node)) # number of node at each age group
 
+target_age_distribut %>% mutate(tar_pop = prop*1e4)%>% pull(tar_pop) %>% sum()
 
 
 # Function generating nodal's age and age group based on distribution of target population
 node.age.grp <- 
   function(target_age_dist, # age distribution of target population
-           site, 
-           n # total number of node in a network
+           site, # study site - urban / rural
+           n # total number of node in a network 
   ){
     ## number of nodes by age.grp in a network
     target_age_dist_site<- 
-      target_age_dist %>% filter(network == site) %>% mutate(n_pop_site.age.grp=round(prop*n)) # number of nodes in each age group
+      target_age_dist %>% filter(network == site) 
     
-    ## single nodes indicated by numeric age group, corresponding to the six age groups; 
+    ## assign numeric code to each age group in order
     age.grp.df <- 
       target_age_dist_site %>% rownames_to_column() %>% 
       rename(age.grp.num=rowname) 
     
-    ## generate age group for each simulated node
+    ## generate individual nodes labeled by age group 
     age.grp.num <- age.grp.df %>% 
-      slice(rep(1:n(), times= n_pop_site.age.grp)
+      slice(rep(1:n(), times= tar_pop)
       ) %>% 
       pull(age.grp.num) 
     
-    ## Generate age for each node based on the ragne of each age group from a uniform distribution
+    ## For each age group, generating numeric age for each node based on the range of each age group from a uniform distribution
     ### lower and upper boundry of age groups
-    min_age <- c(0,10,20,30,40,60); max_age <- c(9,19,29,39,59,100) # age ranges
+    min_age <- c(0,10,20,30,40,60); max_age <- c(9,19,29,39,59,100) # upper and lower ranges of each age group
     
     age <- c()
     for (i in 1:6) {
       age <-
         c(age,
-          runif(n= target_age_dist_site$n_pop_site.age.grp[i],# the number of node to simulate in each group equals to the number of target population in each group
+          runif(n= target_age_dist_site$tar_pop[i],# the number of node to simulate in each group equals to the number of target population in each group
                 min=min_age[i], max=max_age[i]
           ) # age range in each age group
         )
@@ -64,59 +66,103 @@ node.age.grp <-
   }
 
 node.age.grp.rural <- 
-  node.age.grp(target_age_dist=target_age_distribut, site= "rural", n=1e4) 
+  node.age.grp(target_age_dist=target_age_distribut, site= "rural", n=n_node) # rural network
 node.age.grp.urban <- 
-  node.age.grp(target_age_dist=target_age_distribut, site= "urban", n=1e4) 
+  node.age.grp(target_age_dist=target_age_distribut, site= "urban", n=n_node) # urban network
 
 
+# Visualizing age distribution of study population
+# ggarrange(
+#   target_age_distribut %>% ggplot(aes(x=target_age_grp, y=total_pop))+geom_bar(stat = "identity")+facet_wrap(~network)+
+#     geom_text(aes(label=total_pop), vjust=-0.3, size=3.5)+
+#     theme_classic()+ylab("Frequency")+xlab("Age group"),
+#   target_age_distribut %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
+#     geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
+#     theme_classic()+ylab("Relative frequency (obs.)")+xlab("Age group"),
+#   
+#   rbind(
+#     node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "rural"),
+#     node.age.grp.urban %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "urban")
+#   ) %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
+#     geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
+#     theme_classic()+ylab("Relative frequency (sim.)")+xlab("Age group"),
+#   
+#   nrow = 3
+# ) 
 
-ggarrange(
-  target_age_distribut %>% ggplot(aes(x=target_age_grp, y=total_pop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-    geom_text(aes(label=total_pop), vjust=-0.3, size=3.5)+
-    theme_classic()+ylab("Frequency")+xlab("Age group"),
-  target_age_distribut %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-    geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
-    theme_classic()+ylab("Relative frequency (obs.)")+xlab("Age group"),
+# Function generating nodal attribute of contact status at each layer
+node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist, node.age.group){
   
-  rbind(
-    node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "rural"),
-    node.age.grp.urban %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "urban")
-  ) %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-    geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
-    theme_classic()+ylab("Relative frequency (sim.)")+xlab("Age group"),
+  deg.layer.prop <- 
+    deg.age.layer.dist_2days %>% 
+    filter(contact_status == 1
+    ) %>% select(-contact_status) %>% pivot_longer(!layer, names_to = "age.grp", values_to = "gt_0_prop") 
   
-  nrow = 3
-) 
+  
+  deg.layer.prop <- 
+    left_join(deg.layer.prop, 
+              target_age_dist %>% 
+                rename(age.grp = target_age_grp) %>% select(-c(total_pop, prop)) %>% 
+                mutate(tar_pop = round(tar_pop)), # rounding the number of nodes to integer
+              by = c("age.grp") 
+              
+    )
+  
+  layer_attribute_single_layer   <- data.frame() # create dataframe to store intermediate results
+  
+  ## generate nodal attribute of contact  each layer
+  for (i in 1:length(layers)
+  ) {
+    for (j in 1:length(target_age_grp)) {
+      deg.prop_single_layer_age_grp <-  deg.layer.prop %>% filter(layer == layers[i] & age.grp == target_age_grp[j])
+      
+      n_pop_single <- deg.prop_single_layer_age_grp %>% pull(tar_pop) # number of nodes to generate for this single scenario
+      
+      contact_attribute <- # attribute of contact in a single age group and layer
+        rbinom(n =  n_pop_single, 
+               size = 1,#  for bernoulli trial
+               prob = deg.prop_single_layer_age_grp %>% pull(gt_0_prop)
+        ) 
+      
+      layer_attribute_single_layer <- 
+        rbind(layer_attribute_single_layer,
+              data.frame( target_age_grp=rep(target_age_grp[j], length = n_pop_single),
+                          contact_attribute
+              )
+        )
+      
+    }
+    colnames(layer_attribute_single_layer)[2]= paste0("contact_attribute_", layers[i])
+    
+    if(sum(as.numeric( ! layer_attribute_single_layer$target_age_grp == node.age.group$target_age_grp))>0
+    ) {
+      print("warning: the age groups do not match ")
+    }
+    
+    node.age.group <- cbind(node.age.group, layer_attribute_single_layer %>% select(2))  # save the nodal status of contact for i 
+    
+    layer_attribute_single_layer <- data.frame() # before moving to the next iteration of i + 1, we remove the data from iteration of i
+  }
+  
+  node.age.group
+}
 
-## Checking age distribution of study participant vs. target population
-ggarrange(
+node.age.grp.rural <- 
+node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days, 
+                   target_age_dist = target_age_distribut %>% filter( network == "rural"), 
+                   node.age.group = node.age.grp.rural) # rural network
 
-rbind(
-india_participant %>% filter(study_site == "Rural") %>% pull(participant_age) %>% table() %>% prop.table() %>% data.frame()  %>% mutate(network = "rural"),
-india_participant %>% filter(study_site == "Urban") %>% pull(participant_age) %>% table() %>% prop.table() %>% data.frame()  %>% mutate(network = "urban")
-)%>% rename(agegrp=1) %>% 
-  ggplot(aes(x=agegrp, y=Freq))+geom_bar(stat = "identity")+facet_wrap(~network)+
-  theme_classic()+ylab("Relative frequency (study population)")+xlab("Age group")+
-  geom_text(aes(label=round(Freq,2)), vjust=-0.3, size=3.5), 
-
-target_age_distribut %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-  geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
-  theme_classic()+ylab("Relative frequency (target population)")+xlab("Age group"),
-
-nrow = 2
-
-)
-# Nodal attribute of effect from the other layer
-##Discuss with Sam - this nodal effect seems to be the expect number of nodes of the other layers if single other layer is considered. For example, if 60% nodes has any contact in layer b and 40% do not have contact, we generate 1e4*60% and 1e4*40% of nodes for the vertex attribute for layer a.
-formation_stats$rural$assoc_layers
+node.age.grp.urban <- 
+  node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
+                     target_age_dist = target_age_distribut %>% filter( network == "urban"), 
+                     node.age.group = node.age.grp.urban) # urban network
 
 
-## Set up model attribute 
+
 
 ############## Set up vertex attribute ##############
 # Initiate nodes
-n <- 1e4 # population size in a network
-nw_rural <- nw_urban <- network_initialize(n)
+nw_rural <- nw_urban <- network_initialize(n_node)
 
 
 
@@ -127,7 +173,7 @@ nw_rural <- set_vertex_attribute(nw_rural, "age.grp",
 
 
 nw_rural_h <- set_vertex_attribute(nw_rural, attrname = "work",
-                                   value = rep(0:1, each = n/2) 
+                                   value = rep(0:1, each = n_node/2) 
 ) # check how ARTnet did this
 
 # nw_urban <- set_vertex_attribute(nw_urban, "age",
