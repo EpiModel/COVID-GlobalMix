@@ -318,7 +318,7 @@ contact_count_rural <- # rural mixing
                     india_participant. = india_participant, 
                     india_contact. = india_contact,
                     study_site. ="Rural") 
-
+contact_count_rural$age.grp_mix_status %>% View()
 
 
 contact_count_urban  <- # urban mixing
@@ -444,14 +444,14 @@ unobs_grp_urban <- c("none", "40+y", "none", "none")
 mix_prop_rural_layers <- mix_prop_urban_layers <- list()
 
 for (i in 1:length(locs)
-) {
+) { # the warning "glm.fit: algorithm did not converge" occurs when there's no edge in an age group
 ## mixing proportions for the rural network
 
   mix_prop_rural_layers[[i]] <- 
     mix_prop(mix_status_layer= contact_count_rural$age.grp_mix_status %>% filter( contact_location == locs[i]),
              unobserve_ego_age_grp  = unobs_grp_rural[i]
              )
-  # add layer's name here
+  # adding layer's name here
   names(mix_prop_rural_layers[[i]]) <- paste0(locs[i], "_", names(mix_prop_rural_layers[[i]]))
 
 
@@ -460,7 +460,7 @@ for (i in 1:length(locs)
     mix_prop(mix_status_layer= contact_count_urban$age.grp_mix_status %>% filter( contact_location == locs[i]),
              unobserve_ego_age_grp  = unobs_grp_urban[i]
              )
-  # add layer's name here
+  # adding layer's name here
   names(mix_prop_urban_layers[[i]]) <- paste0(locs[i], "_", names(mix_prop_urban_layers[[i]]))
  
 }
@@ -469,8 +469,8 @@ names(mix_prop_rural_layers) <- names(mix_prop_urban_layers) <-locs # assigning 
 
 ## Compare the glm-based and crude proportions, and those proportions of matched age groups based on the ARTnet approach
 ### glm-based and crude proportions
-mix_prop_rural_layers[[1]]
-mix_prop_urban_layers[[1]]
+mix_prop_rural_layers[[1]]$Home_mix_prop_matrix_2d_glm
+mix_prop_urban_layers[[1]]$Home_mix_prop_matrix_2d_glm
 
 ### proportions of matched age groups based on dataframe of the ARTnet approach
 contact_count_rural$same.age.grp_status %>% filter(contact_location == "Home")  %>% group_by(contact_location, participant_age) %>% summarize(match.prop = mean(same.age.grp)
@@ -1033,7 +1033,7 @@ network_stats$dissolution <- known_dur_school_work
 
 
 
-saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_stats.RData")
+#saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_stats.RData")
 
 
 
