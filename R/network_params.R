@@ -1033,7 +1033,7 @@ network_stats$dissolution <- known_dur_school_work
 
 
 
-#saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_stats.RData")
+saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
 
 
 
