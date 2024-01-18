@@ -1,15 +1,15 @@
 
 ####### Characterization of network statistics for GlobalMix India Data #######
 
-# # Method
-# There are two ways to derive target statistics for ERGM, one is using poisson model based on individual-count data, 
-# the other is based on the symmetric contact matrix, the approach for Corporate Mix. Given the symmetric contact matrix may not 
-# account for the difference of distributions between the study and target populations, we go with the glm-based approach to 
-# calculate the summary network statistics. We regrouped the age categories in the first two decades of life by decade. 
-# We excluded contacts lasted ≤ 15 mins in analysis. The degree information was summarized as the arithmetic mean of signle-day degrees of 
-# contact between group A and group B and between group B and group A of the two-day visits. Given the data were egocentric, 
-# we use $M.D.=\frac{edges}{n}$ for the relationship between mean degree ($M.D.$) and the number of edges.
-# Characterization of network layers: The network layers is processed from multiple questions asking contact locations. 
+# Methodological notes
+# (1) There are two ways to derive network summary statistics, one is fitting poisson models to individual-level count data, 
+# the other is based on summarizing contact data - the approach used in CorporateMix. Given it is easier to devise uncertainties using the glm method, 
+# we go with this approach to calculate the summary network statistics. We regrouped the age categories in the first two decades of life by decade. 
+# (2) We excluded contacts lasted ≤ 15 mins in analysis, given the interest on respiratory-related diseases. Given the data were egocentric, 
+# (3) At the single-day scale, we use $M.D.=\frac{edges}{n}$ to calculate mean degree ($M.D.$) from the number of edges. 
+# Given the data are of contacts over two days, the single-day mean degree of of contact is half of the mean degree of two-day contact;
+# However, the proportion of observing an edge at the two-day scale is the same as the single-day scale.
+# (4) Characterization of network layers: The network layers is processed from multiple questions asking contact locations. 
 # Given these questions are not mutually exclusive due to the check-box design in REDCap, we characterized contact location as the 
 # location having primary contact follow the order of home, school, work, non-home (excluding work and school). There are two contacts 
 # that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering the participants 
@@ -33,7 +33,7 @@ india_contact <-
   readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_contact_data_aim1.RDS")
 
 
-# Note - validated study_site of participant is exactly the same as those in contact
+# Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact
 
 # Reclassifying participant's and contact's age groups into 0-9 years old, 10-19 years old, while treating other age groups as is.
 ## participant data
@@ -90,7 +90,7 @@ india_mix <- india_participant %>%
                                       
                                       ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
   )  %>% 
-  ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household member contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
+  ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household members had contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
   mutate(
     contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
                                  hh_membership == "Non-member" & contact_location %in% c("Home") ~ "Nonhome",
@@ -274,7 +274,7 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
     )
   
   age.grp_mix_status <-
-    age.grp_mix_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we treat it as two edges (i.e., two rows).
+    age.grp_mix_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we replicate it to two edges (i.e., two rows).
     ) %>% 
     rbind(., 
           age.grp_mix_status %>% filter(
@@ -331,11 +331,13 @@ contact_count_urban  <- # urban mixing
 
 
 # function calculates two-day proportions of mixing between age groups of participant and contact 
-# Note: given both the numerator (i.e., number of edges matched to a patterm) and denominator (i.e., total number od edges in a layer) are divided by 2 for converting two- to one-day scale, 
-#the two-day proportion is the same as the single-day propotion
+# Note: 1)given both the numerator (i.e., number of edges matched to a patterm) and denominator (i.e., total number od edges in a layer) are divided by 2 for converting two- to one-day scale, 
+#the two-day proportion is the same as the single-day propotion. 2) We characterize the proportion using both the glm and summary methods for cross-validation.
 mix_prop <- # to-do: characterizing uncertainties 
   function(mix_status_layer,# the mixing statuses of a single layer over the two-day period 
-           unobserve_ego_age_grp # This is an argument indicating which egocentric age groups weren't observed in a layer, which  could be "none", "40+y" (for school in urban),  "60+y" (for school in rural)
+           unobserve_ego_age_grp 
+           # The "unobserve_ego_age_grp" argument indicating which egocentric age groups weren't observed in a layer, which  could be "none", "40+y" (for school in urban),  "60+y" (for school in rural)
+           # For these unobserved egocentric age groups, their corresponding proportions won't be characterized, yielding NA
   ){
     
     age.grps <- c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y") # the 6 age groups
@@ -437,14 +439,15 @@ mix_prop <- # to-do: characterizing uncertainties
 
 
 # Characterizing mixing proportions by layer
+## Note: the following use the mix_prop function to characterize the mixing proportion for all contact layers
 ## define function settings
 locs <- c("Home", "School", "Work", "Nonhome")
-unobs_grp_rural <- c("none", "60+y", "none", "none")
-unobs_grp_urban <- c("none", "40+y", "none", "none")
+unobs_grp_rural <- c("none", "60+y", "none", "none") # status of unobserved age group in each layer of the rural network
+unobs_grp_urban <- c("none", "40+y", "none", "none") # status of unobserved age group in each layer of the urban network
 mix_prop_rural_layers <- mix_prop_urban_layers <- list()
 
 for (i in 1:length(locs)
-) { # the warning "glm.fit: algorithm did not converge" occurs when there's no edge in an age group
+) { # the warning "glm.fit: algorithm did not converge" occurs when there's no edge in an age group, yielding the glm estimated proportion to be a very small but non-zero number, but the observed proportion is equal to 0.
 ## mixing proportions for the rural network
 
   mix_prop_rural_layers[[i]] <- 
@@ -482,6 +485,7 @@ contact_count_urban$same.age.grp_status  %>% filter(contact_location == "Home")%
 
 
 # Function characterizing network statistics of age effect for edge, nodefactor, and nodematch
+## to-do: the script characterizing uncertenties needs to be replaced by ci_95 function
 edge_node_factor_match <- function(contact_count_site){
   
   output <- list()

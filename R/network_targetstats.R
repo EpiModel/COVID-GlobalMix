@@ -1,42 +1,38 @@
 # Characterization of target statistics and model parameterization
 lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
 
-# Total number of nodes in each network
-n_node=1e4
+
 
 # load network parameters
-netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_stats.RData")
+netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
 
+# to-do: n_node=1e4 - we had this as a scaler of the population ( mutate(tar_pop = round(prop*n_node)) ) but think if the population of DSS is not a sample of the population in the study area, this scaler can be obviated. This'll be confirmed on 1/22
 
-# Categories in key variabes
+# Categories of age and layer variabes
 target_age_grp <- netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
 layers <-  netstats$formation$formation_stats_rural$edge_node_factor_match_rural$edge$contact_location %>% unique()
 
 # target population numbers in urban & rural networks 
 target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
-                                   total_pop=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural network from DSS
+                                   pop_age_grp=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural network from DSS
                                                c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)  # number of population in the urban network from DSS
                                               ),
                                    network=rep(c("rural", "urban"), each = length(target_age_grp))
-)%>% 
+) %>% 
   group_by(network) %>% # proportion (relative frequency) of target population in each age group by network
-  mutate(prop=total_pop/sum(total_pop)) %>% ungroup() %>% 
-  mutate(tar_pop = round(prop*n_node)) # number of node at each age group
+  mutate(
+    network_pop = sum(pop_age_grp), # total number of nodes in that network
+    prop=pop_age_grp/network_pop) %>% ungroup() %>% 
+  mutate(#tar_pop = round(prop*n_node)
+    tar_pop = pop_age_grp
+         ) # number of node at each age group of the modeled population
 
-target_age_distribut %>% mutate(tar_pop = prop*1e4)%>% pull(tar_pop) %>% sum()
-
-target_age_distribut %>% group_by(network) %>% summarise(pop_sum = sum(total_pop))
 
 ################# Simulate age and age group for individual nodes #################
 # Function generating nodal's age and age group based on distribution of target population
 node.age.grp <- 
-  function(target_age_dist, # age distribution of target population
-           site, # study site - urban / rural
-           n # total number of node in a network 
+  function(target_age_dist_site # number of target population by age group of a network (urban/rual)
   ){
-    ## number of nodes by age.grp in a network
-    target_age_dist_site<- 
-      target_age_dist %>% filter(network == site) 
     
     ## assign numeric code to each age group in order
     age.grp.df <- 
@@ -45,7 +41,7 @@ node.age.grp <-
     
     ## generate individual nodes labeled by age group 
     age.grp.num <- age.grp.df %>% 
-      slice(rep(1:n(), times= tar_pop)
+      slice(rep(1:n(), times= tar_pop) # 1:6 correspond to the 6 age groups from yound to told 
       ) %>% 
       pull(age.grp.num) 
     
@@ -64,19 +60,23 @@ node.age.grp <-
     }
     
     data.frame(age.grp.num, age) %>% 
-      left_join(age.grp.df %>% select(age.grp.num, target_age_grp), by = "age.grp.num")
+      left_join(age.grp.df %>% select(age.grp.num, target_age_grp), by = "age.grp.num") # merging the categorical age group with the corresponding numerically coded age group
   }
 
 node.age.grp.rural <- 
-  node.age.grp(target_age_dist=target_age_distribut, site= "rural", n=n_node) # rural network
+  node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
+               
+               ) # rural network
 node.age.grp.urban <- 
-  node.age.grp(target_age_dist=target_age_distribut, site= "urban", n=n_node) # urban network
+  node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "urban") %>% select(target_age_grp, tar_pop)
+               
+               ) # urban network
 
 
 # Visualizing age distribution of study population
 # ggarrange(
-#   target_age_distribut %>% ggplot(aes(x=target_age_grp, y=total_pop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-#     geom_text(aes(label=total_pop), vjust=-0.3, size=3.5)+
+#   target_age_distribut %>% ggplot(aes(x=target_age_grp, y=pop_age_grp))+geom_bar(stat = "identity")+facet_wrap(~network)+
+#     geom_text(aes(label=pop_age_grp), vjust=-0.3, size=3.5)+
 #     theme_classic()+ylab("Frequency")+xlab("Age group"),
 #   target_age_distribut %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
 #     geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
@@ -105,8 +105,7 @@ node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist, node.a
   deg.layer.prop <- # merging total number of node of each age group to each layer
     left_join(deg.layer.prop, 
               target_age_dist %>% 
-                rename(age.grp = target_age_grp) %>% select(-c(total_pop, prop)) %>% 
-                mutate(tar_pop = round(tar_pop)), # rounding the number of nodes to integer
+                rename(age.grp = target_age_grp) %>% select(-c(pop_age_grp, prop)) , 
               by = c("age.grp") 
               
     )
@@ -158,7 +157,7 @@ node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats
 
 # Compare simulated proportion to observed ones
 ## Observed proportion, rural
-netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days %>% filter(contact_status ==1) 
+netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days %>% filter(contact_status ==1) %>% select(-contact_status) %>% t()
 ## Simulated proportion, rural
 node.age.grp.rural  %>% group_by(target_age_grp) %>% 
 select(contact_attribute_Home, contact_attribute_School, contact_attribute_Work, contact_attribute_Nonhome
@@ -174,12 +173,11 @@ select(contact_attribute_Home, contact_attribute_School, contact_attribute_Work,
 
 
 
-############## Target statistics ##############
+############## Target statistics (age.grp) ##############
 # function to calculate formation target stats related to age
 target_stats_age <- 
   function(form_stat, 
-           target_age_dist,
-           n
+           target_age_dist
   ){
     
     # Note form_stat[[1]] and form_stat[[2]] respectively are the edge_node_factor_match and mix_prop
@@ -189,16 +187,17 @@ target_stats_age <-
       form_stat[[1]]$nf.age.grp %>% 
       left_join(
         target_age_dist %>% 
-          rename(participant_age=target_age_grp) %>% select(participant_age, tar_pop), 
+          rename(participant_age=target_age_grp) , 
         by = "participant_age"
       ) %>% mutate(nf.ag = single_day_nf_md*tar_pop # number of edges in each age group = md of each age group * number of node of each age group
       ) 
     
     
+    
     # Total Edges, edge-level, for edge
     form_stat[[1]]$edge <- 
       form_stat[[1]]$edge %>% 
-      mutate(edges=(single_day_md*n) /2 
+      mutate(edges=single_day_md/2*sum(target_age_dist$tar_pop) # the crude total number of edges = overall MD/2 * total population across all age groups in a network
       ) %>% # the reason /2 is used here is because this is a edge-level statistic, this way didn't adjust for the age distribution of the target population.
       left_join( 
         form_stat[[1]]$nf.age.grp %>% group_by(contact_location) %>% summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
@@ -214,7 +213,7 @@ target_stats_age <-
       left_join(form_stat[[1]]$nf.age.grp %>% select(participant_age, contact_location, nf.ag), by = c("participant_age", "contact_location")  # number of nodes in age group
       ) %>% 
       mutate(
-        nm.ag= (nf.ag/2)*single_day_nm_md # adapted from ARTnet: (number of nodes in each age group /2) * prop of matched nodes, the reason 2 is here is because this is an edge-level statistic
+        nm.ag= (nf.ag/2)*single_day_nm_md # adapted from ARTnet: number of match edge in each age group = (number of nodes in each age group /2) * prop of matched nodes, the reason 2 is here is because this is an edge-level statistic
       )
     
     
@@ -229,7 +228,8 @@ target_stats_age <-
     ## Define a function for the calculation of total number of edges for a single mixing pattern
     mix_edge_num <- 
       function(grp.a, grp.b, asymmetric_mix_matrix., nf.ag_layer.){ 
-        # grp.a and grp.b are the two contacting age groups , asymmetric_mix_matrix. is the mixing matrix with bidirectional mixing proportion, nf.ag_layer. is the total number of nodes in an age group of a contact layer 
+        # grp.a and grp.b are the two contacting age groups , asymmetric_mix_matrix. is the mixing matrix with bidirectional mixing proportion (i.e., mixing between grp a and grp b and grp b and grp a),
+        # nf.ag_layer. is the total number of nodes in an age group of a contact layer 
         # grp 1, 2, 3, 4, 5, 6 respectively correspond to the youngest to oldest age groups
        sum(
          asymmetric_mix_matrix.[grp.a,grp.b]* # grp.a as egocentric node, grp.b as contact
@@ -246,12 +246,12 @@ target_stats_age <-
     for (i in 1:length(layers)
          ) {
       
-      nf.ag_layer <- 
+      nf.ag_layer <- # getting the target statistics for nodefactor(age.grp)
         form_stat[[1]]$nf.age.grp %>% 
         select(participant_age, contact_location, nf.ag) %>% 
         filter(contact_location == layers[i])
       
-      asymmetric_mix_matrix <- 
+      asymmetric_mix_matrix <- # getting the asymmetric mixing matrix
         form_stat[[2]][[layers[i]]][1][[1]] # "[1]" is to retrieve the glm-based proportions, [[1]] is to extract data frame from list 
       
       
@@ -260,31 +260,31 @@ target_stats_age <-
       rownames(symmetric_mix_matrix_i) <- colnames(symmetric_mix_matrix_i) <- target_age_grp
       
       
-      ### non-assortative mixing of 0-9y (grp 1)
+      ### non-assortative mixing of 0-9y (grp 1) w/the other age.grps
       for (j in 2:6) {
         symmetric_mix_matrix_i[1,j] <- 
           mix_edge_num(grp.a =1, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
-      ### non-assortative mixing of 10-19y (grp 2) 
+      ### non-assortative mixing of 10-19y (grp 2) w/the other age.grps
       for (j in 3:6) {
         symmetric_mix_matrix_i[2,j] <- 
           mix_edge_num(grp.a =2, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
-      ### non-assortative mixing of 10-19y (grp 3) 
+      ### non-assortative mixing of 20-29y (grp 3) w/the other age.grps
       for (j in 4:6) {
         symmetric_mix_matrix_i[3,j] <- 
           mix_edge_num(grp.a =3, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
-      ### non-assortative mixing of 10-19y (grp 4) 
+      ### non-assortative mixing of 30-39y (grp 4) w/the other age.grps
       for (j in 5:6) {
         symmetric_mix_matrix_i[4,j] <- 
           mix_edge_num(grp.a =4, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
-      ### non-assortative mixing of 10-19y (grp 5) 
+      ### non-assortative mixing of 50-59y (grp 5) w/the other age.grps
       symmetric_mix_matrix_i[5,6] <- 
         mix_edge_num(grp.a =5, grp.b = 6, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       
@@ -311,21 +311,21 @@ target_stats_age <-
 
 netstats$formation$formation_stats_rural <- 
   target_stats_age(form_stat = netstats$formation$formation_stats_rural, 
-                         target_age_dist = target_age_distribut %>% filter(network == "rural"),
-                         n=n_node 
+                         target_age_dist = target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
   )
 
 
 netstats$formation$formation_stats_urban <- 
   target_stats_age(form_stat = netstats$formation$formation_stats_urban, 
-                         target_age_dist = target_age_distribut %>% filter(network == "urban"),
-                   n=n_node
+                         target_age_dist = target_age_distribut %>% filter(network == "urban")%>% select(target_age_grp, tar_pop)
   ) # observation: at the school layer, the both the summary and target stat for the mixing in 20-29y ==0. 
 
 
 
 # Evaluating target stats
-## nmix v. nmatch - comparison suggest the two are the same
+# Note: In the symmetric degree matrix, the NAs of the associative mixing in the school layer are caused by the corresponding egocentric group weren't observed in the data, so its matching ties weren't observed.
+# The reason that we observe 0 degree (rather than NA) after rounding in the work layer for age groups <19y is because 1) participants of these age groups were observed, and 2) although the observed matched proportion == 0, the glm approach yield a non-zero very small number for the proportion.
+## nmix v. nmatch - comparison suggest the two are exactly the same for the assortative degrees
 ### nmix
 netstats$formation$formation_stats_rural$mix_prop_rural_layers$symmetric_mix_matrix %>% lapply(., round)
 netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_matrix%>% lapply(., round)
@@ -341,6 +341,11 @@ netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp
   select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)
 netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
   select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)
+
+
+############## Target statistics (cross-layer effects,  TB completed) ##############
+
+
 
 
 # Gathering things for output
@@ -377,7 +382,7 @@ output$target.stats$nf.age.grp$urban <-
 output$target.stats$nmix.age.grp$rural <- netstats$formation$formation_stats_rural$mix_prop_rural_layers$symmetric_mix_matrix 
 output$target.stats$nmix.age.grp$urban <- netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_matrix 
 
-#saveRDS(output, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
+saveRDS(output, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
 
 
 

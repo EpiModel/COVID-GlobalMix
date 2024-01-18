@@ -5,6 +5,9 @@ attri_tarstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_param
 
 
 #### Discrepancies of the total number of edge in each age group by nodefactor v. nodemix, talk to Sam
+
+attri_tarstats$target.stats$nmix.age.grp$rural$Home # mixing matrix at home
+
 nmix_edge_sum <- c()  # number of edges of each age group calculated from nodemix
 for (i in 1:6) {
   nmix_edge_sum[i] <-  
@@ -15,18 +18,17 @@ for (i in 1:6) {
 
 
 
-attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home") %>% mutate(nmix_edge_sum)
-
-dx.h.edges.nf.nm$stats.table.formation[c(2:6),"Target"]/2 # number of edges of each age group calculated from nodefactor
+attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home") %>% mutate(nmix_edge_sum) # looks good
 
 
-attri_tarstats$target.stats$nmix.age.grp$rural$Home 
+
 
 
 ############## Set up vertex attribute ##############
 # Total number of nodes in each network - difference caused by rounding
 n_node_rural = attri_tarstats$attr$age.grp$rural %>% nrow()
 n_node_urban= attri_tarstats$attr$age.grp$urban %>% nrow()
+# set script to flexible number
 
 # Initiate nodes
 nw_rural <- network_initialize(n_node_rural)
@@ -41,7 +43,8 @@ nw_urban <- set_vertex_attribute(nw_urban, "age.grp",
                                  attri_tarstats$attr$age.grp$urban$age.grp.num 
 )
 
-#%>% table(.$age.grp.num,.$target_age_grp)
+
+attri_tarstats$attr$age.grp$rural %>% select(age.grp.num, age) %>% View()
 
 
 # nw_rural_h <- set_vertex_attribute(nw_rural, attrname = "work",
@@ -58,15 +61,23 @@ nw_urban <- set_vertex_attribute(nw_urban, "age.grp",
 
 # Note: we treat the 1st age group (0-10 years old) as reference group
 
-# Mixing matrix of target statistics at home, rural
+# Target statistics of nodemix at home, rural
 matrix_h_r <- attri_tarstats$target.stats$nmix.age.grp$rural$Home %>% as.matrix()
+target_nmix_vec <- c(na.omit(matrix_h_r[,1]) %>% as.numeric(), 
+                     na.omit(matrix_h_r[,2]) %>% as.numeric(),
+                     na.omit(matrix_h_r[,3]) %>% as.numeric(),
+                     na.omit(matrix_h_r[,4]) %>% as.numeric(),
+                     na.omit(matrix_h_r[,5]) %>% as.numeric(),
+                     na.omit(matrix_h_r[,6]) %>% as.numeric()
+                     ) # target stat of nodemix in lexicographic order
 
 # Baseline formulation model: edge + nodefactor(age.grp)
 edge.nf.nmatch <- 
-  ~edges + nodefactor("age.grp" , levels = -1) + nodematch("age.grp", levels = -1, diff = T)
+  ~edges + nodefactor("age.grp" , levels = -1) + nodematch("age.grp", # levels = -1, 
+                                                           diff = T) # no level argument for nmatch. not have to drop 1 df
+# for nf we can recover edges if we specify edges. w/ nodematch, it is just the diagnoal
 
-
-# Baseline formation target statistics 
+# Formation target statistics 
 ## Fully saturated model of edge + nodefactor(age.grp)+nodematch(age.grp) for home, rural
 tstat.edge.nf.h.r <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age), # edge
                        (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1],  # nodefactor
@@ -74,7 +85,11 @@ tstat.edge.nf.h.r <- c(attri_tarstats$target.stats$edges$rural %>% filter(contac
                        
 ) %>% as.numeric()
 
-
+## Fully saturated model of edge + nodefactor(age.grp)+nodemix(age.grp) for home, rural
+tstat.saturate.h.r <- 
+  c(
+    tstat.edge.nf.h.r, target_nmix_vec
+  ) # calculate the difference
 
 
 # Dissolution models
@@ -103,7 +118,14 @@ nmix_sim_all <- netdx(est.h.edges.nf.nm, nsims = 20, ncores = 8,
                             ~edges + nodefactor("age.grp", levels = -1) + 
                             nodematch("age.grp", levels = -1, diff = T) +nodemix("age.grp", levels2 = NULL), 
                           keep.tedgelist = TRUE
-) # same age group mixings have same target stats as nodematch
+)
+
+
+nmix_sim_all$stats.table.formation  %>%
+  mutate(Target = 
+           tstat.saturate.h.r,
+         `Pct Diff` = 100*(`Sim Mean`-Target)/Target
+         )  # same age group mixings have same target stats as nodematch
 
 
 #### Based on est.h.edges.nf.nm, simulating mixing pattern in [1,2]
@@ -112,12 +134,19 @@ nmix_sim_2 <- netdx(est.h.edges.nf.nm, nsims = 20, ncores = 8,
                       set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
                       nwstats.formula = 
                         ~edges + nodefactor("age.grp", levels = -1) + 
-                        nodematch("age.grp", levels = -1, diff = T) +nodemix("age.grp", levels2 = c(2)), 
-                      keep.tedgelist = TRUE
-) 
+                        nodematch("age.grp", levels = -1, diff = T) +nodemix("age.grp", levels2 = c(2)
+                                                                             ), 
+                      keep.tedgelist = TRUE) 
+
+nmix_sim_2$stats.table.formation  %>%
+  mutate(Target = 
+           tstat.saturate.h.r[c(1:11, 13)],
+         `Pct Diff` = 100*(`Sim Mean`-Target)/Target
+  )
 
 
-#### Estimating fully saturated model ~ edge + nodefactor(age.grp) + nodemix(age.grp[1,2])
+
+#### Estimating fully saturated model ~ edge + nodefactor(age.grp) + nodemix(age.grp[1.2])
 est.h.edges.nf.nm_2 <- netest(nw_rural, 
                             formation = ~edges + nodefactor("age.grp" , levels = -1) + 
                               nodematch("age.grp", levels = -1, diff = T)+ 
@@ -127,19 +156,24 @@ est.h.edges.nf.nm_2 <- netest(nw_rural,
                             set.control.ergm = control.ergm(MCMLE.maxit = 500)
 )
 
-#### Simulating using the above model + nodemix
-dx.h.edges.nf.nm_23 <- netdx(est.h.edges.nf.nm_2, nsims = 20, ncores = 8, 
+#### Simulating terms of the above model + nodemix
+nmix_sim_2to4 <- netdx(est.h.edges.nf.nm_2, nsims = 20, ncores = 8, 
                           nsteps = 1000, dynamic = T,
                           set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
                           nwstats.formula = 
                             ~edges + nodefactor("age.grp", levels = -1) + 
-                            nodematch("age.grp", levels = -1, diff = T) +nodemix("age.grp", levels2 = c(2,3)), 
+                            nodematch("age.grp", levels = -1, diff = T) +nodemix("age.grp", levels2 = c(2,3,4)), 
                           keep.tedgelist = TRUE
 )
 
-print(dx.h.edges.nf.nmix_12)
+nmix_sim_2to4$stats.table.formation  %>%
+  mutate(Target = 
+           tstat.saturate.h.r[c(1:11, 13:15)],
+         `Pct Diff` = 100*(`Sim Mean`-Target)/Target
+  )
 
-# add a target then sim
+
+
 
 
 
