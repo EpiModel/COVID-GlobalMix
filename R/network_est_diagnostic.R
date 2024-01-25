@@ -17,8 +17,8 @@ for (i in 1:6) {
 }
 
 
-
-attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home") %>% mutate(nmix_edge_sum) # looks good
+# compare total number of edge by nodefactor w. those by nodemix
+attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home") %>% mutate(nmix_edge_sum) 
 
 
 
@@ -44,7 +44,6 @@ nw_urban <- set_vertex_attribute(nw_urban, "age.grp",
 )
 
 
-attri_tarstats$attr$age.grp$rural %>% select(age.grp.num, age) %>% View()
 
 
 # nw_rural_h <- set_vertex_attribute(nw_rural, attrname = "work",
@@ -71,25 +70,24 @@ target_nmix_vec <- c(na.omit(matrix_h_r[,1]) %>% as.numeric(),
                      na.omit(matrix_h_r[,6]) %>% as.numeric()
                      ) # target stat of nodemix in lexicographic order
 
-# Baseline formulation model: edge + nodefactor(age.grp)
+# Baseline formulation model: edge + nodefactor(age.grp)+nodemix(matched.agegrps)
 edge.nf.nmatch <- 
-  ~edges + nodefactor("age.grp" , levels = -1) + nodematch("age.grp", # levels = -1, 
-                                                           diff = T) # no level argument for nmatch. not have to drop 1 df
-# for nf we can recover edges if we specify edges. w/ nodematch, it is just the diagnoal
+~edges + nodefactor("age.grp", levels = -1) + 
+ nodemix("age.grp", levels2 = c(1, 3, 6, 10, 15,21)) # lexicographic order of matched edges in nodemix
+                                                       
 
 # Formation target statistics 
-## Fully saturated model of edge + nodefactor(age.grp)+nodematch(age.grp) for home, rural
-tstat.edge.nf.h.r <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age), # edge
+## for base model of edge + nodefactor(age.grp)+nodemix(age.grp) for home, rural
+tstat.base.nf.h.r <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age), # edge
                        (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1],  # nodefactor
-                       (matrix_h_r %>% diag())[-1] # nodematch
-                       
-) %>% as.numeric()
+                       target_nmix_vec[c(1, 3, 6, 10, 15,21)] #[-1] # matched edges from nodemix
+) 
 
-## Fully saturated model of edge + nodefactor(age.grp)+nodemix(age.grp) for home, rural
-tstat.saturate.h.r <- 
-  c(
-    tstat.edge.nf.h.r, target_nmix_vec
-  ) # calculate the difference
+## for fully saturated model for home, rural
+tstat.full.h.r <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age), # edge
+                       (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1],  # nodefactor
+                    target_nmix_vec#[-1] # matched edges from nodemix
+) 
 
 
 # Dissolution models
@@ -102,30 +100,129 @@ diss.nh <- dissolution_coefs(dissolution = ~offset(edges), duration = 1) # non-p
 # Model fitting and simulation
 ## Rural network
 ### Home
-#### Estimating fully saturated model ~ edge + nodefactor(age.grp) + nodematch(age.grp)
+#### Simpliest model
+##### Estimating fully saturated model ~ edge + nodefactor(age.grp) + nodematch(age.grp)
 est.h.edges.nf.nm <- netest(nw_rural, 
                             formation = edge.nf.nmatch, 
-                            target.stats = tstat.edge.nf.h.r, 
+                            target.stats = tstat.base.nf.h.r, 
                             coef.diss =  diss.h,
                             set.control.ergm = control.ergm(MCMLE.maxit = 500)
 )
+
 
 #### Based on est.h.edges.nf.nm, simulating all mixing pattern 
 nmix_sim_all <- netdx(est.h.edges.nf.nm, nsims = 20, ncores = 8, 
                           nsteps = 1000, dynamic = T,
                           set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
                           nwstats.formula = 
-                            ~edges + nodefactor("age.grp", levels = -1) + 
-                            nodematch("age.grp", levels = -1, diff = T) +nodemix("age.grp", levels2 = NULL), 
+                            ~edges + nodefactor("age.grp", levels = -1) +nodemix("age.grp", levels2 = NULL), 
                           keep.tedgelist = TRUE
+) # the bias for the simulated matching edges isn't large.
+
+nmix_sim_all_1 <- 
+nmix_sim_all$stats.table.formation  %>%
+  mutate(Target = 
+           tstat.full.h.r,
+         `Pct Diff` = 100*(`Sim Mean`-Target)/Target
+  )  # same age group mixings have same target stats as nodematch
+
+
+
+#### Full-saturated model
+est.h.full <- netest(nw_rural, 
+                            formation = ~edges + nodefactor("age.grp", levels = -1) + 
+                              nodemix("age.grp", levels2 = c(NULL)) , 
+                            target.stats = tstat.full.h.r, 
+                            coef.diss =  diss.h,
+                            set.control.ergm = control.ergm(MCMLE.maxit = 500)
+)
+# Interpretation: The model cannot run and observed the warning of "Model statistics ‘mix.age.grp.1.6’, ‘mix.age.grp.2.6’, ‘mix.age.grp.3.6’, ‘mix.age.grp.4.6’,
+# ‘mix.age.grp.5.6’, and ‘mix.age.grp.6.6’ are linear combinations of some set of preceding statistics at the current stage of 
+# the estimation. This may indicate that the model is nonidentifiable."
+
+
+#### Base model +  large target stats
+
+tarstat_h_r_lex <- # Saving target statistics and their labels in lexicographic order to a dataframe
+nmix_sim_all_1[-c(1:6),] %>% rownames_to_column(var = "edge_type") %>% select(1:2) %>% 
+  rownames_to_column(var="lex_order")
+
+tarstat_h_r_lex
+
+edges_large_1k <- # target statistics > 1k in descending order
+tarstat_h_r_lex %>% arrange(desc(Target)) %>% filter(Target > 1000) 
+
+#### Items for automatizing the process
+i=1
+edge_large <- edges_large_1k[c(1:i),] # i corresponding to the number of edge types to included in each iteration
+lex_order <- edge_large %>% pull(lex_order) # lexcographic order to be specified in node mix in each iteration
+
+##### adjust for 3.5 in the model
+formula.1 <- ~edges + nodefactor("age.grp", levels = -1) + 
+  nodemix("age.grp", levels2 = c(1, 3, 6, 10, 15,21, # matched ties
+                                 13 # non-assortative tie to be adjusted
+                                 )
+  )
+est.h.1 <- netest(nw_rural, 
+                     formation = formula.1, 
+                     target.stats = 
+                    c(tstat.base.nf.h.r, # baseline target stats
+                      edge_large %>% filter(lex_order==13) %>% pull(Target) # target stats of the larggest non-assortative tie
+                      ), 
+                     coef.diss =  diss.h,
+                     set.control.ergm = control.ergm(MCMLE.maxit = 500)
+)
+
+nmix_sim.1 <- netdx(est.h.1, nsims = 20, ncores = 8, 
+                      nsteps = 1000, dynamic = T,
+                      set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+                      nwstats.formula = 
+                       formula.1, 
+                      keep.tedgelist = TRUE
+)
+nmix_sim.1
+
+
+########### Automation scriopt in progresss ########
+i=1 # we first include the largest tie
+
+
+
+
+
+formula.1 <- 
+as.formula(
+~edges + nodefactor("age.grp", levels = -1) + 
+  nodemix("age.grp", 
+          levels2 =
+            c(paste0("1, 3, 6, 10, 15, 21, ", paste(lex_order))
+              )
+  )
+)
+
+formula.1 # couldn't read the value from global environment.
+
+# The other way to read the formula
+paste0("1, 3, 6, 10, 15,21,", enquote(lex_order))[2]
+
+
+est.h.1 <- netest(nw_rural, 
+                  formation = formula.1, 
+                  target.stats = c(tstat.base.nf.h.r, edge_large %>% pull(Target)) , 
+                  coef.diss =  diss.h,
+                  set.control.ergm = control.ergm(MCMLE.maxit = 500)
+)
+
+nmix_sim.1 <- netdx(est.h.1, nsims = 20, ncores = 8, 
+                      nsteps = 1000, dynamic = T,
+                      set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
+                      nwstats.formula = 
+                        formula.1, 
+                      keep.tedgelist = TRUE
 )
 
 
-nmix_sim_all$stats.table.formation  %>%
-  mutate(Target = 
-           tstat.saturate.h.r,
-         `Pct Diff` = 100*(`Sim Mean`-Target)/Target
-         )  # same age group mixings have same target stats as nodematch
+##########################################
 
 
 #### Based on est.h.edges.nf.nm, simulating mixing pattern in [1,2]
@@ -140,7 +237,7 @@ nmix_sim_2 <- netdx(est.h.edges.nf.nm, nsims = 20, ncores = 8,
 
 nmix_sim_2$stats.table.formation  %>%
   mutate(Target = 
-           tstat.saturate.h.r[c(1:11, 13)],
+           tstat.full.h.r[c(1:11, 13)],
          `Pct Diff` = 100*(`Sim Mean`-Target)/Target
   )
 
@@ -151,7 +248,7 @@ est.h.edges.nf.nm_2 <- netest(nw_rural,
                             formation = ~edges + nodefactor("age.grp" , levels = -1) + 
                               nodematch("age.grp", levels = -1, diff = T)+ 
                               nodemix("age.grp", levels2 = c(2)), 
-                            target.stats = c(tstat.edge.nf.h.r, matrix_h_r[1,2]), 
+                            target.stats = c(tstat.base.nf.h.r, matrix_h_r[1,2]), 
                             coef.diss =  diss.h,
                             set.control.ergm = control.ergm(MCMLE.maxit = 500)
 )
@@ -168,7 +265,7 @@ nmix_sim_2to4 <- netdx(est.h.edges.nf.nm_2, nsims = 20, ncores = 8,
 
 nmix_sim_2to4$stats.table.formation  %>%
   mutate(Target = 
-           tstat.saturate.h.r[c(1:11, 13:15)],
+           tstat.full.h.r[c(1:11, 13:15)],
          `Pct Diff` = 100*(`Sim Mean`-Target)/Target
   )
 

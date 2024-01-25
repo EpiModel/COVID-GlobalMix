@@ -324,22 +324,19 @@ netstats$formation$formation_stats_urban <-
 
 # Evaluating target stats
 # Note: In the symmetric degree matrix, the NAs of the associative mixing in the school layer are caused by the corresponding egocentric group weren't observed in the data, so its matching ties weren't observed.
-# The reason that we observe 0 degree (rather than NA) after rounding in the work layer for age groups <19y is because 1) participants of these age groups were observed, and 2) although the observed matched proportion == 0, the glm approach yield a non-zero very small number for the proportion.
-## nmix v. nmatch - comparison suggest the two are exactly the same for the assortative degrees
-### nmix
+### nmix, school layer
 netstats$formation$formation_stats_rural$mix_prop_rural_layers$symmetric_mix_matrix %>% lapply(., round)
-netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_matrix%>% lapply(., round)
 
-### nmatch
-netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nm.age.grp %>% select(participant_age, contact_location, nm.ag ) %>% 
-  pivot_wider(names_from = participant_age, values_from = nm.ag) %>% mutate_if(is.numeric, ~round(.))# NA mean the matching edge wasn't observed
-netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nm.age.grp %>% select(participant_age, contact_location, nm.ag ) %>% 
-  pivot_wider(names_from = participant_age, values_from = nm.ag) %>% mutate_if(is.numeric, ~round(.))
+
+# Numeric problem in glm-estimated proportion. The the work layer below, the reason we don't se NA is because participants of all age groups were observed, 
+# and 2) although the observed matched proportion == 0, the glm approach has numberic problem and yield a non-zero very small number for the proportion.
+# It may be misleading to see the degree of this age group >0
+#### corresponding summmary stats in nodemix
+netstats$formation$formation_stats_rural$mix_prop_rural_layers$Work
+
 
 ## nf
 netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)
-netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
   select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)
 
 

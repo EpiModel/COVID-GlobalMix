@@ -958,7 +958,7 @@ mutate(
   known_duration = case_when(mid_point <= 0 ~ participant_ageyr,# for participants whose age is shorter than the known duration of 10 yrs, we consider the known duration the same as participant's age.
                              mid_point > 0 ~ mid_point+10) # for participants whose age is longer than the known duration, we calculate the known duration by summing the 10-yr bound and mid_point
 ) %>% 
-  select(rec_id, study_site, contact_location, participant_ageyr, known_duration) # select variables which will be used below
+  select(rec_id, study_site, contact_location, participant_ageyr, contact_age, known_duration) # select variables which will be used below
 
  # Characterize avg. known duration of contact longer than 10 years in days by network and layer for sampled population 
 known_dur_gt_10yr <- 
