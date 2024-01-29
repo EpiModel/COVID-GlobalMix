@@ -323,21 +323,49 @@ netstats$formation$formation_stats_urban <-
 
 
 # Evaluating target stats
-# Note: In the symmetric degree matrix, the NAs of the associative mixing in the school layer are caused by the corresponding egocentric group weren't observed in the data, so its matching ties weren't observed.
-### nmix, school layer
+## nmix
+### Rural
 netstats$formation$formation_stats_rural$mix_prop_rural_layers$symmetric_mix_matrix %>% lapply(., round)
 
-
-# Numeric problem in glm-estimated proportion. The the work layer below, the reason we don't se NA is because participants of all age groups were observed, 
-# and 2) although the observed matched proportion == 0, the glm approach has numberic problem and yield a non-zero very small number for the proportion.
-# It may be misleading to see the degree of this age group >0
-#### corresponding summmary stats in nodemix
-netstats$formation$formation_stats_rural$mix_prop_rural_layers$Work
+### Urban
+netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_matrix %>% lapply(., round)
 
 
-## nf
+
+## See which layer to exclude based on nodefactor
+## Rural, degree
 netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)
+  select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)%>%
+  mutate_if(is.numeric, round) %>% 
+  kbl(caption = "Contact degree by age group in the India rural network") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+
+## Urban, degree
+netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
+  select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)%>%
+  mutate_if(is.numeric, round) %>% 
+  kbl(caption = "Contact degree by age group in the India urban network") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+## Rural, avg. degree
+netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp %>% 
+  select(participant_age, contact_location, single_day_nf_md ) %>% pivot_wider(names_from = participant_age, values_from = single_day_nf_md)%>%
+  mutate_if(is.numeric, round, 2) %>% 
+  kbl(caption = "Mean degree by age group in the India rural network") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+
+## Urban, avg. degree
+netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
+  select(participant_age, contact_location, single_day_nf_md ) %>% pivot_wider(names_from = participant_age, values_from = single_day_nf_md)%>%
+  mutate_if(is.numeric, round, 2) %>% 
+  kbl(caption = "Mean degree by age group in the India urban network") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
 
 
 ############## Target statistics (cross-layer effects,  TB completed) ##############

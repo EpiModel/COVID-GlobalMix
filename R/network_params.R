@@ -5,16 +5,25 @@
 # (1) There are two ways to derive network summary statistics, one is fitting poisson models to individual-level count data, 
 # the other is based on summarizing contact data - the approach used in CorporateMix. Given it is easier to devise uncertainties using the glm method, 
 # we go with this approach to calculate the summary network statistics. We regrouped the age categories in the first two decades of life by decade. 
-# (2) We excluded contacts lasted ≤ 15 mins in analysis, given the interest on respiratory-related diseases. Given the data were egocentric, 
-# (3) At the single-day scale, we use $M.D.=\frac{edges}{n}$ to calculate mean degree ($M.D.$) from the number of edges. 
+
+# (2) We excluded contacts lasted ≤ 15 mins in analysis, given the interest on respiratory-related diseases. 
+
+# (3) Given the data were egocentric, at the single-day scale, we use $M.D.=\frac{edges}{n}$ to calculate mean degree ($M.D.$) from the number of edges. 
 # Given the data are of contacts over two days, the single-day mean degree of of contact is half of the mean degree of two-day contact;
 # However, the proportion of observing an edge at the two-day scale is the same as the single-day scale.
+
 # (4) Characterization of network layers: The network layers is processed from multiple questions asking contact locations. 
 # Given these questions are not mutually exclusive due to the check-box design in REDCap, we characterized contact location as the 
-# location having primary contact follow the order of home, school, work, non-home (excluding work and school). There are two contacts 
+# location having primary contact, following the order of home, school, work, non-home (excluding work and school). There are two contacts 
 # that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering the participants 
 # (and contacts) were at school age (10-19y, 0-9y). This logic is not spelled out in the below script but is adjusted by the higher priority 
 # of school than work. For a contact checked non of the categories, we assigned an NA to this contact and excluded them considering them as missing data.
+
+# (5) Zeroing out contacts in age groups. Given we observed very low level of degree in ties in the target statistics of nodemix and the observation of low degrees in some age group for nodefactor,
+# we decide to zero out the contact degrees in some age groups. For the rural network, since the degrees of the modeled population and the individual-level mean degrees are low in the ≥40 age groups at 
+# School and in the ≤19 age group at Work, we a priori exclude the contacts in these age group when calibrating the network statistics.
+# For the urban network, we exclude the contacts in the ≥40 age groups at School and in the ≤9 age group at Work. 
+
 
 setwd("~/Documents/GitHub/COVID-GlobalMix")
 
@@ -35,10 +44,11 @@ india_contact <-
 
 # Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact
 
-# Reclassifying participant's and contact's age groups into 0-9 years old, 10-19 years old, while treating other age groups as is.
+# Merging participant and contact data and processing them
 ## participant data
 india_participant <- 
-  india_participant %>% 
+  india_participant %>%
+  ### Reclassifying participant's and contact's age groups into 0-9 years old, 10-19 years old, while treating other age groups as is.
   mutate(
     participant_age = case_when(
       participant_age %in% c("<6mo", "6-11mo",   "1-4y",   "5-9y") ~ "0-9y",
@@ -65,12 +75,12 @@ india_contact <-
   )
   )
 
-# merge participants and contact datasets and basic data processing ------------------------------------------------
+## merge participants and contact datasets and basic data processing ------------------------------------------------
 india_mix <- india_participant %>%
   dplyr::select(rec_id,participant_age, participant_ageyr) %>%
   right_join(india_contact,
              by = "rec_id") %>% 
-  # characterization of primary contact status, outputted categories are: Home, School, Work, and Nonhome
+  ### characterization of primary contact status, outputted categories are: Home, School, Work, and Nonhome
   mutate(contact_location = case_when(location_contact___0 == 1  ~ "Home", # 0 - "My home"
                                       location_contact___2 == 1 & location_contact___0 == 0 ~ "School", # "School" but not "my home" 
                                       location_contact___3 == 1 & (location_contact___0 == 0  | location_contact___2 ==0)~ "Work", # "work" but not "my home" / "school"
@@ -90,7 +100,7 @@ india_mix <- india_participant %>%
                                       
                                       ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
   )  %>% 
-  ## Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household members had contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
+  ### Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household members had contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
   mutate(
     contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
                                  hh_membership == "Non-member" & contact_location %in% c("Home") ~ "Nonhome",
@@ -110,12 +120,41 @@ india_mix <- india_participant %>%
   )  %>% filter(!is.na(contact_location) # complete-case analysis - exclude contacts didn't have a contact location from analysis, Moses confirmed this is okay
   ) %>% 
   
-  ## Distribution of indoor/outdoor status
-  # The variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted a contact both in- and out-doors. Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" and the "Indoors" categories. 
-  # We will adjust for this status when building the transmission model, in which we will assign lower risk for the "Outdoors" category during simulation.
+  ### Distribution of indoor/outdoor status
+  #### The variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted a contact both in- and out-doors. Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" and the "Indoors" categories. 
+  #### We will adjust for this status when building the transmission model, in which we will assign lower risk for the "Outdoors" category during simulation.
   mutate(where_contact =case_when(where_contact %in% c("Indoors", "Both") ~ "Indoors_or_both",
                                   .default = where_contact)
   )
+
+
+## Zeroing out contacts in age groups with very low mean degree and degree
+
+india_mix <- 
+india_mix %>% filter(
+  ### Contacts to be zeroed out in the rural network, 1 contact at school of participant_age 40-59y to be excluded, 3 contacts at work of participant_age 10-19y (2 contacts) and 0-9y (1 contact) to be excluded
+  ! (
+    (study_site == "Rural")  &
+    (
+    (contact_location == "School" & participant_age %in% c("40-59y", "60+y"))|
+       (contact_location == "Work" & participant_age %in% c("0-9y", "10-19y"))
+     )
+  )
+
+     ) %>% 
+  filter(
+      ### Contacts to be zeroed out in the urban network, 4 contacts of participant_age = 0-9y at work to be excluded
+      ! (
+        (study_site == "Urban")  &
+          (
+            (contact_location == "School" & participant_age %in% c("40-59y", "60+y"))|
+              (contact_location == "Work" & participant_age %in% c("0-9y"))
+          )
+      )
+    
+    
+  )
+
 
 
 
@@ -318,7 +357,7 @@ contact_count_rural <- # rural mixing
                     india_participant. = india_participant, 
                     india_contact. = india_contact,
                     study_site. ="Rural") 
-contact_count_rural$age.grp_mix_status %>% View()
+
 
 
 contact_count_urban  <- # urban mixing
@@ -327,6 +366,8 @@ contact_count_urban  <- # urban mixing
                     
                     india_contact. = india_contact,
                     study_site. ="Urban") 
+
+
 
 
 
@@ -947,24 +988,41 @@ layer_assoc_urban$coefficient_summary
 
 know_dur <- function(india_mix.){
   
-  #  Characterize the known duration for known_contact >10 yrs at the individual level
+#  Characterize the known duration for known_contact >10 yrs at the individual level
 known_dur_gt_10yr <- india_mix. %>% 
   filter(known_contact == ">10 yrs" & contact_location %in% c( "School", "Work" )
                                   ) %>%
-  # for known_contact >10 yrs, the known duration is the middle point between 10 yrs and participants age.
+# for known_contact >10 yrs, the known duration is the middle point between 10 yrs and participants age.
     mutate(mid_point = (participant_ageyr - 10)/2 # half of the difference between the 10-yr bound and participants age.
            ) %>% 
 mutate(
   known_duration = case_when(mid_point <= 0 ~ participant_ageyr,# for participants whose age is shorter than the known duration of 10 yrs, we consider the known duration the same as participant's age.
                              mid_point > 0 ~ mid_point+10) # for participants whose age is longer than the known duration, we calculate the known duration by summing the 10-yr bound and mid_point
 ) %>% 
-  select(rec_id, study_site, contact_location, participant_ageyr, contact_age, known_duration) # select variables which will be used below
+  select(rec_id, study_site, contact_location, participant_age, participant_ageyr, contact_age, known_duration) # select variables which will be used below
 
- # Characterize avg. known duration of contact longer than 10 years in days by network and layer for sampled population 
+# Considering contact age in characterizing contact duration
+known_dur_gt_10yr <- 
+known_dur_gt_10yr %>% mutate(contact_age_num = case_when(contact_age == "0-9y" ~ 4.5, # impute by median age
+                                                           contact_age == "10-19y" ~ 14.5, # impute by median age
+                                                           contact_age == "20-29y" ~ 24.5, # impute by median age
+                                                           contact_age == "30-39y" ~ 34.5, # impute by median age
+                                                           contact_age == "40-59y" ~ 49.5, # impute by median age
+                                                           contact_age == "60+y" ~ 60, # given no characterized contact duration is > 60 yr, we impute the continuous age of this category as the lower bound.
+                                                           )
+                             ) %>% 
+  mutate(diff= contact_age_num-known_duration) %>% # calculate the difference between contact's age and know duration
+  mutate(known_duration_adj = case_when(diff>=0 ~ known_duration, # If contact's age is longer than or equal to the known duration, we treat the known duration as-is
+                                    diff<0 ~contact_age_num) # If contact's age is shorter than the known duration, we use the contact age as the duration
+  )
+
+# Talk to Sam about the 4 contacts whose imputed duration are < 10 yrs
+
+# Characterize avg. known duration of contact longer than 10 years in days by network and layer for sampled population 
 known_dur_gt_10yr <- 
   known_dur_gt_10yr %>% 
   group_by(study_site, contact_location) %>% 
-  summarize(known_contact_avg = mean(known_duration)*365 # converting duration in years to duration in days
+  summarize(known_contact_avg = mean(known_duration_adj)*365 # converting duration in years to duration in days
             ) %>% ungroup()
 
 # Characterize known duration of contact in days for all categories of durations
@@ -1014,6 +1072,7 @@ known_duration <-
 
 }
 known_dur_school_work <- know_dur(india_mix. = india_mix)
+
 
 
 # Outputting network statistics

@@ -187,7 +187,7 @@ nmix_sim.1
 i=1 # we first include the largest tie
 
 
-
+lex_order <- 13
 
 
 formula.1 <- 
