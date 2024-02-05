@@ -377,7 +377,7 @@ contact_count_urban  <- # urban mixing
 mix_prop <- # to-do: characterizing uncertainties 
   function(mix_status_layer,# the mixing statuses of a single layer over the two-day period 
            unobserve_ego_age_grp 
-           # The "unobserve_ego_age_grp" argument indicating which egocentric age groups weren't observed in a layer, which  could be "none", "40+y" (for school in urban),  "60+y" (for school in rural)
+           # The "unobserve_ego_age_grp" argument indicating which egocentric age groups weren't observed to have contact or whose contacts where excluded.
            # For these unobserved egocentric age groups, their corresponding proportions won't be characterized, yielding NA
   ){
     
@@ -403,13 +403,14 @@ mix_prop <- # to-do: characterizing uncertainties
                        list(i = as.name(x))), family = "binomial", data = mix_status_layer) 
         
       } )
+    # Note: the warning of "glm.fit: algorithm did not converge" occurs when all the mixing status == 0
     
     glm_nmix_summary <- lapply(glm_nmix, summary)
     
     
     
     # Filling the two-day proportion to the mixing matrix, the row index (i) and column index correspond to the egocentric and contact's age groups
-    if(unobserve_ego_age_grp == "none"){ # if all the 6 egocentric age groups are observed, we fill all the six corresponding matrix rows
+    if(unobserve_ego_age_grp == "none"){ # if contacts existed in all the 6 egocentric age groups, we fill all the six corresponding matrix rows. This scenario applies to the home and nonhome layers
       for (i in 1:6 
       ) {
         
@@ -422,9 +423,9 @@ mix_prop <- # to-do: characterizing uncertainties
         
       }
       
-    } else if (unobserve_ego_age_grp == "60+y") { # if the oldest egocentric age groups is not observed, we fill the first five corresponding matrix rows
+    }  else if (unobserve_ego_age_grp == "40+y") { # if the last two oldest egocentric age groups didn't have contact, we fill the first four corresponding matrix rows. This scenario applies to the school layer
       
-      for (i in 1:5
+      for (i in 1:4
       ) {
         
         mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
@@ -436,17 +437,31 @@ mix_prop <- # to-do: characterizing uncertainties
         
       }
       
-    } else { # if the last two oldest egocentric age groups is not observed, we fill the first four corresponding matrix rows
+    } else if (unobserve_ego_age_grp == "<19y") { # if the first two youngest egocentric age groups didn't have contact, we fill the last four corresponding matrix rows. This scenario applies to the rural work layer
       
-      for (i in 1:4
+      for (i in 3:6
       ) {
         
-        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 5] <- glm_nmix_summary[[5+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 6] <- glm_nmix_summary[[6+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit() # Given there is an mismatch between the i of the loop and the location in the coefficient, we use "-2" to handle the mismatching in coefficients[i-2,"Estimate"] 
+        mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 5] <- glm_nmix_summary[[5+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 6] <- glm_nmix_summary[[6+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
+        
+      }
+      
+    } else if (unobserve_ego_age_grp == "<9y") { # if the first youngest egocentric age group didn't have contact, we fill the last five corresponding matrix rows. This scenario applies to the urban work layer
+      
+      for (i in 2:6
+      ) {
+        
+        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit() # Given there is an mismatch between the i of the loop and the location in the coefficient, we use "-1" to handle the mismatching in coefficients[i-1,"Estimate"] 
+        mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 5] <- glm_nmix_summary[[5+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
+        mix_prop_matrix_2d_glm[i, 6] <- glm_nmix_summary[[6+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
         
       }
       
@@ -479,12 +494,13 @@ mix_prop <- # to-do: characterizing uncertainties
 
 
 
+
 # Characterizing mixing proportions by layer
 ## Note: the following use the mix_prop function to characterize the mixing proportion for all contact layers
 ## define function settings
 locs <- c("Home", "School", "Work", "Nonhome")
-unobs_grp_rural <- c("none", "60+y", "none", "none") # status of unobserved age group in each layer of the rural network
-unobs_grp_urban <- c("none", "40+y", "none", "none") # status of unobserved age group in each layer of the urban network
+unobs_grp_rural <- c("none", "40+y", "<19y", "none") # status of unobserved age group in each layer of the rural network
+unobs_grp_urban <- c("none", "40+y", "<9y", "none") # status of unobserved age group in each layer of the urban network
 mix_prop_rural_layers <- mix_prop_urban_layers <- list()
 
 for (i in 1:length(locs)
@@ -513,8 +529,8 @@ names(mix_prop_rural_layers) <- names(mix_prop_urban_layers) <-locs # assigning 
 
 ## Compare the glm-based and crude proportions, and those proportions of matched age groups based on the ARTnet approach
 ### glm-based and crude proportions
-mix_prop_rural_layers[[1]]$Home_mix_prop_matrix_2d_glm
-mix_prop_urban_layers[[1]]$Home_mix_prop_matrix_2d_glm
+mix_prop_rural_layers[[1]]
+mix_prop_urban_layers[[3]]
 
 ### proportions of matched age groups based on dataframe of the ARTnet approach
 contact_count_rural$same.age.grp_status %>% filter(contact_location == "Home")  %>% group_by(contact_location, participant_age) %>% summarize(match.prop = mean(same.age.grp)
@@ -522,7 +538,7 @@ contact_count_rural$same.age.grp_status %>% filter(contact_location == "Home")  
 contact_count_urban$same.age.grp_status  %>% filter(contact_location == "Home")%>% group_by(contact_location, participant_age) %>% summarize(match.prop = mean(same.age.grp)
 ) 
 
-### to-do: characterizing uncertainties
+
 
 
 # Function characterizing network statistics of age effect for edge, nodefactor, and nodematch
@@ -1096,7 +1112,7 @@ network_stats$dissolution <- known_dur_school_work
 
 
 
-saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
+saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params_20240129.RData")
 
 
 

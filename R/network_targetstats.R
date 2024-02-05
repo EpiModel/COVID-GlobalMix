@@ -1,5 +1,5 @@
 # Characterization of target statistics and model parameterization
-lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
+  lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
 
 
 
@@ -154,21 +154,25 @@ node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats
                    target_age_dist = target_age_distribut %>% filter( network == "rural"), 
                    node.age.group = node.age.grp.rural) # rural network
 
+node.age.grp.rural %>% View()
 
 # Compare simulated proportion to observed ones
 ## Observed proportion, rural
-netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days %>% filter(contact_status ==1) %>% select(-contact_status) %>% t()
+netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days %>% filter(contact_status ==1) %>% mutate_if(is.numeric, round, 2)%>% 
+  select("layer", "0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y"   ) %>% t() %>% data.frame() 
+
 ## Simulated proportion, rural
 node.age.grp.rural  %>% group_by(target_age_grp) %>% 
 select(contact_attribute_Home, contact_attribute_School, contact_attribute_Work, contact_attribute_Nonhome
-)%>%  summarize(mean(contact_attribute_Home), 
-                                              mean(contact_attribute_School), 
-                                              mean(contact_attribute_Work), 
-                                              mean(contact_attribute_Nonhome)
-                ) %>% arrange(target_age_grp) 
+)%>%  summarize(Home= mean(contact_attribute_Home), 
+                School= mean(contact_attribute_School), 
+                Work= mean(contact_attribute_Work), 
+                Nonhome= mean(contact_attribute_Nonhome)
+                ) %>% arrange(target_age_grp) %>% 
+  mutate_if(is.numeric, round, 2)
 
 
-
+   
 
 
 
@@ -331,40 +335,6 @@ netstats$formation$formation_stats_rural$mix_prop_rural_layers$symmetric_mix_mat
 netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_matrix %>% lapply(., round)
 
 
-
-## See which layer to exclude based on nodefactor
-## Rural, degree
-netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)%>%
-  mutate_if(is.numeric, round) %>% 
-  kbl(caption = "Contact degree by age group in the India rural network") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
-
-
-
-## Urban, degree
-netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag ) %>% pivot_wider(names_from = participant_age, values_from = nf.ag)%>%
-  mutate_if(is.numeric, round) %>% 
-  kbl(caption = "Contact degree by age group in the India urban network") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
-
-
-## Rural, avg. degree
-netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp %>% 
-  select(participant_age, contact_location, single_day_nf_md ) %>% pivot_wider(names_from = participant_age, values_from = single_day_nf_md)%>%
-  mutate_if(is.numeric, round, 2) %>% 
-  kbl(caption = "Mean degree by age group in the India rural network") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
-
-
-
-## Urban, avg. degree
-netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
-  select(participant_age, contact_location, single_day_nf_md ) %>% pivot_wider(names_from = participant_age, values_from = single_day_nf_md)%>%
-  mutate_if(is.numeric, round, 2) %>% 
-  kbl(caption = "Mean degree by age group in the India urban network") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
 
 
 
