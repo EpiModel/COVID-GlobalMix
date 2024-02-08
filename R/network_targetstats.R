@@ -6,7 +6,7 @@
 # load network parameters
 netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
 
-# to-do: n_node=1e4 - we had this as a scaler of the population ( mutate(tar_pop = round(prop*n_node)) ) but think if the population of DSS is not a sample of the population in the study area, this scaler can be obviated. This'll be confirmed on 1/22
+n_node_rural=117808; n_node_urban=257977 # total numbers of populations in rural and rural sites in India
 
 # Categories of age and layer variabes
 target_age_grp <- netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
@@ -14,18 +14,19 @@ layers <-  netstats$formation$formation_stats_rural$edge_node_factor_match_rural
 
 # target population numbers in urban & rural networks 
 target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
-                                   pop_age_grp=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural network from DSS
-                                               c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)  # number of population in the urban network from DSS
+                                   dss_pop_age_grp=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural area from DSS
+                                               c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)  # number of population in the urban area from DSS
                                               ),
-                                   network=rep(c("rural", "urban"), each = length(target_age_grp))
+                                   total_pop = rep(c(n_node_rural, n_node_urban), each = length(target_age_grp)),   # Total population in the rural and urban area
+                                   network=rep(c("rural", "urban"), each = length(target_age_grp))  
 ) %>% 
   group_by(network) %>% # proportion (relative frequency) of target population in each age group by network
   mutate(
-    network_pop = sum(pop_age_grp), # total number of nodes in that network
-    prop=pop_age_grp/network_pop) %>% ungroup() %>% 
+    dss_pop = sum(dss_pop_age_grp), # total number of nodes in that network
+    prop=dss_pop_age_grp/dss_pop) %>% ungroup() %>% # prop is the relative frequency of age group from the DSS data
   mutate(#tar_pop = round(prop*n_node)
-    tar_pop = pop_age_grp
-         ) # number of node at each age group of the modeled population
+    tar_pop = total_pop*prop
+         )  # number of node at each age group of the modeled population
 
 
 ################# Simulate age and age group for individual nodes #################
@@ -41,7 +42,7 @@ node.age.grp <-
     
     ## generate individual nodes labeled by age group 
     age.grp.num <- age.grp.df %>% 
-      slice(rep(1:n(), times= tar_pop) # 1:6 correspond to the 6 age groups from yound to told 
+      slice(rep(1:n(), times= tar_pop) # 1:6 correspond to the 6 age groups from young to old 
       ) %>% 
       pull(age.grp.num) 
     
@@ -105,7 +106,7 @@ node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist, node.a
   deg.layer.prop <- # merging total number of node of each age group to each layer
     left_join(deg.layer.prop, 
               target_age_dist %>% 
-                rename(age.grp = target_age_grp) %>% select(-c(pop_age_grp, prop)) , 
+                rename(age.grp = target_age_grp) %>% select(-c(dss_pop_age_grp, prop)) , 
               by = c("age.grp") 
               
     )
@@ -204,8 +205,9 @@ target_stats_age <-
       mutate(edges=single_day_md/2*sum(target_age_dist$tar_pop) # the crude total number of edges = overall MD/2 * total population across all age groups in a network
       ) %>% # the reason /2 is used here is because this is a edge-level statistic, this way didn't adjust for the age distribution of the target population.
       left_join( 
-        form_stat[[1]]$nf.age.grp %>% group_by(contact_location) %>% summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
-        ),
+        form_stat[[1]]$nf.age.grp %>% group_by(contact_location) %>% 
+          summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
+                    ),
         by = "contact_location"
       ) %>% select(-edges) # given we decided to go with the total number edges adjust for age distribution of target population, we exclude this variable  
     

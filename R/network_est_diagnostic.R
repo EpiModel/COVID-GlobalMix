@@ -6,13 +6,17 @@ attri_tarstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_param
 
 #### Discrepancies of the total number of edge in each age group by nodefactor v. nodemix, talk to Sam
 
-netstats$formation$formation_stats_rural$mix_prop_rural_layers$Home$Home_mix_prop_matrix_2d_glm %>% round(2)%>%
-  kbl(caption = "Asymmetric proportion mixing matrix at Home of rural India site") %>%
+netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm %>% round(2)%>%
+  kbl(caption = "Asymmetric proportion mixing matrix at School of rural India site") %>%
   kable_classic(full_width = F, html_font = "Cambria") # for 2/5 meeting
-attri_tarstats$target.stats$nmix.age.grp$rural$Home %>% round(0)%>%
-  kbl(caption = "Symmetric degree mixing matrix at Home of rural India site") %>%
+attri_tarstats$target.stats$nmix.age.grp$rural$School %>% round(0)%>%
+  kbl(caption = "Symmetric degree mixing matrix at School of rural India site") %>%
   kable_classic(full_width = F, html_font = "Cambria") # for 2/5 meeting
-
+##### Calculating count of 478
+mix_edge_num(grp.a=2, grp.b=5, 
+             asymmetric_mix_matrix.=netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm, 
+             nf.ag_layer.= attri_tarstats$target.stats$nf.age.grp$rural%>% filter(contact_location == "School") %>% rename( participant_age = age.grp )
+             )
 
 
 nmix_edge_sum_h <-nmix_edge_sum_s <- nmix_edge_sum_w <-nmix_edge_sum_nh <-c()  # number of edges of each age group calculated from nodemix

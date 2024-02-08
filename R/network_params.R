@@ -41,6 +41,9 @@ india_participant <-
 india_contact <- 
   readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_contact_data_aim1.RDS")
 
+table(india_contact$hh_membership, india_contact$study_site )%>%
+  kbl(caption = "Household membership status in GlobalMix India data") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
 
 # Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact
 
