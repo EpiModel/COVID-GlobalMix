@@ -26,11 +26,11 @@ target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
     prop=dss_pop_age_grp/dss_pop) %>% ungroup() %>% # prop is the relative frequency of age group from the DSS data
   mutate(#tar_pop = round(prop*n_node)
     tar_pop = total_pop*prop
-         )  # number of node at each age group of the modeled population
-
+         ) %>%  # number of node at each age group of the modeled population
+  select(target_age_grp, network, tar_pop ) # variable needed for below
 
 ################# Simulate age and age group for individual nodes #################
-# Function generating nodal's age and age group based on distribution of target population
+# Function generating age and age group for each node based on distribution of target population
 node.age.grp <- 
   function(target_age_dist_site # number of target population by age group of a network (urban/rual)
   ){
@@ -74,59 +74,37 @@ node.age.grp.urban <-
                ) # urban network
 
 
-# Visualizing age distribution of study population
-# ggarrange(
-#   target_age_distribut %>% ggplot(aes(x=target_age_grp, y=pop_age_grp))+geom_bar(stat = "identity")+facet_wrap(~network)+
-#     geom_text(aes(label=pop_age_grp), vjust=-0.3, size=3.5)+
-#     theme_classic()+ylab("Frequency")+xlab("Age group"),
-#   target_age_distribut %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-#     geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
-#     theme_classic()+ylab("Relative frequency (obs.)")+xlab("Age group"),
-#   
-#   rbind(
-#     node.age.grp.rural %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "rural"),
-#     node.age.grp.urban %>% group_by(target_age_grp) %>% summarize(mean_age= mean(age), prop=n()/9999) %>% mutate(network = "urban")
-#   ) %>% ggplot(aes(x=target_age_grp, y=prop))+geom_bar(stat = "identity")+facet_wrap(~network)+
-#     geom_text(aes(label=round(prop,2)), vjust=-0.3, size=3.5)+
-#     theme_classic()+ylab("Relative frequency (sim.)")+xlab("Age group"),
-#   
-#   nrow = 3
-# ) 
-
 ################# Simulate contact status at each layer for individual nodes #################
 # Function generating nodal attribute of contact status at each layer
 node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist, node.age.group){
   
-  deg.layer.prop <- 
-    deg.age.layer.dist_2days %>% # dataframe storing relative frequency population w/ and w/o contact at each age group
+  ## Extracting proportion of having any contact
+  deg.layer.prop <- # deg.layer.prop stores the proportion w/ any contact at each age group
+    deg.age.layer.dist_2days %>% 
     filter(contact_status == 1 # filter out the proportion of having any contact
     ) %>% select(-contact_status) %>% pivot_longer(!layer, names_to = "age.grp", values_to = "gt_0_prop") # converting to long format to facilitate data manipulation
+
   
+  layer_attribute_single_layer   <-  data.frame() # create dataframe to store intermediate results
+  layer_attribute_layers <- list() # create list to store nodeal status of contact for a whole layer
   
-  deg.layer.prop <- # merging total number of node of each age group to each layer
-    left_join(deg.layer.prop, 
-              target_age_dist %>% 
-                rename(age.grp = target_age_grp) %>% select(-c(dss_pop_age_grp, prop)) , 
-              by = c("age.grp") 
-              
-    )
-  
-  layer_attribute_single_layer   <- data.frame() # create dataframe to store intermediate results
-  
-  ## generate nodal attribute of contact  each layer
+  ## generate nodal attribute of contact  at each layer (i), at each age group (j)
+  ### explanation of the below code: for a layer, we generate nodel status of contact for each age group 
+  ### using the proportion of contact and the total number of nodes in a layer. We replicate this for all age group and all layers
   for (i in 1:length(layers)
   ) {
     for (j in 1:length(target_age_grp)) {
-      deg.prop_single_layer_age_grp <-  deg.layer.prop %>% filter(layer == layers[i] & age.grp == target_age_grp[j])
+      deg.prop_single_layer_age_grp <-  deg.layer.prop %>% filter(layer == layers[i] & age.grp == target_age_grp[j]) %>% pull(gt_0_prop) # retrieving the proportion of having any contact in a age group of a layer in a network
       
-      n_pop_single <- deg.prop_single_layer_age_grp %>% pull(tar_pop) # number of nodes to generate for this single scenario
+      n_pop_single <- target_age_dist %>% filter(target_age_grp == target_age_grp[j]) %>% pull(tar_pop) # number of nodes to generate 
       
       contact_attribute <- # attribute of contact in a single age group and layer
         rbinom(n =  n_pop_single, 
                size = 1,#  for bernoulli trial
-               prob = deg.prop_single_layer_age_grp %>% pull(gt_0_prop)
+               prob = deg.prop_single_layer_age_grp 
         ) 
       
+      ## combining the simulated nodal status in different age groups
       layer_attribute_single_layer <- 
         rbind(layer_attribute_single_layer,
               data.frame( target_age_grp=rep(target_age_grp[j], length = n_pop_single),
@@ -137,17 +115,28 @@ node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist, node.a
     }
     colnames(layer_attribute_single_layer)[2]= paste0("contact_attribute_", layers[i])
     
-    if(sum(as.numeric( ! layer_attribute_single_layer$target_age_grp == node.age.group$target_age_grp))>0
-    ) {
-      print("warning: the age groups do not match ")
-    }
-    
-    node.age.group <- cbind(node.age.group, layer_attribute_single_layer %>% select(2))  # save the nodal status of contact for i 
+    layer_attribute_layers[[i]]<- layer_attribute_single_layer 
     
     layer_attribute_single_layer <- data.frame() # before moving to the next iteration of i + 1, we remove the data from iteration of i
+    
+    
+    ## Note: previously, we had some logic to see whether the simulated age group of node in this function is the same as those by node.age.grp. Given the two function generate nodal statuses
+    ## based on the same target population. The logic must be TRUE, so, we remove the logic.
+    
+
   }
   
-  node.age.group
+  ## Combining results from all layers into a dataframe 
+  layer_attribute_layers <- 
+cbind(
+  layer_attribute_layers[[1]],
+  contact_attribute_School=layer_attribute_layers[[2]]$contact_attribute_School,
+  contact_attribute_Work=layer_attribute_layers[[3]]$contact_attribute_Work,
+  contact_attribute_Nonhome=layer_attribute_layers[[4]]$contact_attribute_Nonhome
+  )
+  
+  layer_attribute_layers
+  
 }
 
 node.age.grp.rural <- 
@@ -156,6 +145,14 @@ node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats
                    node.age.group = node.age.grp.rural) # rural network
 
 node.age.grp.rural %>% View()
+
+
+node.age.grp.urban <- 
+  node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
+                     target_age_dist = target_age_distribut %>% filter( network == "urban"), 
+                     node.age.group = node.age.grp.urban) # urban network
+
+node.age.grp.urban %>% View()
 
 # Compare simulated proportion to observed ones
 ## Observed proportion, rural
@@ -314,18 +311,17 @@ target_stats_age <-
   }
 
 
-
+# Characterizing target stats of the rural network
 netstats$formation$formation_stats_rural <- 
   target_stats_age(form_stat = netstats$formation$formation_stats_rural, 
                          target_age_dist = target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
   )
 
-
+# Characterizing target stats of the urban network
 netstats$formation$formation_stats_urban <- 
   target_stats_age(form_stat = netstats$formation$formation_stats_urban, 
                          target_age_dist = target_age_distribut %>% filter(network == "urban")%>% select(target_age_grp, tar_pop)
   ) # observation: at the school layer, the both the summary and target stat for the mixing in 20-29y ==0. 
-
 
 
 # Evaluating target stats
@@ -341,8 +337,74 @@ netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_mat
 
 
 ############## Target statistics (cross-layer effects,  TB completed) ##############
+# things needed
+prop_contact <- netstats$formation$formation_stats_rural$layer_assoc_rural$deg.layer.dist_2days # proportion of having any contact at a 2-day scale
+cond_mean_deg <- netstats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day
+N <- n_node_rural
 
+# Function characterizing target statistics for the cross-layer effect
 
+target_stats_x_layer <- 
+  function(
+    cond_mean_deg, # conditional mean degree
+    prop_contact, # proportion of contact of all layers
+    N # number of population a whole network
+    ){
+    
+    # Characterize number of node w/o and w/ contact at each layer
+    ## Home
+    N_h_0=N*prop_contact %>% filter(layer=="Home") %>% pull(prop_0) # number of nodes in the Home layer as conditioning layer w/o contact
+    N_h_1=N*prop_contact %>% filter(layer=="Home") %>% pull(prop_1) # number of nodes in the Home layer as conditioning layer w/o contact
+    
+    ## School
+    N_s_0=N*prop_contact %>% filter(layer=="School") %>% pull(prop_0) # number of nodes in the School layer as conditioning layer w/o contact
+    N_s_1=N*prop_contact %>% filter(layer=="School") %>% pull(prop_1) # number of nodes in the School layer as conditioning layer w/o contact
+    
+    ## Work
+    N_w_0=N*prop_contact %>% filter(layer=="Work") %>% pull(prop_0) # number of nodes in the Work layer as conditioning layer w/o contact
+    N_w_1=N*prop_contact %>% filter(layer=="Work") %>% pull(prop_1) # number of nodes in the Work layer as conditioning layer w/o contact
+    
+    ## Nonhome
+    N_nh_0=N*prop_contact %>% filter(layer=="Nonhome") %>% pull(prop_0) # number of nodes in the Nonhome layer as conditioning layer w/o contact
+    N_nh_1=N*prop_contact %>% filter(layer=="Nonhome") %>% pull(prop_1) # number of nodes in the Nonhome layer as conditioning layer w/o contact
+    
+    # Characterize conditioned node-level edge count
+    cond_mean_deg %>% 
+      mutate(
+        nf_other_layer_0 = # target stats for without contact at the conditioning layer
+          case_when(
+            association %in% c("s_by_h", "w_by_h", "nh_by_h") ~ other_layer.0*N_h_0, # Home as the conditioning layer
+            association %in% c("h_by_s", "w_by_s", "nh_by_s") ~ other_layer.0*N_s_0, # School as the conditioning layer
+            association %in% c("h_by_w", "s_by_w", "nh_by_w") ~ other_layer.0*N_w_0, # Work as the conditioning layer
+            association %in% c("h_by_nh", "s_by_nh", "w_by_nh") ~ other_layer.0*N_nh_0, # Nonhome as the conditioning layer
+                    ),
+        nf_other_layer_1 = # target stats for having contact at the conditioning layer
+          case_when(
+            association %in% c("s_by_h", "w_by_h", "nh_by_h") ~ other_layer.1*N_h_1, # Home as the conditioning layer
+            association %in% c("h_by_s", "w_by_s", "nh_by_s") ~ other_layer.1*N_s_1, # School as the conditioning layer
+            association %in% c("h_by_w", "s_by_w", "nh_by_w") ~ other_layer.1*N_w_1, # Work as the conditioning layer
+            association %in% c("h_by_nh", "s_by_nh", "w_by_nh") ~ other_layer.1*N_nh_1, # Nonhome as the conditioning layer
+          )
+      ) %>% 
+      select(association, nf_other_layer_0, nf_other_layer_1)
+    
+    
+    
+  }
+
+# Characterizing target statistics for the rural network
+target_stats_x_layer(cond_mean_deg =  netstats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day, 
+                     prop_contact = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.layer.dist_2days, 
+                     N = n_node_rural
+                     )
+## Check whether the conditioning effects are significant
+netstats$formation$formation_stats_rural$layer_assoc_rural$coefficient_summary_2days %>% data.frame() %>% mutate_if(is.numeric, round,2)
+netstats$formation$formation_stats_urban$layer_assoc_urban$coefficient_summary_2days %>% data.frame() %>% mutate_if(is.numeric, round,2)
+# Characterizing target statistics for the urban network
+target_stats_x_layer(cond_mean_deg =  netstats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day, 
+                     prop_contact = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.layer.dist_2days, 
+                     N = n_node_urban
+)
 
 
 # Gathering things for output

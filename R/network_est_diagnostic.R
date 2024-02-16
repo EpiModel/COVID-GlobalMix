@@ -12,49 +12,14 @@ netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix
 attri_tarstats$target.stats$nmix.age.grp$rural$School %>% round(0)%>%
   kbl(caption = "Symmetric degree mixing matrix at School of rural India site") %>%
   kable_classic(full_width = F, html_font = "Cambria") # for 2/5 meeting
-##### Calculating count of 478
+
+##### Calculating count of 478 for note
 mix_edge_num(grp.a=2, grp.b=5, 
              asymmetric_mix_matrix.=netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm, 
              nf.ag_layer.= attri_tarstats$target.stats$nf.age.grp$rural%>% filter(contact_location == "School") %>% rename( participant_age = age.grp )
              )
 
 
-nmix_edge_sum_h <-nmix_edge_sum_s <- nmix_edge_sum_w <-nmix_edge_sum_nh <-c()  # number of edges of each age group calculated from nodemix
-for (i in 1:6) {
-  nmix_edge_sum_h[i] <-  
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$Home[i,], na.rm = T) + 
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$Home[,i], na.rm=T) - 
-    attri_tarstats$target.stats$nmix.age.grp$rural$Home[i,i]
-  
-  nmix_edge_sum_s[i] <-  
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$School[i,], na.rm = T) + 
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$School[,i], na.rm=T) - 
-    attri_tarstats$target.stats$nmix.age.grp$rural$School[i,i]
-  
-  nmix_edge_sum_w[i] <-  
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$Work[i,], na.rm = T) + 
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$Work[,i], na.rm=T) - 
-    attri_tarstats$target.stats$nmix.age.grp$rural$Work[i,i]
-  
-  nmix_edge_sum_nh[i] <-  
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$Nonhome[i,], na.rm = T) + 
-    sum(attri_tarstats$target.stats$nmix.age.grp$rural$Nonhome[,i], na.rm=T) - 
-    attri_tarstats$target.stats$nmix.age.grp$rural$Nonhome[i,i]
-}
-
-
-# compare total number of edge by nodefactor w. those by nodemix
-rbind(
-attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home") %>% mutate(nmix_edge_sum_h) %>% rename(nmix_edge_sum_h=4),
-attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "School") %>% mutate(nmix_edge_sum_s) %>% rename(nmix_edge_sum_h=4),
-attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Work") %>% mutate(nmix_edge_sum_w) %>% rename(nmix_edge_sum_h=4),
-attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Nonhome") %>% mutate(nmix_edge_sum_nh) %>% rename(nmix_edge_sum_h=4)
-)%>% 
-  mutate(
-    relaat_diff=
-      (nmix_edge_sum_h-nf.ag)/nf.ag
-  ) %>%  # characterize the relative difference
-  mutate_if(is.numeric, round,2)
 
 
 ############## Set up vertex attribute ##############

@@ -754,6 +754,11 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
   
   ############### Characterizing two-day coefficients of the effect of other layers ###############
   # Effects of other layers on home 
+  
+  output_model$h_s <- 
+    contact_count_wide %>% 
+    glm(Home~ School_cat, data=., family = poisson(link=log))
+  
   output_model$h_w <- 
     contact_count_wide %>% 
     glm(Home~ Work_cat, data=., family = poisson(link=log))
@@ -762,23 +767,18 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
     contact_count_wide %>% 
     glm(Home~ Nonhome_cat, data=., family = poisson(link=log)) 
   
-  output_model$h_s <- 
-    contact_count_wide %>% 
-    glm(Home~ School_cat, data=., family = poisson(link=log))
-  
-  
   # Effects of other layers on School
   output_model$s_h <- 
     contact_count_wide %>% 
     glm(School~ Home_cat, data=., family = poisson(link=log))
   
-  output_model$s_nh <- 
-    contact_count_wide %>% 
-    glm(School~ Nonhome_cat , data=., family = poisson(link=log))
-  
   output_model$s_w <- 
     contact_count_wide %>% 
     glm(School~ Work_cat , data=., family = poisson(link=log))
+  
+  output_model$s_nh <- 
+    contact_count_wide %>% 
+    glm(School~ Nonhome_cat , data=., family = poisson(link=log))
   
   # Effects of other layers on work 
   output_model$w_h <- 
@@ -799,7 +799,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
     contact_count_wide %>% 
     glm(Nonhome~ Home_cat, data=., family = poisson(link=log))
   
-  output_model$nh_school <- 
+  output_model$nh_s <- 
     contact_count_wide %>% 
     glm(Nonhome~ School_cat , data=., family = poisson(link=log))
   
@@ -811,10 +811,10 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
   ############### Summarizing the two-day coefficients on a table ###############
     tb_slope <- 
       rbind(
-        summary(output_model$h_w)$coefficients,  summary(output_model$h_nh)$coefficients, summary(output_model$h_s)$coefficients,
-        summary(output_model$s_h)$coefficients,  summary(output_model$s_nh)$coefficients  ,  summary(output_model$s_w)$coefficients, 
+        summary(output_model$h_s)$coefficients, summary(output_model$h_w)$coefficients,  summary(output_model$h_nh)$coefficients, 
+        summary(output_model$s_h)$coefficients,  summary(output_model$s_w)$coefficients, summary(output_model$s_nh)$coefficients,  
         summary(output_model$w_h)$coefficients  ,  summary(output_model$w_s)$coefficients  ,  summary(output_model$w_nh)$coefficients,
-        summary(output_model$nh_h)$coefficients  ,  summary(output_model$nh_school)$coefficients  , summary(output_model$nh_w)$coefficients 
+        summary(output_model$nh_h)$coefficients  ,  summary(output_model$nh_s)$coefficients  , summary(output_model$nh_w)$coefficients 
       )[ c(c(1:12)*2), ] # outputting the slope coefficients
     
     
@@ -836,9 +836,9 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
       ){
         
         out <- 
-          c(
+          c(# single-day mean degree of the outcome layer when the predictive layer didn't have contact
             exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*0)/2, # the 2 here to covert the two-day MD to single-day MD
-            
+            # single-day mean degree of the outcome layer when the predictive layer have any contact
             exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*1)/2 # the 2 here to covert the two-day MD to single-day MD
           )
         
