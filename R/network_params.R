@@ -131,8 +131,7 @@ india_mix <- india_participant %>%
   )
 
 
-## Zeroing out contacts in age groups with very low mean degree and degree
-
+## Zeroing out contacts in age groups with very low mean degree and degree for urban and rural networks
 india_mix <- 
 india_mix %>% filter(
   ### Contacts to be zeroed out in the rural network, 1 contact at school of participant_age 40-59y to be excluded, 3 contacts at work of participant_age 10-19y (2 contacts) and 0-9y (1 contact) to be excluded

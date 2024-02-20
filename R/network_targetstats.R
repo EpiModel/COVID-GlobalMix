@@ -6,6 +6,7 @@
 # load network parameters
 netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
 
+
 n_node_rural=117808; n_node_urban=257977 # total numbers of populations in rural and rural sites in India
 
 # Categories of age and layer variabes
@@ -337,19 +338,23 @@ netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_mat
 
 
 ############## Target statistics (cross-layer effects,  TB completed) ##############
-# things needed
-prop_contact <- netstats$formation$formation_stats_rural$layer_assoc_rural$deg.layer.dist_2days # proportion of having any contact at a 2-day scale
-cond_mean_deg <- netstats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day
-N <- n_node_rural
+
 
 # Function characterizing target statistics for the cross-layer effect
-
 target_stats_x_layer <- 
   function(
-    cond_mean_deg, # conditional mean degree
-    prop_contact, # proportion of contact of all layers
+    x_layer_items,
     N # number of population a whole network
     ){
+    
+    # Load things needed for characterizing the cross-layer target statistics
+    prop_contact <- x_layer_items$deg.layer.dist_2days # proportion of having any contact at a 2-day scale
+    cond_mean_deg <- x_layer_items$mean_deg_1day # conditioned single-day degree
+    coefficient <- # Regression result for the cross-layer effects
+      x_layer_items$coefficient_summary_2days %>% data.frame() %>% 
+      tibble::rownames_to_column(var="association") %>% rename(coefficient=2, p_value =5) %>% 
+      select(association, coefficient, p_value)
+   
     
     # Characterize number of node w/o and w/ contact at each layer
     ## Home
@@ -369,6 +374,7 @@ target_stats_x_layer <-
     N_nh_1=N*prop_contact %>% filter(layer=="Nonhome") %>% pull(prop_1) # number of nodes in the Nonhome layer as conditioning layer w/o contact
     
     # Characterize conditioned node-level edge count
+    cond_mean_deg <- 
     cond_mean_deg %>% 
       mutate(
         nf_other_layer_0 = # target stats for without contact at the conditioning layer
@@ -386,29 +392,47 @@ target_stats_x_layer <-
             association %in% c("h_by_nh", "s_by_nh", "w_by_nh") ~ other_layer.1*N_nh_1, # Nonhome as the conditioning layer
           )
       ) %>% 
-      select(association, nf_other_layer_0, nf_other_layer_1)
+      select(association, nf_other_layer_0, nf_other_layer_1, other_layer.0, other_layer.1)
+    
+    # Merge the conditioned node-level edge count w/ corresponding P values of the regressions 
+    cond_mean_deg %>% 
+      mutate(
+        coeffi = coefficient %>% pull(coefficient),
+        p_value = coefficient %>% pull(p_value)
+               )
+    
+    
     
     
     
   }
 
 # Characterizing target statistics for the rural network
-target_stats_x_layer(cond_mean_deg =  netstats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day, 
-                     prop_contact = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.layer.dist_2days, 
+target_stats_x_layer(x_layer_items = netstats$formation$formation_stats_rural$layer_assoc_rural, 
                      N = n_node_rural
-                     )
-## Check whether the conditioning effects are significant
-netstats$formation$formation_stats_rural$layer_assoc_rural$coefficient_summary_2days %>% data.frame() %>% mutate_if(is.numeric, round,2)
-netstats$formation$formation_stats_urban$layer_assoc_urban$coefficient_summary_2days %>% data.frame() %>% mutate_if(is.numeric, round,2)
+                     ) %>%
+  mutate(nf_diff = (nf_other_layer_1 - nf_other_layer_0)/nf_other_layer_0) %>%  
+  mutate_if(is.numeric, round, 2)
+
+
 # Characterizing target statistics for the urban network
-target_stats_x_layer(cond_mean_deg =  netstats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day, 
-                     prop_contact = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.layer.dist_2days, 
+target_stats_x_layer(x_layer_items = netstats$formation$formation_stats_urban$layer_assoc_urban, 
                      N = n_node_urban
-)
+                     )%>% 
+  mutate(nf_diff = (nf_other_layer_1 - nf_other_layer_0)/nf_other_layer_0) %>% 
+  mutate_if(is.numeric, round, 2)
+
+## Interpretation:
+### At the rural network, only one cross-layer effect is not significant, whose effect is positive. At the urban network, three aren't significant,
+### and only one has the target stats being lower when the conditioning layer had effect.
+### For the significant effects: the target statistics could be higher/lower when the cross-layer effect exists. 
+### Counterintuitively, there are target statistics being lower in one direction but being higher in the other E.g., h_by_s and s_by_h; h_by_w and w_by_h
+## Proposal: 
+### Since higher priority was given for the Home layer, it's target statistics should be "tuned down", a rule can be -
+### Among those had an negative coefficient, we choose the target stats which has the highest relative difference.
 
 
 # Gathering things for output
-
 output <- list()
 
 # Nodal attribute
@@ -436,6 +460,8 @@ output$target.stats$nf.age.grp$urban <-
   netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
   select(participant_age, contact_location, nf.ag) %>% 
   rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
+
+
 
 ## nodemix(age.grp)
 output$target.stats$nmix.age.grp$rural <- netstats$formation$formation_stats_rural$mix_prop_rural_layers$symmetric_mix_matrix 
