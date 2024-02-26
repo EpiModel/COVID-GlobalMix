@@ -932,7 +932,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
       rename(prop_0=1, prop_1=2) %>% 
       mutate(layer = c("Home", "School", "Work", "Nonhome"))
     
-    # age-stratified proportion
+    # age-stratified proportion, for generating nodal attribute
     deg.age.layer.dist_2days <- 
       rbind(
         # Home
@@ -1114,7 +1114,7 @@ network_stats$dissolution <- known_dur_school_work
 
 
 
-saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params_20240129.RData")
+saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params_20140219.RData")
 
 
 

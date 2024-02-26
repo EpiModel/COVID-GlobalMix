@@ -1,46 +1,31 @@
 lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
 
 # Loading data
+## target statistics
 attri_tarstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
-
-
-#### Discrepancies of the total number of edge in each age group by nodefactor v. nodemix, talk to Sam
-
-netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm %>% round(2)%>%
-  kbl(caption = "Asymmetric proportion mixing matrix at School of rural India site") %>%
-  kable_classic(full_width = F, html_font = "Cambria") # for 2/5 meeting
-attri_tarstats$target.stats$nmix.age.grp$rural$School %>% round(0)%>%
-  kbl(caption = "Symmetric degree mixing matrix at School of rural India site") %>%
-  kable_classic(full_width = F, html_font = "Cambria") # for 2/5 meeting
-
-##### Calculating count of 478 for note
-mix_edge_num(grp.a=2, grp.b=5, 
-             asymmetric_mix_matrix.=netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm, 
-             nf.ag_layer.= attri_tarstats$target.stats$nf.age.grp$rural%>% filter(contact_location == "School") %>% rename( participant_age = age.grp )
-             )
-
-
-
+## summary statistics, to decide exclusion of some categories
+netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
 
 ############## Set up vertex attribute ##############
 # Total number of nodes in each network - difference caused by rounding
-n_node_rural = attri_tarstats$attr$age.grp$rural %>% nrow()
-n_node_urban= attri_tarstats$attr$age.grp$urban %>% nrow()
-# set script to flexible number
+n_node_rural = attri_tarstats$attr$age.grp$rural %>% nrow() # compared to 117,808
+n_node_urban= attri_tarstats$attr$age.grp$urban %>% nrow() # compared to 257,977
+
 
 # Initiate nodes
 nw_rural <- network_initialize(n_node_rural)
 nw_urban <- network_initialize(n_node_urban)
 
 # Nodes w/ age groups, each layer of a network has the same age attribution
-nw_rural <- set_vertex_attribute(nw_rural, "age.grp",
-                                 attri_tarstats$attr$age.grp$rural$age.grp.num 
+attri_tarstats$attr$age.grp$rural
+
+nw_rural <- set_vertex_attribute(nw_rural, attrname = "age.grp",
+                                value= as.character(attri_tarstats$attr$age.grp$rural$target_age_grp )
 )
 
-nw_urban <- set_vertex_attribute(nw_urban, "age.grp",
-                                 attri_tarstats$attr$age.grp$urban$age.grp.num 
+nw_urban <- set_vertex_attribute(nw_urban, attrname = "age.grp",
+                                 value= as.character(attri_tarstats$attr$age.grp$urban$target_age_grp )
 )
-
 
 
 
@@ -53,20 +38,80 @@ nw_urban <- set_vertex_attribute(nw_urban, "age.grp",
 #                                  )
 
 
+############## Checking matrices of School, Work layers to decide which group to exclude ##############
+
+# rural
+## School
+netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  kbl(caption = "Proportion mixing matrix at rural School, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+attri_tarstats$target.stats$nmix.age.grp$rural$School %>% 
+  mutate_if(is.numeric, round, 2)%>% 
+  kbl(caption = "Edge count mixing matrix at rural School, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+## Work
+netstats$formation$formation_stats_rural$mix_prop_rural_layers$Work$Work_mix_prop_matrix_2d_glm %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  kbl(caption = "Proportion mixing matrix at rural Work, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+attri_tarstats$target.stats$nmix.age.grp$rural$Work %>% 
+  mutate_if(is.numeric, round, 2)%>% 
+  kbl(caption = "Edge count mixing matrix at rural Work, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+# urban
+## School
+netstats$formation$formation_stats_urban$mix_prop_urban_layers$School$School_mix_prop_matrix_2d_glm %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  kbl(caption = "Proportion mixing matrix at urban School, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+attri_tarstats$target.stats$nmix.age.grp$urban$School %>% 
+  mutate_if(is.numeric, round, 2)%>% 
+  kbl(caption = "Edge count mixing matrix at urban School, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+## Work
+netstats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  kbl(caption = "Proportion mixing matrix at urban Work, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+attri_tarstats$target.stats$nmix.age.grp$urban$Work %>% 
+  mutate_if(is.numeric, round, 2)%>% 
+  kbl(caption = "Edge count mixing matrix at urban Work, India") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+
 
 ############## Set up target statistics  ##############
 
 # Note: we treat the 1st age group (0-10 years old) as reference group
+## write a function to pull target statistics from list and organize them for model fitting
+nmix_tar_lex <- 
+function(edge_ct_mxs, network, layer){
+  matrix <- edge_ct_mxs[[network]][[layer]] %>% as.matrix()
+  target_nmix_vec <- c(na.omit(matrix[,1]) %>% as.numeric(), 
+                       na.omit(matrix[,2]) %>% as.numeric(),
+                       na.omit(matrix[,3]) %>% as.numeric(),
+                       na.omit(matrix[,4]) %>% as.numeric(),
+                       na.omit(matrix[,5]) %>% as.numeric(),
+                       na.omit(matrix[,6]) %>% as.numeric()
+  ) # target stat of nodemix in lexicographic order
+  target_nmix_vec
+}
+
+# Target statistics of nodemix at School, rural
+target_nmix_vec_r_s <- nmix_tar_lex(edge_ct_mxs = attri_tarstats$target.stats$nmix.age.grp, 
+                                    network= "rural", layer = "School")
 
 # Target statistics of nodemix at home, rural
-matrix_h_r <- attri_tarstats$target.stats$nmix.age.grp$rural$Home %>% as.matrix()
-target_nmix_vec <- c(na.omit(matrix_h_r[,1]) %>% as.numeric(), 
-                     na.omit(matrix_h_r[,2]) %>% as.numeric(),
-                     na.omit(matrix_h_r[,3]) %>% as.numeric(),
-                     na.omit(matrix_h_r[,4]) %>% as.numeric(),
-                     na.omit(matrix_h_r[,5]) %>% as.numeric(),
-                     na.omit(matrix_h_r[,6]) %>% as.numeric()
-                     ) # target stat of nodemix in lexicographic order
+
 
 # Baseline formulation model: edge + nodefactor(age.grp)+nodemix(matched.agegrps)
 edge.nf.nmatch <- 
@@ -75,9 +120,11 @@ edge.nf.nmatch <-
                                                        
 
 # Formation target statistics 
+## rural, school exclude 60+
+
 ## for base model of edge + nodefactor(age.grp)+nodemix(age.grp) for home, rural
 tstat.base.nf.h.r <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age), # edge
-                       (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1],  # nodefactor
+                       (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1],  # nodefactor, 1st age group as reference
                        target_nmix_vec[c(1, 3, 6, 10, 15,21)] # # matched edges from nodemix
 ) 
 
@@ -90,6 +137,10 @@ tstat.full.h.r <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_l
 
 # Dissolution models
 diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # very large number, edge doesn't dissolve
+diss.r.s
+diss.r.w
+diss.u.s
+diss.u.w
 diss.nh <- dissolution_coefs(dissolution = ~offset(edges), duration = 1) # non-persistent (turnover every day)
 
 

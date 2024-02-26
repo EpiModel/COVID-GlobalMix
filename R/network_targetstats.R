@@ -455,19 +455,28 @@ output$target.stats$nf.age.grp$rural <-
   select(participant_age, contact_location, nf.ag) %>% 
   rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
 
-
 output$target.stats$nf.age.grp$urban <- 
   netstats$formation$formation_stats_urban$edge_node_factor_match_urban$nf.age.grp %>% 
   select(participant_age, contact_location, nf.ag) %>% 
   rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
 
-
-
 ## nodemix(age.grp)
 output$target.stats$nmix.age.grp$rural <- netstats$formation$formation_stats_rural$mix_prop_rural_layers$symmetric_mix_matrix 
 output$target.stats$nmix.age.grp$urban <- netstats$formation$formation_stats_urban$mix_prop_urban_layers$symmetric_mix_matrix 
 
-saveRDS(output, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
+## nodefactor(other.layer)
+output$target.stats$nf.other.layer$rural <- 
+  target_stats_x_layer(x_layer_items = 
+                         netstats$formation$formation_stats_rural$layer_assoc_rural, 
+                                                                 N = n_node_rural
+                       ) 
+output$target.stats$nf.other.layer$urban <- 
+  target_stats_x_layer(x_layer_items = 
+                         netstats$formation$formation_stats_urban$layer_assoc_urban, 
+                       N = n_node_urban
+  ) 
+
+#saveRDS(output, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
 
 
 
