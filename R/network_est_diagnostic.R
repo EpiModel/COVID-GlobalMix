@@ -6,15 +6,20 @@ attri_tarstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_param
 
 ### Zeroing out ties in the upper triangular matrix
 ####  school
+##### recoding NA to 0
 attri_tarstats$target.stats$nmix.age.grp$rural$School[5,5] <- # rural 
   attri_tarstats$target.stats$nmix.age.grp$urban$School[5,5] <- # urban
   0 
 
+##### zeroing out ties of 60+ to 0
 attri_tarstats$target.stats$nmix.age.grp$rural$School[,6] <- # rural
   attri_tarstats$target.stats$nmix.age.grp$urban$School[,6] <- # urban
   0
 
-## summary statistics, to decide exclusion of some categories
+##### zeroing out nf ==0
+
+
+## summary statistics, provides duration of contacts
 netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
 
 ############## Set up vertex attribute ##############
@@ -32,78 +37,24 @@ nw_rural <- set_vertex_attribute(nw_rural, attrname = "age.grp",
                                 value= as.character(attri_tarstats$attr$age.grp$rural$target_age_grp )
                                 )
 
-## Adding nodal attribute of contact for the x-layer effect of work on school
-nw_rural_s <- set_vertex_attribute(nw_rural, attrname = "w",
+## Adding nodal attribute (contact at school) of contact for the x-layer effect of work on school
+nw_rural_s <- set_vertex_attribute(nw_rural, attrname = "w", # deg.work
                                    value = as.character(attri_tarstats$attr$age.grp$rural$contact_attribute_School
                                                         ) 
 )
 
-
-nw_urban <- set_vertex_attribute(nw_urban, attrname = "age.grp",
-                                 value= as.character(attri_tarstats$attr$age.grp$urban$target_age_grp )
-)
-
-
-
-
-
-
+# the following syntex can be used to extract nodal attribute nw_rural_s %v% "age.grp"
+# nw_urban <- set_vertex_attribute(nw_urban, attrname = "age.grp",
+#                                  value= as.character(attri_tarstats$attr$age.grp$urban$target_age_grp )
+# )
 
 ############## Checking matrices of School, Work layers to decide which group to exclude ##############
-
-# rural
-# ## School
-# netstats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm %>% 
-#   mutate_if(is.numeric, round, 2) %>% 
-#   kbl(caption = "Proportion mixing matrix at rural School, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-# 
-# attri_tarstats$target.stats$nmix.age.grp$rural$School %>% 
-#   mutate_if(is.numeric, round, 2)%>% 
-#   kbl(caption = "Edge count mixing matrix at rural School, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-# 
-# ## Work
-# netstats$formation$formation_stats_rural$mix_prop_rural_layers$Work$Work_mix_prop_matrix_2d_glm %>% 
-#   mutate_if(is.numeric, round, 2) %>% 
-#   kbl(caption = "Proportion mixing matrix at rural Work, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-# 
-# attri_tarstats$target.stats$nmix.age.grp$rural$Work %>% 
-#   mutate_if(is.numeric, round, 2)%>% 
-#   kbl(caption = "Edge count mixing matrix at rural Work, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-# 
-# # urban
-# ## School
-# netstats$formation$formation_stats_urban$mix_prop_urban_layers$School$School_mix_prop_matrix_2d_glm %>% 
-#   mutate_if(is.numeric, round, 2) %>% 
-#   kbl(caption = "Proportion mixing matrix at urban School, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-# 
-# attri_tarstats$target.stats$nmix.age.grp$urban$School %>% 
-#   mutate_if(is.numeric, round, 2)%>% 
-#   kbl(caption = "Edge count mixing matrix at urban School, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-# 
-# ## Work
-# netstats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm %>% 
-#   mutate_if(is.numeric, round, 2) %>% 
-#   kbl(caption = "Proportion mixing matrix at urban Work, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-# 
-# attri_tarstats$target.stats$nmix.age.grp$urban$Work %>% 
-#   mutate_if(is.numeric, round, 2)%>% 
-#   kbl(caption = "Edge count mixing matrix at urban Work, India") %>%
-#   kable_classic(full_width = F, html_font = "Cambria")
-
-
 
 
 ############## Set up target statistics  ##############
 # Note: we treat the 1st age group (0-10 years old) as reference group
 
-# Write a function to pull target statistics from list and organize them for model fitting
+# Write a function to pull target statistics from list and organize them in lexicographical order for model fitting
 ## Note this function requires all edges in the upper triangular to be is.na == F
 nmix_tar_lex <- 
 function(edge_ct_mxs, network, layer){
@@ -121,36 +72,28 @@ function(edge_ct_mxs, network, layer){
 # Target statistics of nodemix at school, rural
 target_nmix_vec_r_s <- nmix_tar_lex(edge_ct_mxs = attri_tarstats$target.stats$nmix.age.grp, 
                                     network= "rural", layer = "School")
-
-
+## original matrix for comparison
+attri_tarstats$target.stats$nmix.age.grp$rural$School
 
 
 # formation model formulas
-## Baseline formulation model: edge + nodefactor(age.grp)+nodemix(matched.agegrps)
-edge.nf.nmatch <- 
-~edges + nodefactor("age.grp", levels = -1) + 
- nodemix("age.grp", levels2 = c(1, 3, 6, 10, 15,21)) # lexicographic order of matched edges in nodemix
-
 ## model for school basedline covariates + x-layer effect from work
 r_s_frmn_fm <- 
   ~edges + nodefactor("age.grp", levels = -1) + 
   nodemix("age.grp", levels2 = c(1, 3, 6, 10, 15,21)) + # lexicographic order of matched edges in nodemix  
-  nodefactor("w", levels = -1)
+  nodefactor("w", levels = -1) # the category w/o contact at work layer is treated as reference group
 
-# Formation target statistics 
+# Formation model target statistics 
 ## rural, school 
-attri_tarstats$target.stats$nmix.age.grp$rural$School
-
-tstat.base.r_s_w <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "Home" ) %>% pull(edges_adj_age), # edge
-                       (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "Home" ) %>% pull(nf.ag))[-1],  # nodefactor, 1st age group as reference
+tstat.base.r_s_w <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "School" ) %>% pull(edges_adj_age), # edge
+                       (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "School" ) %>% pull(nf.ag))[-1],  # nodefactor, 1st age group as reference
                       target_nmix_vec_r_s[c(1, 3, 6, 10, 15,21)], # # matched edges from nodemix
                       attri_tarstats$target.stats$nf.other.layer$rural %>% filter(association == "s_by_w") %>% pull(nf_other_layer_1) # ties at school layer when there's contact at work layer
 ) 
 
 
 
-
-# Dissolution models
+# Dissolution model statistics
 # diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # very large number, edge doesn't dissolve
 diss.r.s <-  dissolution_coefs(dissolution = ~offset(edges), 
                                duration =
@@ -187,18 +130,28 @@ est.r.s <-
            )
          )
 
+
+#### MCMC diagnostics excution failed with the below script
+mcmc.diagnostics(object=est.r.s,
+                 center = TRUE,
+                 esteq = TRUE,
+                 vars.per.page = 3,
+                 which = c("plots", "texts", "summary", "autocorrelation", "crosscorrelation", "burnin"),
+                 compact = FALSE,)
+
 #### Based on the estimates, simulating network
 r.s.sim <- 
   netdx(est.r.s,  
-        nsims = 10, 
-        ncores = 8, 
+        nsims = 1, 
+        ncores = 1, 
         nsteps = 500, 
-        nwstats.formula = r_s_frmn_fm, 
-        set.control.tergm = control.simulate.formula(MCMC.burnin = 2e5),
+       # nwstats.formula = r_s_frmn_fm, 
+        # set.control.tergm = control.simulate.formula.tergm(MCMC.burnin = 2e5),
         dynamic = T,
-        keep.tedgelist = TRUE
-) 
+      #  keep.tedgelist = TRUE
+) # encounter cryptic error - "argument 1 matches multiple formal arguments"
 
+est.r.s %>% print()
 
 # ### Home
 # #### Simpliest model
