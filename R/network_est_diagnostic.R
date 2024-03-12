@@ -4,28 +4,16 @@ lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), r
 ## target statistics
 attri_tarstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
 
-### Zeroing out ties in the upper triangular matrix
-####  school
-##### recoding NA to 0
-attri_tarstats$target.stats$nmix.age.grp$rural$School[5,5] <- # rural 
-  attri_tarstats$target.stats$nmix.age.grp$urban$School[5,5] <- # urban
-  0 
-
-##### zeroing out ties of 60+ to 0
-attri_tarstats$target.stats$nmix.age.grp$rural$School[,6] <- # rural
-  attri_tarstats$target.stats$nmix.age.grp$urban$School[,6] <- # urban
-  0
 
 ##### zeroing out nf ==0
-
 
 ## summary statistics, provides duration of contacts
 netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
 
 ############## Set up vertex attribute ##############
 # Total number of nodes in each network - difference caused by rounding
-n_node_rural = attri_tarstats$attr$age.grp$rural %>% nrow() # compared to 117,808
-n_node_urban= attri_tarstats$attr$age.grp$urban %>% nrow() # compared to 257,977
+n_node_rural = attri_tarstats$attr$rural %>% nrow() # compared to 117,808
+n_node_urban= attri_tarstats$attr$urban %>% nrow() # compared to 257,977
 
 
 # Initiate nodes
@@ -34,67 +22,76 @@ nw_urban <- network_initialize(n_node_urban)
 
 # Nodes w/ age groups, each layer of a network has the same age attribution
 nw_rural <- set_vertex_attribute(nw_rural, attrname = "age.grp",
-                                value= as.character(attri_tarstats$attr$age.grp$rural$target_age_grp )
+                                value= as.character(attri_tarstats$attr$rural$target_age_grp )
                                 )
 
-## Adding nodal attribute (contact at school) of contact for the x-layer effect of work on school
-nw_rural_s <- set_vertex_attribute(nw_rural, attrname = "w", # deg.work
-                                   value = as.character(attri_tarstats$attr$age.grp$rural$contact_attribute_School
+## Adding nodal attribute (contact at school) of contact for the x-layer effect of work-layer predicted effect on school
+nw_rural_s <- set_vertex_attribute(nw_rural, attrname = "deg.work", 
+                                   value = as.character(attri_tarstats$attr$rural$contact_attribute_School
                                                         ) 
 )
 
-# the following syntex can be used to extract nodal attribute nw_rural_s %v% "age.grp"
-# nw_urban <- set_vertex_attribute(nw_urban, attrname = "age.grp",
-#                                  value= as.character(attri_tarstats$attr$age.grp$urban$target_age_grp )
-# )
-
-############## Checking matrices of School, Work layers to decide which group to exclude ##############
+## Have a look at nodal attribute
+nw_rural_s %v% "age.grp"; nw_rural_s %v% "deg.work"
 
 
 ############## Set up target statistics  ##############
 # Note: we treat the 1st age group (0-10 years old) as reference group
 
-# Write a function to pull target statistics from list and organize them in lexicographical order for model fitting
-## Note this function requires all edges in the upper triangular to be is.na == F
+# Target statistics of nodemix at school, rural
+## Write a function to pull target statistics from list and organize them in lexicographical order for model fitting
 nmix_tar_lex <- 
-function(edge_ct_mxs, network, layer){
-  matrix <- edge_ct_mxs[[network]][[layer]] %>% as.matrix()
-  target_nmix_vec <- c(na.omit(matrix[,1]) %>% as.numeric(), 
-                       na.omit(matrix[,2]) %>% as.numeric(),
-                       na.omit(matrix[,3]) %>% as.numeric(),
-                       na.omit(matrix[,4]) %>% as.numeric(),
-                       na.omit(matrix[,5]) %>% as.numeric(),
-                       na.omit(matrix[,6]) %>% as.numeric()
+function(edge_ct_mx){
+  matrix <- edge_ct_mx %>% as.matrix()
+  target_nmix_vec <- c(matrix[,1][1] %>% as.numeric(), 
+                       matrix[,2][1:2] %>% as.numeric(),
+                       matrix[,3][1:3] %>% as.numeric(),
+                       matrix[,4][1:4] %>% as.numeric(),
+                       matrix[,5][1:5] %>% as.numeric(),
+                       matrix[,6][1:6] %>% as.numeric()
   ) # target stat of nodemix in lexicographic order
   target_nmix_vec
 }
 
-# Target statistics of nodemix at school, rural
-target_nmix_vec_r_s <- nmix_tar_lex(edge_ct_mxs = attri_tarstats$target.stats$nmix.age.grp, 
-                                    network= "rural", layer = "School")
-## original matrix for comparison
-attri_tarstats$target.stats$nmix.age.grp$rural$School
-
+## Target statistics of nodemix at school, rural
+target_nmix_vec_r_s <- nmix_tar_lex(edge_ct_mx = 
+                                      attri_tarstats$targetstats_age.grp$formation_stats_rural$symmetric_mix_matrix$School
+                                    )
 
 # formation model formulas
 ## model for school basedline covariates + x-layer effect from work
 r_s_frmn_fm <- 
   ~edges + nodefactor("age.grp", levels = -1) + 
   nodemix("age.grp", levels2 = c(1, 3, 6, 10, 15,21)) + # lexicographic order of matched edges in nodemix  
-  nodefactor("w", levels = -1) # the category w/o contact at work layer is treated as reference group
+  nodefactor("deg.work", levels = -1) # the category w/o contact at work layer is treated as reference group
 
 # Formation model target statistics 
 ## rural, school 
-tstat.base.r_s_w <- c(attri_tarstats$target.stats$edges$rural %>% filter(contact_location == "School" ) %>% pull(edges_adj_age), # edge
-                       (attri_tarstats$target.stats$nf.age.grp$rural %>% filter(contact_location == "School" ) %>% pull(nf.ag))[-1],  # nodefactor, 1st age group as reference
-                      target_nmix_vec_r_s[c(1, 3, 6, 10, 15,21)], # # matched edges from nodemix
-                      attri_tarstats$target.stats$nf.other.layer$rural %>% filter(association == "s_by_w") %>% pull(nf_other_layer_1) # ties at school layer when there's contact at work layer
-) 
+### target statistics by the ergm.ego approach
+tstat.r_s_w_ergm.ego <- c(attri_tarstats$targetstats_age.grp$formation_stats_rural$edge %>% 
+                        filter(contact_location == "School" ) %>% 
+                        pull(edges.ergm.ego), # edge
+                      
+                       (attri_tarstats$targetstats_age.grp$formation_stats_rural$nf.age.grp %>% filter(contact_location == "School") %>% pull(nf.ag.ergm.ego))[-1],  # nodefactor, excluding 1st age group, which is the reference group
+                      
+                      target_nmix_vec_r_s[c(1, 3, 6, 10, 15,21)],  # matched edges from nodemix
+                      
+                      attri_tarstats$targetstats_x.layer$rural %>% filter(association == "s_by_w") %>% pull(nf_other_layer_1) # ties at school layer when there's contact at work layer
+)
 
-
+### target statistics by ARTnet approach
+tstat.r_s_w_artnet <- c(attri_tarstats$targetstats_age.grp$formation_stats_rural$edge %>% 
+                           filter(contact_location == "School" ) %>% 
+                           pull(edges.artnet), # edge
+                         
+                         (attri_tarstats$targetstats_age.grp$formation_stats_rural$nf.age.grp %>% filter(contact_location == "School") %>% pull(nf.ag.artnet))[-1],  # nodefactor, excluding 1st age group, which is the reference group
+                         
+                         target_nmix_vec_r_s[c(1, 3, 6, 10, 15,21)],  # matched edges from nodemix
+                         
+                         attri_tarstats$targetstats_x.layer$rural %>% filter(association == "s_by_w") %>% pull(nf_other_layer_1) # ties at school layer when there's contact at work layer
+)
 
 # Dissolution model statistics
-# diss.h <- dissolution_coefs(dissolution = ~offset(edges), duration = 1e6) # very large number, edge doesn't dissolve
 diss.r.s <-  dissolution_coefs(dissolution = ~offset(edges), 
                                duration =
                                  netstats$dissolution %>% filter(study_site == "Rural" & contact_location == "School") %>% pull(know_contact_duration
@@ -102,21 +99,15 @@ diss.r.s <-  dissolution_coefs(dissolution = ~offset(edges),
                                )
 
 
-# diss.r.w
-# diss.u.s
-# diss.u.w
-# diss.nh <- dissolution_coefs(dissolution = ~offset(edges), duration = 1) # non-persistent (turnover every day)
-
-
-
-
 # Model fitting and simulation
 ## Rural network
 ### School
+#### Estimating using stochastic approximation and simulate using static network - ergm.ego target statistics
+##### "Stochastic-Approximation"
 est.r.s <- 
   netest(nw_rural_s, 
          formation = r_s_frmn_fm, 
-         target.stats = tstat.base.r_s_w, 
+         target.stats = tstat.r_s_w_ergm.ego, 
          coef.diss =  diss.r.s,
          set.control.ergm = 
            control.ergm(
@@ -130,167 +121,78 @@ est.r.s <-
            )
          )
 
+##### MCMLE 
+est.r.s.mcmle <- 
+  netest(nw_rural_s, 
+         formation = r_s_frmn_fm, 
+         target.stats = tstat.r_s_w_ergm.ego, 
+         coef.diss =  diss.r.s,
+         edapprox = T
+         
+  ) # interpretation: MCMLE running failed
 
-#### MCMC diagnostics excution failed with the below script
-mcmc.diagnostics(object=est.r.s,
-                 center = TRUE,
-                 esteq = TRUE,
-                 vars.per.page = 3,
-                 which = c("plots", "texts", "summary", "autocorrelation", "crosscorrelation", "burnin"),
-                 compact = FALSE,)
-
-#### Based on the estimates, simulating network
+#### Based on the estimates, simulating network - ergm.ego target statistics
 r.s.sim <- 
   netdx(est.r.s,  
-        nsims = 1, 
+        nsims = 10, 
         ncores = 1, 
         nsteps = 500, 
-       # nwstats.formula = r_s_frmn_fm, 
-        # set.control.tergm = control.simulate.formula.tergm(MCMC.burnin = 2e5),
+        nwstats.formula = r_s_frmn_fm, 
+        #set.control.tergm = control.simulate.formula.tergm(MCMC.burnin = 2e5),
         dynamic = T,
-      #  keep.tedgelist = TRUE
-) # encounter cryptic error - "argument 1 matches multiple formal arguments"
+        skip.dissolution = T
+        #keep.tedgelist = TRUE
+) # encounter cryptic error 
 
-est.r.s %>% print()
-
-# ### Home
-# #### Simpliest model
-# ##### Estimating fully saturated model ~ edge + nodefactor(age.grp) + nodematch(age.grp)
-# est.h.edges.nf.nm <- netest(nw_rural, 
-#                             formation = edge.nf.nmatch, 
-#                             target.stats = tstat.base.nf.h.r, 
-#                             coef.diss =  diss.h,
-#                             set.control.ergm = control.ergm(MCMLE.maxit = 500)
-# )
-# 
-# 
-# #### Based on est.h.edges.nf.nm, simulating all mixing pattern 
-# nmix_sim_all <- netdx(est.h.edges.nf.nm, nsims = 20, ncores = 8, 
-#                           nsteps = 1000, dynamic = T,
-#                           set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-#                           nwstats.formula = 
-#                             ~edges + nodefactor("age.grp", levels = -1) +nodemix("age.grp", levels2 = NULL), 
-#                           keep.tedgelist = TRUE
-# ) # the bias for the simulated matching edges isn't large.
-# 
-# nmix_sim_all_1 <- 
-# nmix_sim_all$stats.table.formation  %>%
-#   mutate(Target = 
-#            tstat.full.h.r,
-#          `Pct Diff` = 100*(`Sim Mean`-Target)/Target
-#   )  # same age group mixings have same target stats as nodematch
+##### Interpretation - The error is likely caused by the sum of nmatch is larger than edge for target statistics using the ergm.ego approach. 
 
 
+#### Estimating using stochastic approximation and simulate using static network - ARTnet target statistics
+##### "Stochastic-Approximation"
+est.r.s_artnet <- 
+  netest(nw_rural_s, 
+         formation = r_s_frmn_fm, 
+         target.stats = tstat.r_s_w_artnet, 
+         coef.diss =  diss.r.s,
+         set.control.ergm = 
+           control.ergm(
+             main.method = "Stochastic-Approximation", # adapted from https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
+             MCMLE.maxit = 500,
+             SAN.maxit = 3,
+             SAN.nsteps.times = 4,
+             MCMC.samplesize = 1e4,
+             MCMC.interval = 5e3,
+             parallel = 1
+           )
+  )
 
-#### Full-saturated model
-# Note: A fully saturated model has been run but couldn't be executed successfully.
-# Interpretation: The model cannot run and observed the warning of "Model statistics ‘mix.age.grp.1.6’, ‘mix.age.grp.2.6’, ‘mix.age.grp.3.6’, ‘mix.age.grp.4.6’,
-# ‘mix.age.grp.5.6’, and ‘mix.age.grp.6.6’ are linear combinations of some set of preceding statistics at the current stage of 
-# the estimation. This may indicate that the model is nonidentifiable."
+##### MCMLE 
+est.r.s_artnet_mcmle <- 
+  netest(nw_rural_s, 
+         formation = r_s_frmn_fm, 
+         target.stats = tstat.r_s_w_artnet, 
+         coef.diss =  diss.r.s,
+         edapprox = T
+  ) # MCMLE can be run but take long time
 
 
-#### Base model +  large target stats
-# tarstat_h_r_lex <- # Saving target statistics and their labels in lexicographic order to a dataframe
-# nmix_sim_all_1[-c(1:6),] %>% rownames_to_column(var = "edge_type") %>% select(1:2) %>%
-#   rownames_to_column(var="lex_order")
-# 
-# tarstat_h_r_lex
-# 
-# edges_large_1k <- # target statistics > 1k in descending order
-# tarstat_h_r_lex %>% arrange(desc(Target)) %>% filter(Target > 1000)
-# 
-# edges_large_sort <- # target statistics > 1k in descending order
-#   tarstat_h_r_lex %>% arrange(desc(Target))
-# 
-# ########### Model w/ nodefactor(age) ########
-# 
-# nmix_sim.i <- list()
-# 
-# for (i in 1:10) {
-# 
-# 
-# 
-# edge_large <- edges_large_1k[c(1:i),] # extracting the information of the edge types to be included in the model
-# 
-# lex_order <- paste(edge_large %>% pull(lex_order),  collapse = ", ")  # lexcographic order to be specified in node mix in each iteration
-# 
-# 
-# formula <-
-# as.formula(
-#    paste0(
-#   "~edges +",
-#   "nodefactor('age.grp', levels = -1) +",
-#   "nodemix('age.grp', levels2 = c(1, 3, 6, 10, 15, 21, ", lex_order, "))"
-# )
-# )
-# 
-# 
-# est.h.1 <- netest(nw_rural,
-#                   formation = formula,
-#                   target.stats = c(tstat.base.nf.h.r, edge_large %>% pull(Target)) ,
-#                   coef.diss =  diss.h,
-#                   set.control.ergm = control.ergm(MCMLE.maxit = 500)
-# )
-# 
-# 
-# print(i)
-# 
-# nmix_sim.i[[i]] <- netdx(est.h.1, nsims = 20, ncores = 8,
-#                       nsteps = 1000, dynamic = T,
-#                       set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-#                       nwstats.formula =
-#                         formula,
-#                       keep.tedgelist = TRUE
-#                       )
-# }
-# 
-# edge_large
-# nmix_sim.i[[7]]
-# 
-# ########### Model w/o nodefactor(age) ########
-# nmix_sim.wo.nf.i <- list()
-# 
-# for (i in 1:nrow(edges_large_sort)
-#      ) {
-# 
-# 
-# 
-#   edge_large <- edges_large_sort[c(1:i),] # extracting the information of the edge types to be included in the model
-# 
-#   lex_order <- paste(edge_large %>% pull(lex_order),  collapse = ", ")  # lexcographic order to be specified in node mix in each iteration
-# 
-# 
-#   formula <-
-#     as.formula(
-#       paste0(
-#         "~edges +",
-#         "nodemix('age.grp', levels2 = c(1, 3, 6, 10, 15, 21, ", lex_order, "))"
-#       )
-#     )
-# 
-# 
-#   est.h.1 <- netest(nw_rural,
-#                     formation = formula,
-#                     target.stats = c(tstat.base.nf.h.r[c(1, 7:12)], # just use the edge statistics here
-#                                      edge_large %>% pull(Target)) ,
-#                     coef.diss =  diss.h,
-#                     set.control.ergm = control.ergm(MCMLE.maxit = 500)
-#   )
-# 
-# 
-#   print(i)
-# 
-#   nmix_sim.wo.nf.i[[i]] <- netdx(est.h.1, nsims = 20, ncores = 8,
-#                            nsteps = 1000, dynamic = T,
-#                            set.control.ergm = control.simulate.formula(MCMC.burnin = 1e5),
-#                            nwstats.formula =
-#                              formula,
-#                            keep.tedgelist = TRUE
-#   )
-# }
-# 
-# nmix_sim.wo.nf.i[[9]]
+#### Based on the estimates, simulating network - artnet target statistics
+r.s_artnet_sim <- 
+  netdx(est.r.s_artnet ,  
+        nsims = 50, 
+        ncores = 1, 
+        nsteps = 500, 
+        nwstats.formula = r_s_frmn_fm, 
+        #set.control.tergm = control.simulate.formula.tergm(MCMC.burnin = 2e5),
+        dynamic = T,
+        skip.dissolution = T
+        #keep.tedgelist = TRUE
+  ) 
+r.s_artnet_sim 
+##### Interpretation - with 
 
-##########################################
+
+
+
 
 

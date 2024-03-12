@@ -153,15 +153,10 @@ node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats
                    target_age_dist = target_age_distribut %>% filter( network == "rural"), 
                    node.age.group = node.age.grp.rural) # rural network
 
-
-
-
 node.age.grp.urban <- 
   node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
                      target_age_dist = target_age_distribut %>% filter( network == "urban"), 
                      node.age.group = node.age.grp.urban) # urban network
-
-
 
 # Compare simulated proportion to observed ones
 ## Observed proportion, rural
@@ -192,14 +187,14 @@ target_stats_age <-
     # We first characterize the target statistics using the ARTnet approach. Then, using the matrix edge count,
     # we use the ergm.ego approach to characterize the same type of target statistics.
     
-    # Number of edges per age group, node-level, for nodefactor, by the approach used in ARTnet
+    # Number of nodes between edges per age group, node-level, for nodefactor, by the approach used in ARTnet
     form_stat[[1]]$nf.age.grp <- 
       form_stat[[1]]$nf.age.grp %>% 
       left_join(
         target_age_dist %>% 
           rename(participant_age=target_age_grp) , 
         by = "participant_age"
-      ) %>% mutate(nf.ag = single_day_nf_md*tar_pop # number of edges in each age group = md of each age group * number of node of each age group
+      ) %>% mutate(nf.ag.ego = single_day_nf_md*tar_pop # number of edges in each age group = md of each age group * number of node of each age group
       ) 
     
     
@@ -211,32 +206,32 @@ target_stats_age <-
       ) %>% # the reason /2 is used here is because this is a edge-level statistic, this way didn't adjust for the age distribution of the target population.
       left_join(
         form_stat[[1]]$nf.age.grp %>% group_by(contact_location) %>%
-          summarize(edges_adj_age=sum(nf.ag)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
+          summarize(edges.artnet=sum(nf.ag.ego)/2 # total number of edges adjusting for population age distribution, the reason 2 is in the denominator is the because this is an edge-level statistics
           ),
         by = "contact_location"
       ) %>% select(-edges) # given we decided to go with the total number edges adjust for age distribution of target population, we exclude this variable
     
     
-    #  Number of matched edges in the same age group, edge-level, for node match
+    #  Number of matched edges in the same age group, edge-level, for node match, by the approach used in ARTnet
     ## nodematch(diff=T)
     form_stat[[1]]$nm.age.grp <- 
       form_stat[[1]]$nm.age.grp %>% 
-      left_join(form_stat[[1]]$nf.age.grp %>% select(participant_age, contact_location, nf.ag), by = c("participant_age", "contact_location")  # number of nodes in age group
+      left_join(form_stat[[1]]$nf.age.grp %>% select(participant_age, contact_location, nf.ag.ego), by = c("participant_age", "contact_location")  # number of nodes in age group
       ) %>% 
       mutate(
-        nm.ag= (nf.ag/2)*single_day_nm_md # adapted from ARTnet: number of match edge in each age group = (number of nodes in each age group /2) * prop of matched nodes, the reason 2 is here is because this is an edge-level statistic
+        nm.ag.artnet= (nf.ag.ego/2)*single_day_nm_md # adapted from ARTnet: number of match edge in each age group = (number of nodes in each age group /2) * prop of matched nodes, the reason 2 is here is because this is an edge-level statistic
       )
     
     
     ## nodematch(diff=F)
     form_stat[[1]]$nm.age.grp.sum <- 
-      form_stat[[1]]$nm.age.grp %>% group_by( contact_location) %>% summarize(nm_age.grp.sum = sum(nm.ag)
+      form_stat[[1]]$nm.age.grp %>% group_by( contact_location) %>% summarize(nm.ag.sum.artnet = sum(nm.ag.artnet)
       )
     
     
-    #  Number of edges of a specific age-mixing pattern, edge-level, for node mix
+    #  Number of edges of a specific age-mixing pattern, edge-level, for node mix - this also forms a matrix for edge count
     
-    ## Define a function for the calculation of total number of edges for a single mixing pattern
+    ## Define a function for the calculation of total number of edges for a single age mixing pattern
     mix_edge_num <- 
       function(grp.a, grp.b, asymmetric_mix_matrix., nf.ag_layer.){ 
         # grp.a and grp.b are the two contacting age groups , asymmetric_mix_matrix. is the mixing matrix with bidirectional mixing proportion (i.e., mixing between grp a and grp b and grp b and grp a),
@@ -244,22 +239,22 @@ target_stats_age <-
         # grp 1, 2, 3, 4, 5, 6 respectively correspond to the youngest to oldest age groups
         sum(
           asymmetric_mix_matrix.[grp.a,grp.b]* # grp.a as egocentric node, grp.b as contact
-            nf.ag_layer. %>% filter(participant_age ==target_age_grp[grp.a]) %>% pull(nf.ag)/2,# the reason /2 is used here is because this is a edge-level statistic
+            nf.ag_layer. %>% filter(participant_age ==target_age_grp[grp.a]) %>% pull(nf.ag.ego)/2,# the reason /2 is used here is because this is a edge-level statistic
           asymmetric_mix_matrix.[grp.b,grp.a]* # grp.b as egocentric node, grp.a as contact
-            nf.ag_layer. %>% filter(participant_age ==target_age_grp[grp.b]) %>% pull(nf.ag)/2,
+            nf.ag_layer. %>% filter(participant_age ==target_age_grp[grp.b]) %>% pull(nf.ag.ego)/2,
           na.rm = T #  for an egocentric age group that do not have contact with another age group (i.e., mixing proportion == NA), we consider the corresponding number of edges ==0
         )
       }
     
     
-    ## Calculate nodemix target statistics for each layer i
-    symmetric_mix_matrix <- list() # create a list to store target stats for all layers
+    ## Calculate nodemix target statistics for each layer i - outputing an upper triangular matrix for each layer i
+    edge_ct_matrix <- list() # create a list to store target stats for all layers
     for (i in 1:length(layers)
     ) {
       
       nf.ag_layer <- # getting the target statistics for nodefactor(age.grp)
         form_stat[[1]]$nf.age.grp %>% 
-        select(participant_age, contact_location, nf.ag) %>% 
+        select(participant_age, contact_location, nf.ag.ego) %>% 
         filter(contact_location == layers[i])
       
       asymmetric_mix_matrix <- # getting the asymmetric mixing matrix
@@ -267,66 +262,66 @@ target_stats_age <-
       
       
       ## Calculating number of non-diagonal mixing edges of each mixing pattern - non-assortative mixing
-      symmetric_mix_matrix_i <- matrix(NA, 6, 6) %>% data.frame()# create a symmetric matrix to store result
-      rownames(symmetric_mix_matrix_i) <- colnames(symmetric_mix_matrix_i) <- target_age_grp
+      edge_ct_matrix_i <- matrix(NA, 6, 6) %>% data.frame()# create a symmetric matrix to store result
+      rownames(edge_ct_matrix_i) <- colnames(edge_ct_matrix_i) <- target_age_grp
       
       
       ### non-assortative mixing of 0-9y (grp 1) w/the other age.grps
       for (j in 2:6) {
-        symmetric_mix_matrix_i[1,j] <- 
+        edge_ct_matrix_i[1,j] <- 
           mix_edge_num(grp.a =1, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
       ### non-assortative mixing of 10-19y (grp 2) w/the other age.grps
       for (j in 3:6) {
-        symmetric_mix_matrix_i[2,j] <- 
+        edge_ct_matrix_i[2,j] <- 
           mix_edge_num(grp.a =2, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
       ### non-assortative mixing of 20-29y (grp 3) w/the other age.grps
       for (j in 4:6) {
-        symmetric_mix_matrix_i[3,j] <- 
+        edge_ct_matrix_i[3,j] <- 
           mix_edge_num(grp.a =3, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
       ### non-assortative mixing of 30-39y (grp 4) w/the other age.grps
       for (j in 5:6) {
-        symmetric_mix_matrix_i[4,j] <- 
+        edge_ct_matrix_i[4,j] <- 
           mix_edge_num(grp.a =4, grp.b = j, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       }
       
       ### non-assortative mixing of 50-59y (grp 5) w/the other age.grps
-      symmetric_mix_matrix_i[5,6] <- 
+      edge_ct_matrix_i[5,6] <- 
         mix_edge_num(grp.a =5, grp.b = 6, asymmetric_mix_matrix. =  asymmetric_mix_matrix, nf.ag_layer.=nf.ag_layer)
       
       
       ## Calculating number of diagonal mixing edges of each mixing pattern - assortative mixing
       for (j in 1:6) {
-        symmetric_mix_matrix_i[j,j] <-
-          nf.ag_layer %>% filter(participant_age ==target_age_grp[j]) %>% pull(nf.ag)/2* # the reason /2 is used here is because this is a edge-level statistic
+        edge_ct_matrix_i[j,j] <-
+          nf.ag_layer %>% filter(participant_age ==target_age_grp[j]) %>% pull(nf.ag.ego)/2* # the reason /2 is used here is because this is a edge-level statistic
           asymmetric_mix_matrix[j,j]
       }
       
       
-      symmetric_mix_matrix[[i]] <- symmetric_mix_matrix_i
+      edge_ct_matrix[[i]] <- edge_ct_matrix_i
       
     }
     
     ## Assigning layer names to layers
-    names(symmetric_mix_matrix) <- layers
+    names(edge_ct_matrix) <- layers
     
     ## For all layers, recoding NA to 0 in the matrix of edge count
-    symmetric_mix_matrix$Home[is.na(symmetric_mix_matrix$Home)] <- 0  #  home
-    symmetric_mix_matrix$School[is.na(symmetric_mix_matrix$School)] <- 0  #  school
-    symmetric_mix_matrix$Work[is.na(symmetric_mix_matrix$Work)] <- 0  #  work
-    symmetric_mix_matrix$Nonhome[is.na(symmetric_mix_matrix$Nonhome)] <- 0  #  nonhome
+    edge_ct_matrix$Home[is.na(edge_ct_matrix$Home)] <- 0  #  home
+    edge_ct_matrix$School[is.na(edge_ct_matrix$School)] <- 0  #  school
+    edge_ct_matrix$Work[is.na(edge_ct_matrix$Work)] <- 0  #  work
+    edge_ct_matrix$Nonhome[is.na(edge_ct_matrix$Nonhome)] <- 0  #  nonhome
     
     
     ## For school and work layers, zeroing out ties in the upper triangular matrix
     ### For school of both networks, zeroing out ties of 60+y column to 0
-    symmetric_mix_matrix$School[,6] <- 0
+    edge_ct_matrix$School[,6] <- 0
     ### For work of both networks, zeroing out ties of <= 19y rows to 0
-    symmetric_mix_matrix$Work[c(1,2), ] <- 0
+    edge_ct_matrix$Work[c(1,2), ] <- 0
     
     # Number of nodes between edges of each age group, node-level, for nodefactor, by the approach used in ergm.ego
     nmix_tar_edge_sum_h <-nmix_tar_edge_sum_s <- nmix_tar_edge_sum_w <-nmix_tar_edge_sum_nh <-c()  # number of edges of each age group calculated from nodemix
@@ -335,52 +330,51 @@ target_stats_age <-
       
       # Calculation using target stats based on the target population
       nmix_tar_edge_sum_h[i] <-  
-        sum(symmetric_mix_matrix$Home[i,]) + 
-        sum(symmetric_mix_matrix$Home[,i]) - 
-        symmetric_mix_matrix$Home[i,i]
+        sum(edge_ct_matrix$Home[i,]) + 
+        sum(edge_ct_matrix$Home[,i]) - 
+        edge_ct_matrix$Home[i,i]
       
       nmix_tar_edge_sum_s[i] <-  
-        sum(symmetric_mix_matrix$School[i,]) + 
-        sum(symmetric_mix_matrix$School[,i]) - 
-        symmetric_mix_matrix$School[i,i]
+        sum(edge_ct_matrix$School[i,]) + 
+        sum(edge_ct_matrix$School[,i]) - 
+        edge_ct_matrix$School[i,i]
       
       nmix_tar_edge_sum_w[i] <-  
-        sum(symmetric_mix_matrix$Work[i,]) + 
-        sum(symmetric_mix_matrix$Work[,i]) - 
-        symmetric_mix_matrix$Work[i,i]
+        sum(edge_ct_matrix$Work[i,]) + 
+        sum(edge_ct_matrix$Work[,i]) - 
+        edge_ct_matrix$Work[i,i]
       
       nmix_tar_edge_sum_nh[i] <-  
-        sum(symmetric_mix_matrix$Nonhome[i,]) + 
-        sum(symmetric_mix_matrix$Nonhome[,i]) - 
-        symmetric_mix_matrix$Nonhome[i,i]
+        sum(edge_ct_matrix$Nonhome[i,]) + 
+        sum(edge_ct_matrix$Nonhome[,i]) - 
+        edge_ct_matrix$Nonhome[i,i]
       
       
     }  
-    ## Saving the results with those by the ARTnet approach
+    
+    ## Saving the results to the data frame of mean degree
     form_stat[[1]]$nf.age.grp <- 
       form_stat[[1]]$nf.age.grp %>%
-      rename( nf.ag.artnet = nf.ag) %>% 
-      mutate(nf.ag.ergm.ego = c(nmix_tar_edge_sum_h, nmix_tar_edge_sum_s, nmix_tar_edge_sum_w, nmix_tar_edge_sum_nh)
+      mutate(nf.ag = c(nmix_tar_edge_sum_h, nmix_tar_edge_sum_s, nmix_tar_edge_sum_w, nmix_tar_edge_sum_nh)
       )
     
     
     # Number of edges in the whole layer, edge-level, edge, by the approach used in ergm.ego
     form_stat[[1]]$edge <-
       form_stat[[1]]$edge  %>% 
-      rename( edges.artnet = edges_adj_age) %>% 
       left_join(
         form_stat[[1]]$nf.age.grp %>% group_by(contact_location) %>%
-          summarize(edges.ergm.ego=sum(nf.ag.ergm.ego)/2 # total number of edges by the approach from ergm.ego, the reason 2 is in the denominator is the because this is an edge-level statistics
+          summarize(edges=sum(nf.ag)/2 # total number of edges by the approach from ergm.ego, the reason 2 is in the denominator is the because this is an edge-level statistics
           ),
         by = "contact_location"
       ) 
     
     
     # Saving things in list
-    form_stat[[1]]$symmetric_mix_matrix <- symmetric_mix_matrix
+    form_stat[[1]]$edge_ct_matrix <- edge_ct_matrix # saving the edge-count matrices of the four layers
     
     
-    form_stat[[1]]
+    form_stat[[1]] # output the edge-count matrices with the target statistics for nodefactor and edge
   }
 
 
@@ -474,8 +468,6 @@ nf.x.layer$urban <-
                          netstats$formation$formation_stats_urban$layer_assoc_urban, 
                        N = n_node_urban
   ) 
-
-
 ## Note - we adjust for the cross-layer effect between school and work and vice versa
 
 
@@ -491,28 +483,27 @@ output$attr$urban <- node.age.grp.urban
 ## selecting variable in edge needing output
 targetstats_age.grp$formation_stats_rural$edge <- 
   targetstats_age.grp$formation_stats_rural$edge %>% 
-  select(contact_location, edges.artnet, edges.ergm.ego)
+  select(contact_location, edges.artnet, edges)
 
 targetstats_age.grp$formation_stats_urban$edge <- 
   targetstats_age.grp$formation_stats_urban$edge %>% 
-  select(contact_location, edges.artnet, edges.ergm.ego)
+  select(contact_location, edges.artnet, edges)
 
  
 ## selecting variable in nodefactor(age.grp) needing output 
 targetstats_age.grp$formation_stats_rural$nf.age.grp <- 
   targetstats_age.grp$formation_stats_rural$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag.artnet, nf.ag.ergm.ego) %>% 
+  select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
   rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
 
 targetstats_age.grp$formation_stats_urban$nf.age.grp <- 
   targetstats_age.grp$formation_stats_urban$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag.artnet, nf.ag.ergm.ego) %>% 
+  select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
   rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
 
 
 ## nodemix(age.grp)
-### Note; for urban work layer, the edge of 10-19y in nodematch is recoded as 0
-
+### Note; for urban work layer, the edge count of 10-19y of the assortative mixing in the edge-count matrix has been re-coded to zero, along with the other edge counts of 10-19y.
 
 ## nodematch(age.grp)
 ### Note: since the assortative edge counts in nodemix are the same as nodematch, we exclude the target statistics of nodemath from the final output
@@ -521,12 +512,12 @@ targetstats_age.grp$formation_stats_rural$nm.age.grp <- targetstats_age.grp$form
 
 
 output$targetstats_age.grp <- targetstats_age.grp
-output$targetstats_x.layer <- targetstats_x.layer$nf.x.layer
+output$targetstats_x.layer <- nf.x.layer
 
 
  
 
-#saveRDS(output, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
+saveRDS(output, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
 
 
 
