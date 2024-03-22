@@ -5,8 +5,8 @@ data(faux.mesa.high)
 mesa.ego<- as.egor(faux.mesa.high)
 
 ## Load target and summary statistics from GlobalMix data to compare the edge count of matched edges by nodefactors based on ARTnet and ergm.ego approaches
-attri_tarstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData") # target statistics
-netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData") # summary statistics
+attri_tarstats <- readRDS("data/network_params/network_targetstats.RData") # target statistics
+netstats <- readRDS("data/network_params/network_params.RData") # summary statistics
 
 
 ## The below data are retrieved from - https://statnet.org/workshop-ergm-ego/ergm.ego_tutorial.html

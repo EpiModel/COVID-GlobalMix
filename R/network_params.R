@@ -25,21 +25,19 @@
 # For the urban network, we exclude the contacts in the ≥40 age groups at School and in the ≤9 age group at Work. 
 
 
-setwd("~/Documents/GitHub/COVID-GlobalMix")
-
 # Load libraries and data  ------------------------------------------------
 lapply(c("ggpubr", "statnet", "EpiModel", "tidyverse", "socialmixr", "knitr",  "sjlabelled", "kableExtra", "broom", "stringr", "GGally"), require, character.only = TRUE)
 
 
 ## participant data
 india_participant <- 
-  readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_participant_data_aim1.RDS")
+  readRDS("data/participant_contact/india_participant_data_aim1.RDS")
 
 
 
 ## contact data 
 india_contact <- 
-  readRDS("~/Documents/GitHub/COVID-GlobalMix/data/participant_contact/india_contact_data_aim1.RDS")
+  readRDS("data/participant_contact/india_contact_data_aim1.RDS")
 
 table(india_contact$hh_membership, india_contact$study_site )%>%
   kbl(caption = "Household membership status in GlobalMix India data") %>%
@@ -1114,11 +1112,4 @@ network_stats$dissolution <- known_dur_school_work
 
 
 
-saveRDS(network_stats, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params_20140219.RData")
-
-
-
-
-
-
-
+saveRDS(network_stats, file = "data/network_params/network_params.RData")

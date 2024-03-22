@@ -1,11 +1,14 @@
+
+source("R/network_targetstats.R")
+
 lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
 
 # Loading data
 ## target statistics
-attri_tarstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
+attri_tarstats <- readRDS("data/network_params/network_targetstats.RData")
 
 ## summary statistics, provides duration of contacts
-netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
+netstats <- readRDS("data/network_params/network_params.RData")
 
 ############## Set up vertex attribute ##############
 # Total number of nodes in each network - difference caused by rounding
