@@ -1,6 +1,5 @@
 .DS_Store
 .Rprofile
-renv.lock
 .RDataTmp
 
 # History files
@@ -34,7 +33,6 @@ renv.lock
 .Renviron
 .Rproj
 .DS_Store
-renv/
 data/input/est.*
 
 # Old scripts
