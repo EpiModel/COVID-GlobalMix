@@ -42,3 +42,5 @@ R/old_scripts/
 
 # miscellaneous things
 miscellaneous/
+
+data/network_params/*.RData
