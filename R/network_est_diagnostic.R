@@ -207,7 +207,10 @@ model_inputs <-
   )
 
 model_inputs
-attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round()
+attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round() 
+
+## SJ: edges should be the sum of this matrix
+model_inputs$tstat[1] <- attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round() %>% sum()
 
 
 # Model fitting and simulation
@@ -238,6 +241,8 @@ est <-
            )
          )
 
+## SJ: runs with fixed edges calculation
+summary(est)
 
 ##### MCMLE 
 est.mcmle <- 
@@ -245,26 +250,102 @@ est.mcmle <-
          formation = model_inputs$frmn_fm, 
          target.stats = model_inputs$tstat, 
          coef.diss = model_inputs$diss,
-         edapprox = T
+         edapprox = TRUE,
+         set.control.ergm = control.ergm(
+           main.method = "MCMLE",
+           MCMLE.maxit = 500,
+           MCMC.samplesize = 1e4,
+           MCMC.interval = 5e3,
+           parallel = 1
+         )
          
   ) # interpretation: MCMLE running failed
+
+## SJ: runs with fixed edges calculation, 
+##  also added control.ergm settings to help convergence; 
+##   converged in 6 iterations (about 30 seconds)
+summary(est.mcmle)
+# SJ: coefficients are pretty close across the two methods
 
 #### Based on the estimates, simulating network - ergm.ego target statistics
 sim <- 
   netdx(est.mcmle,  
-        nsims = 100, 
-        ncores = 1, 
-        nsteps = 500, 
+        nsims = 20, 
+        ncores = 5, 
+        nsteps = 1000, 
         nwstats.formula = model_inputs$frmn_fm, 
-        #set.control.tergm = control.simulate.formula.tergm(MCMC.burnin = 2e5),
-        dynamic = T,
-        skip.dissolution = T
+        set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
+        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
+        dynamic = TRUE,
+        skip.dissolution = FALSE
         #keep.tedgelist = TRUE
 ) # encounter cryptic error 
 
+## SJ: added the two set.control arguments to improve the overall fit. Good diagnostics (<0.5% of targets)
+##   Often need to bump up the nsteps for long-duration edges like this model
+
 sim
 
+par(mar = c(3,3,2,1), mgp = c(2,1,0))
+plot(sim, plots.joined = FALSE)
+
+mcmc.diagnostics(est.mcmle$fit)
 
 
+## SJ: Experiment with fully saturated nodemix model
 
+# Check ordering of nodemix values/target stats
+sim1 <-   netdx(est.mcmle,  
+                nsims = 1, 
+                ncores = 1,
+                nsteps = 100,
+                nwstats.formula = model_inputs$frmn_fm, 
+                set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
+                dynamic = TRUE,
+                keep.tnetwork = TRUE
+)
+nw100 <- get_network(sim1, collapse = TRUE, at = 100)
+nw100
+
+summary(nw100 ~ edges + nodemix("age.grp", levels2 = NULL))
+
+nmix.mat <- as.numeric(as.matrix(attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round()))
+nmix.vec <- nmix.mat[c(1, 7:8, 13:15, 19:22, 25:29, 31:36)]
+
+est.mcmle.full <- 
+  netest(nw, 
+         formation = ~edges + nodemix("age.grp", levels2 = -1), 
+         target.stats = c(sum(nmix.mat), nmix.vec[-1]), 
+         coef.diss = model_inputs$diss,
+         edapprox = TRUE,
+         set.control.ergm = control.ergm(
+           main.method = "MCMLE",
+           MCMLE.maxit = 500,
+           MCMC.samplesize = 1e4,
+           MCMC.interval = 5e3,
+           parallel = 1
+         )
+         
+  )
+summary(est.mcmle.full)
+
+# No problems with convergence
+
+sim <- 
+  netdx(est.mcmle.full,  
+        nsims = 20, 
+        ncores = 5, 
+        nsteps = 1000, 
+        # nwstats.formula = model_inputs$frmn_fm, 
+        set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
+        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
+        dynamic = TRUE,
+        skip.dissolution = FALSE
+        #keep.tedgelist = TRUE
+  )
+
+print(sim)
+plot(sim)
+
+# Target stats look great
 
