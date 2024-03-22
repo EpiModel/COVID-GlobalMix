@@ -2,7 +2,12 @@
 source("R/network_params.R")
 
 # Characterization of target statistics and model parameterization
-  lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
+library("tidyverse")
+library("EpiModel")
+library("ggpubr")
+library("knitr")
+library("svglite")
+library("kableExtra")
 
 # Specifying which context to use - local or HPC
 context = "local"

@@ -1,7 +1,12 @@
 
 source("R/network_targetstats.R")
 
-lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
+library("tidyverse")
+library("EpiModel")
+library("ggpubr")
+library("knitr")
+library("svglite")
+library("kableExtra")
 
 # Loading data
 ## target statistics

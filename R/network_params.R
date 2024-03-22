@@ -26,7 +26,17 @@
 
 
 # Load libraries and data  ------------------------------------------------
-lapply(c("ggpubr", "statnet", "EpiModel", "tidyverse", "socialmixr", "knitr",  "sjlabelled", "kableExtra", "broom", "stringr", "GGally"), require, character.only = TRUE)
+library("ggpubr")
+library("statnet")
+library("EpiModel")
+library("tidyverse")
+library("socialmixr")
+library("knitr")
+library("sjlabelled")
+library("kableExtra")
+library("broom")
+library("stringr")
+library("GGally")
 
 
 ## participant data
