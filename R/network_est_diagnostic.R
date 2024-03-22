@@ -209,6 +209,9 @@ model_inputs <-
 model_inputs
 attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round() 
 
+
+# SJ Work Starts Here -------------------------------------------------------------------------
+
 ## SJ: edges should be the sum of this matrix
 model_inputs$tstat[1] <- attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round() %>% sum()
 
@@ -348,4 +351,5 @@ print(sim)
 plot(sim)
 
 # Target stats look great
+
 
