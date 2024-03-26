@@ -34,10 +34,10 @@ nw_urban <- set_vertex_attribute(nw_urban, attrname = "age.grp",
 )
 
 ## Adding nodal attribute (contact at school) of contact for the x-layer effect of work-layer predicted effect on school
-# nw_rural_s <- set_vertex_attribute(nw_rural, attrname = "deg.work", 
-#                                    value = as.character(attri_tarstats$attr$rural$contact_attribute_School
-#                                                         ) 
-# )
+nw_rural_s <- set_vertex_attribute(nw_rural, attrname = "deg.work",
+                                   value = as.character(attri_tarstats$attr$rural$contact_attribute_School
+                                                        )
+)
 
 
 ############## Set up target statistics  ##############
@@ -81,8 +81,9 @@ target_nmix_vec_rural
 ### models of interest in form_model
 #### 1) base:   ~edges + nodefactor("age.grp", levels = -1) +nodematch("age.grp", diff=T)
 #### 2) nmix_saturate:  ~edges+ nodemix("age.grp", levels2 = -1)
-#### 3) nmix_some_edge: ~edges+ some edge types with large count
-#### 4) "nf_nmix": ~edges + nodefactor("age.grp", levels = -1)+ some edge types with large count
+#### 3) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("deg.work", levels =-1)
+#### 4) nmix_some_edge: ~edges+ some edge types with large count
+#### 5) "edge_x_layer": ~edges + nodefactor("other.layer.deg", levels = -1)
 ### For models include nodemix, nth_large_ct is to specify the number of largest edge count terms to include, indexed in lexicographic order
 formula_tarstats <- 
   function(layer, 
@@ -94,10 +95,22 @@ formula_tarstats <-
     if (site == "Rural"){
       form_stats <- attri_tarstats$targetstats_age.grp$formation_stats_rural
       target_nmix_vec <- target_nmix_vec_rural
+      x_layer <- attri_tarstats$targetstats_x.layer$rural
+      
     } else{
       form_stats <- attri_tarstats$targetstats_age.grp$formation_stats_urban
       target_nmix_vec <- target_nmix_vec_urban
+      x_layer <- attri_tarstats$targetstats_x.layer$urban
     }
+    
+    
+    if (layer == "School"){
+      x_layer <-  x_layer %>% filter(association =="s_by_w")
+      
+    } else if (layer == "Work"){
+      x_layer <-  x_layer %>% filter(association =="w_by_s")
+      
+    } else .
     
     
     ## formation model and its target statistics
@@ -126,13 +139,24 @@ formula_tarstats <-
         ~edges+ 
         nodemix("age.grp", levels2 = -1)# + # lexicographic order in nodemix, the 1st value excluded as reference group
       
-      tstat <- c(form_stats$edge %>% 
-                   filter(contact_location == layer ) %>% 
-                   pull(edges), # edge
+      tstat <- c(target_nmix_vec[[layer]]$target_nmix_vec %>% sum() %>% round(), # edge
                  target_nmix_vec[[layer]]$target_nmix_vec[-1]  #  edges counts from nodemix
       )
       
-    } else if (form_model == "nmix_some_edge"){
+    } else if (form_model == "nmix_saturate_xlayer"){
+      ### fully saturate model w/o node factor
+      frmn_fm <- 
+        ~edges+ 
+        nodemix("age.grp", levels2 = -1) + #  lexicographic order in nodemix, the 1st value excluded as reference group
+        nodefactor("deg.work", levels =-1)
+      
+      tstat <- c(target_nmix_vec[[layer]]$target_nmix_vec %>% sum() %>% round(), # edge
+                 target_nmix_vec[[layer]]$target_nmix_vec[-1],  #  edges counts from nodemix
+                 x_layer %>% pull(nf_other_layer_1)
+                )
+      
+    }
+    else if (form_model == "nmix_some_edge"){
       
       
       lex_order_large_ct <- 
@@ -154,34 +178,20 @@ formula_tarstats <-
                    pull(edges), # edge
                  target_nmix_vec[[layer]]$target_nmix_vec[lex_order_large_ct]  #  edges counts from nodemix
       )
-    } else if (form_model == "nf_nmix"){
-      
-      
-      lex_order_large_ct <- 
-        target_nmix_vec[[layer]] %>% arrange(desc(target_nmix_vec)) %>% # arrange by edge count from big to small
-        slice(1:nth_large_ct) %>% # take the first nth biggest edge counts
-        arrange(lexi_order) %>% pull(lexi_order)
-      
-      lex_order_large_ct_vec  <- paste0(lex_order_large_ct, collapse =",")
-      
+    } else if (form_model == "edge_x_layer"){
+  
       frmn_fm <- 
-        paste0(
-          "~edges +",
-          "nodefactor(\"age.grp\", levels = -1) +",
-          "nodemix(\"age.grp\", levels2 = c( ",  lex_order_large_ct_vec, "))"
-        )
-      frmn_fm <- as.formula(frmn_fm)
+        ~edges+ 
+        nodefactor("deg.work", levels =-1)
       
-      tstat <- c(form_stats$edge %>% 
-                   filter(contact_location == layer ) %>% 
-                   pull(edges), # edge
-                 (form_stats$nf.age.grp %>% filter(contact_location == layer) %>% pull(nf.ag))[-1],
-                 target_nmix_vec[[layer]]$target_nmix_vec[lex_order_large_ct]  #  edges counts from nodemix
+      tstat <- c(target_nmix_vec[[layer]]$target_nmix_vec %>% sum() %>% round(), # edge
+                 x_layer %>% pull(nf_other_layer_1)
       )
+      
     }
     
     # layer-based dissolution model statistics
-    diss <-  
+    diss <-  # still need to add the duration for the nonhome layer
       if(layer == "Home"){
         dissolution_coefs(dissolution = ~offset(edges), 
                           duration =1e6)
@@ -198,13 +208,21 @@ formula_tarstats <-
     output
   }
 
-model_inputs <- 
+model_inputs <-
   formula_tarstats(
-    layer = "School", 
-    form_model = "nmix_some_edge",
+    layer = "School",
+    form_model = "nmix_saturate_xlayer",
     site ="Rural",
-    nth_large_ct  =2
+    nth_large_ct  =
   )
+
+# model_inputs <- 
+#   formula_tarstats(
+#     layer = "School", 
+#     form_model = "edge_x_layer",
+#     site ="Rural",
+#     nth_large_ct  =
+#   )
 
 model_inputs
 attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round() 
@@ -215,18 +233,20 @@ attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %
 ## SJ: edges should be the sum of this matrix
 model_inputs$tstat[1] <- attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round() %>% sum()
 
+attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round()
+attri_tarstats$targetstats_x.layer$rural %>% filter(association == "s_by_w")
 
 # Model fitting and simulation
 ## network to be used
 site="Rural"
 if(site=="Rural"){
-  nw=nw_rural
-}else{
+  nw=nw_rural_s
+}  else if (site == "Urban") {
   nw=nw_urban
-}
+} else .
 
-#### Estimating using stochastic approximation and simulate using static network - ergm.ego target statistics
-##### "Stochastic-Approximation"
+#### Estimating using  schochastic approximation and MCMLE and simulate using static network - ergm.ego target statistics
+##### Stochastic approximation
 est <- 
   netest(nw, 
          formation = model_inputs$frmn_fm, 
@@ -246,6 +266,7 @@ est <-
 
 ## SJ: runs with fixed edges calculation
 summary(est)
+
 
 ##### MCMLE 
 est.mcmle <- 
@@ -269,6 +290,7 @@ est.mcmle <-
 ##   converged in 6 iterations (about 30 seconds)
 summary(est.mcmle)
 # SJ: coefficients are pretty close across the two methods
+
 
 #### Based on the estimates, simulating network - ergm.ego target statistics
 sim <- 
