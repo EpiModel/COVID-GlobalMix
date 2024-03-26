@@ -208,9 +208,9 @@ model_inputs <-
     nth_large_ct  =
   )
 
-# model_inputs <- 
+# model_inputs <-
 #   formula_tarstats(
-#     layer = "School", 
+#     layer = "School",
 #     form_model = "edge_x_layer",
 #     site ="Rural",
 #     nth_large_ct  =
