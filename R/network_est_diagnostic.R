@@ -216,13 +216,13 @@ model_inputs <-
     nth_large_ct  =
   )
 
-# model_inputs <- 
-#   formula_tarstats(
-#     layer = "School", 
-#     form_model = "edge_x_layer",
-#     site ="Rural",
-#     nth_large_ct  =
-#   )
+model_inputs <-
+  formula_tarstats(
+    layer = "School",
+    form_model = "nmix_saturate_xlayer",
+    site ="Rural",
+    nth_large_ct  =
+  )
 
 model_inputs
 attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round() 
@@ -268,6 +268,10 @@ est <-
 summary(est)
 
 
+model_inputs$tstat
+model_inputs2 <- model_inputs$tstat
+model_inputs2[length(model_inputs2)] <- 0
+
 ##### MCMLE 
 est.mcmle <- 
   netest(nw, 
@@ -295,10 +299,10 @@ summary(est.mcmle)
 #### Based on the estimates, simulating network - ergm.ego target statistics
 sim <- 
   netdx(est.mcmle,  
-        nsims = 20, 
-        ncores = 5, 
+        nsims = 30, 
+        ncores = 10, 
         nsteps = 1000, 
-        nwstats.formula = model_inputs$frmn_fm, 
+        nwstats.formula = ~edges + nodemix("age.grp", levels2 = -1) + nodefactor("deg.work", levels = NULL), 
         set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
         set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
         dynamic = TRUE,

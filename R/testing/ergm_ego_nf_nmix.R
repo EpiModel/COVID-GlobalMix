@@ -44,6 +44,8 @@ nf_tar_ergmego
 #### Interpretation: these result of the total number of edge in a group by nodemix is exactly the same as the target statistics of nodefactor - 
 #### suggesting if all the all the nodemix terms are used, the target stats for nodefact could be obviated.
 
+summary(faux.mesa.high ~ edges + nodefactor("Grade", levels = NULL))
+summary(faux.mesa.high ~ meandeg)
 
 ## Calculating target statistics for edge using nf_tar_ergmego
 ### Approach 1 - calculating edge statistics based on nodefactor (nodelevel) statistics
