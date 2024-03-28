@@ -1,12 +1,20 @@
+
+source("R/network_params.R")
+
 # Characterization of target statistics and model parameterization
-  lapply(c("tidyverse", "EpiModel", "ggpubr", "knitr", "svglite", "kableExtra"), require, character.only = TRUE)
+library("tidyverse")
+library("EpiModel")
+library("ggpubr")
+library("knitr")
+library("svglite")
+library("kableExtra")
 
 # Specifying which context to use - local or HPC
 context = "local"
 
 
 # load network parameters
-netstats <- readRDS("~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_params.RData")
+netstats <- readRDS("data/network_params/network_params.RData")
 
 if (context == "local") {
   n_node_rural=round(117808/10); n_node_urban=round(257977/10) # 10% of total observed numbers of populations in rural and urban sites in India
@@ -517,20 +525,5 @@ output$targetstats_x.layer <- nf.x.layer
 
  
 
-saveRDS(output, file = "~/Documents/GitHub/COVID-GlobalMix/data/network_params/network_targetstats.RData")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+saveRDS(output, file = "data/network_params/network_targetstats.RData")
 
