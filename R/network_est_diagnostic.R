@@ -101,7 +101,7 @@ target_nmix_vec_urban <- lapply( attri_tarstats$targetstats_age.grp$formation_st
 ### models of interest in form_model
 #### 1) nmix_saturate:  ~edges+ nodemix("age.grp", levels2 = -1)
 #### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("deg.work", levels =-1)
-#### 3) nmix_some_edge: ~edges+ some edge types with large count
+
 ### nth_large_ct is to specify the edge types with the largest edge count to include, indexed in lexicographic order
 formula_tarstats <- 
   function(layer, 
@@ -131,64 +131,42 @@ formula_tarstats <-
     } else {}
     
     
-    ## formation model and its target statistics
+   ## formation model and its target statistics
+   ### specify the lexicographic location of the first non-zero edge
     target_nmix_vec_layer <-  target_nmix_vec[[layer]]
     fst_gt0_edge <- which(target_nmix_vec_layer$target_nmix_vec != 0)[1]
     
  if (form_model == "nmix_saturate"){
-      ### fully saturate model w/o node factor
-      frmn_fm <- 
-        ~edges+ 
-        nodemix("age.grp", levels2 = -1)# + # lexicographic order in nodemix, the 1st value excluded as reference group
-      
-      tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
-                 target_nmix_vec_layer$target_nmix_vec[-1]  #  edges counts from nodemix
-      )
+   ### Fully saturate model for age mixing without x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
+    frmn_fm <- 
+     paste0(
+       "~edges +",
+       "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")"
+     )
+   frmn_fm <- as.formula(frmn_fm)
+   
+   tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
+              target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge]  #  edges counts from nodemix, excluding the first non-zero edge
+              
+   )
       
     } else if (form_model == "nmix_saturate_xlayer"){
       
     
-      ### fully saturate model w/o node factor, using the 1st non-zero lexicographic term as the reference group
+      ### Fully saturate model for age mixing with x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
       frmn_fm <- 
-        frmn_fm <- 
         paste0(
           "~edges +",
           "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")+",
           "nodefactor(\"deg.x_layer\", levels =-1)"
         )
       frmn_fm <- as.formula(frmn_fm)
-      
-      
        
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
-                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix
-                 x_layer %>% pull(nf_other_layer_1)
+                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
+                 x_layer %>% pull(nf_other_layer_1) # x-layer effect
                 )
-      
-
-      
-    } else if (form_model == "nmix_some_edges_x_layer"){
-      
-      
-      lex_order_large_ct <- 
-        target_nmix_vec_layer %>% arrange(desc(target_nmix_vec)) %>% # arrange by edge count from big to small
-        slice(1:nth_large_ct) %>% # take the first nth biggest edge counts
-        arrange(lexi_order) %>% pull(lexi_order)
-      
-      lex_order_large_ct_vec  <- paste0(lex_order_large_ct, collapse =",")
-      
-      frmn_fm <- 
-        paste0(
-          "~edges +",
-          "nodemix(\"age.grp\", levels2 = c( ",  lex_order_large_ct_vec, "))+",
-          "nodefactor(\"deg.x_layer\", levels =-1)"
-        )
-      frmn_fm <- as.formula(frmn_fm)
-      
-      tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # edge
-                 target_nmix_vec_layer$target_nmix_vec[lex_order_large_ct],  #  selected edges types with large values for nodemix
-                 x_layer %>% pull(nf_other_layer_1)
-      )
+    
     } 
     
     # layer-based dissolution model statistics
@@ -217,7 +195,7 @@ formula_tarstats <-
 
 model_inputs_rural <- model_inputs_urban <- list()
 
-layers <- c("Home", "School", "Work", "Nonhome")
+layers <- c("Home", "School", "Work", "Nonhome") # layers that we'll define the model formulas and corresponding target statistics
 form_model_types <- c("nmix_saturate", "nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate")
 
 for (i in 1:4) {
@@ -225,22 +203,20 @@ for (i in 1:4) {
     formula_tarstats(
       layer = layers[i],
       form_model = form_model_types[i],
-      site ="Rural" #,
-      #nth_large_ct  =
+      site ="Rural" 
     )
   
   model_inputs_urban[[i]] <- 
     formula_tarstats(
       layer = layers[i],
       form_model = form_model_types[i],
-      site ="Urban"#,
-      #nth_large_ct  =
+      site ="Urban"
     )
   
 }
 names(model_inputs_rural) <- names(model_inputs_urban) <- layers
 
-
+## 20230402 start from here to fit the models target stats 
 
 # Model fitting and simulation
 ## network to be used
