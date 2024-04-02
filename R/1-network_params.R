@@ -8,7 +8,7 @@
 
 # (2) We excluded contacts lasted ≤ 15 mins in analysis, given the interest on respiratory-related diseases. 
 
-# (3) Given the data were egocentric, at the single-day scale, we use $M.D.=\frac{edges}{n}$ to calculate mean degree ($M.D.$) from the number of edges. 
+# (3) Given the data were egocentric, at the single-day scale, we use $M.D.=\frac{number of contacts}{n}$ to calculate mean degree. 
 # Given the data are of contacts over two days, the single-day mean degree of of contact is half of the mean degree of two-day contact;
 # However, the proportion of observing an edge at the two-day scale is the same as the single-day scale.
 
@@ -17,11 +17,11 @@
 # location having primary contact, following the order of home, school, work, non-home (excluding work and school). There are two contacts 
 # that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering the participants 
 # (and contacts) were at school age (10-19y, 0-9y). This logic is not spelled out in the below script but is adjusted by the higher priority 
-# of school than work. For a contact checked non of the categories, we assigned an NA to this contact and excluded them considering them as missing data.
+# of school than work. For a contact checked none of the categories, we assigned an NA to this contact and excluded them considering them as missing data.
 
 # (5) Zeroing out contacts in age groups. Given we observed very low level of degree in ties in the target statistics of nodemix and the observation of low degrees in some age group for nodefactor,
 # we decide to zero out the contact degrees in some age groups. For the rural network, since the degrees of the modeled population and the individual-level mean degrees are low in the ≥40 age groups at 
-# School and in the ≤19 age group at Work, we a priori exclude the contacts in these age group when calibrating the network statistics.
+# School and in the ≤19 age group at Work, we a priori exclude the contacts in these age groups when calibrating the summary statistics.
 # For the urban network, we exclude the contacts in the ≥40 age groups at School and in the ≤9 age group at Work. 
 
 
@@ -92,11 +92,14 @@ india_mix <- india_participant %>%
   right_join(india_contact,
              by = "rec_id") %>% 
   ### characterization of primary contact status, outputted categories are: Home, School, Work, and Nonhome
-  mutate(contact_location = case_when(location_contact___0 == 1  ~ "Home", # 0 - "My home"
+  mutate(contact_location = 
+                                      # Home
+                            case_when(location_contact___0 == 1  ~ "Home", # 0 - "My home"
+                                      # School
                                       location_contact___2 == 1 & location_contact___0 == 0 ~ "School", # "School" but not "my home" 
+                                      # Work
                                       location_contact___3 == 1 & (location_contact___0 == 0  | location_contact___2 ==0)~ "Work", # "work" but not "my home" / "school"
-                                      
-                                      
+                                      # Nonhome
                                       (
                                         location_contact___1 == 1 | location_contact___4 == 1 | # "Other home",  "Transport/Hub"
                                           location_contact___5 == 1 | location_contact___6 == 1 | # "Market/Shop", "Street"
@@ -108,10 +111,11 @@ india_mix <- india_participant %>%
                                           location_contact___17 == 1 | location_contact___18 == 1 | location_contact___19 == 1 #"Exhibition", "Social hall", "Other"
                                       ) &
                                         !(location_contact___3 == 1 | location_contact___2 == 1 | location_contact___0 == 1) # Excluding work/school/home
-                                      
                                       ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
   )  %>% 
-  ### Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, we found there are 58,1,3 household members had contacts in the nonhome, school, and work layers. We reclassify these as home contacts. We also found 2176 non-members at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
+  ### Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, 
+  ### we found there are 58,1,3 household members had contacts in the nonhome, school, and work layers. We reclassify these as home contacts. 
+  ### We also found 2176 "Non-members" at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
   mutate(
     contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
                                  hh_membership == "Non-member" & contact_location %in% c("Home") ~ "Nonhome",
@@ -132,7 +136,8 @@ india_mix <- india_participant %>%
   ) %>% 
   
   ### Distribution of indoor/outdoor status
-  #### The variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted a contact both in- and out-doors. Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" and the "Indoors" categories. 
+  #### The variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted a contact both in- and out-doors. 
+  #### Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" and the "Indoors" categories. 
   #### We will adjust for this status when building the transmission model, in which we will assign lower risk for the "Outdoors" category during simulation.
   mutate(where_contact =case_when(where_contact %in% c("Indoors", "Both") ~ "Indoors_or_both",
                                   .default = where_contact)
@@ -153,7 +158,7 @@ india_mix %>% filter(
 
      ) %>% 
   filter(
-      ### Contacts to be zeroed out in the urban network, 4 contacts of participant_age = 0-9y at work to be excluded
+      ### Contacts to be zeroed out in the urban network, contacts in the ≥40 age groups at School and 4 contacts of participant_age = 0-9y at work to be excluded
       ! (
         (study_site == "Urban")  &
           (
@@ -161,8 +166,6 @@ india_mix %>% filter(
               (contact_location == "Work" & participant_age %in% c("0-9y"))
           )
       )
-    
-    
   )
 
 
@@ -173,45 +176,6 @@ table(
   india_mix$contact_location,
   india_mix$hh_membership
 )
-
-# Function characterizing uncertainties of network statistics and scaling them from two to one day scale
-ci_95 <- # to-do
-  function(glm_ouput, num_sample, link){
-    
-    if(link == "log"){
-      glm_ouput %>% 
-        mutate(
-          single_day_md_link = log(single_day_md), # single-day mean degree, link scale
-          
-          # uncertainties, link-scale
-          two_day_sd_link = `Std. Error`*sqrt(num_sample), # two-day standard deviation for the coefficient at the link scale
-          single_day_sd_link = two_day_sd_link/2,  # single-day standard deviation for the coefficient at the link scale
-          single_day_se_link = single_day_sd_link/sqrt(num_sample), # single-day standard error for the coefficient at the link scale
-          
-          
-          # uncertainties, original scale
-          single_day_lower95ci = exp(single_day_md_link -1.96*single_day_se_link),
-          single_day_upper95ci =  exp(single_day_md_link +1.96*single_day_se_link)
-        )
-    } else {
-      glm_ouput %>% 
-        mutate(
-          single_day_md_link = logit(single_day_md), # single-day mean degree, link scale
-          
-          # uncertainties, link-scale
-          two_day_sd_link = `Std. Error`*sqrt(num_sample), # two-day standard deviation for the coefficient at the link scale
-          single_day_sd_link = two_day_sd_link/2,  # single-day standard deviation for the coefficient at the link scale
-          single_day_se_link = single_day_sd_link/sqrt(num_sample), # single-day standard error for the coefficient at the link scale
-          
-          
-          # uncertainties, original scale
-          single_day_lower95ci = expit(single_day_md_link -1.96*single_day_se_link),
-          single_day_upper95ci =  expit(single_day_md_link +1.96*single_day_se_link)
-        )
-      
-    }
-    
-  }
 
 
 ## Uncertainties of network statistics
@@ -384,10 +348,10 @@ contact_count_urban  <- # urban mixing
 # function calculates two-day proportions of mixing between age groups of participant and contact 
 # Note: 1)given both the numerator (i.e., number of edges matched to a patterm) and denominator (i.e., total number od edges in a layer) are divided by 2 for converting two- to one-day scale, 
 #the two-day proportion is the same as the single-day propotion. 2) We characterize the proportion using both the glm and summary methods for cross-validation.
-mix_prop <- # to-do: characterizing uncertainties 
+mix_prop <- 
   function(mix_status_layer,# the mixing statuses of a single layer over the two-day period 
            unobserve_ego_age_grp 
-           # The "unobserve_ego_age_grp" argument indicating which egocentric age groups weren't observed to have contact or whose contacts where excluded.
+           # The "unobserve_ego_age_grp" argument indicates which egocentric age groups weren't observed to have contact or whose contacts where excluded.
            # For these unobserved egocentric age groups, their corresponding proportions won't be characterized, yielding NA
   ){
     
@@ -409,7 +373,7 @@ mix_prop <- # to-do: characterizing uncertainties
     glm_nmix <- # regress the mixing status of each type on age group, the time scale of the data is in two days
       lapply( all_mix_patterns, function(x) { 
         
-        glm(substitute(i ~  -1+participant_age, # slope-only model, where the sloop is logit(proportion) 
+        glm(substitute(i ~  -1+participant_age, # slope-only model, where the slope is logit(proportion) 
                        list(i = as.name(x))), family = "binomial", data = mix_status_layer) 
         
       } )
@@ -424,7 +388,7 @@ mix_prop <- # to-do: characterizing uncertainties
       for (i in 1:6 
       ) {
         
-        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit() # convert the regression to proportion
+        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit() # convert the regression coefficient to proportion
         mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
         mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
         mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
@@ -433,7 +397,7 @@ mix_prop <- # to-do: characterizing uncertainties
         
       }
       
-    }  else if (unobserve_ego_age_grp == "40+y") { # if the last two oldest egocentric age groups didn't have contact, we fill the first four corresponding matrix rows. This scenario applies to the school layer
+    }  else if (unobserve_ego_age_grp == "40+y") { # if the last two oldest egocentric age groups didn't have contact, we fill the first four corresponding matrix rows. This scenario applies to the rural and urban school layers
       
       for (i in 1:4
       ) {
@@ -503,8 +467,6 @@ mix_prop <- # to-do: characterizing uncertainties
   }
 
 
-
-
 # Characterizing mixing proportions by layer
 ## Note: the following use the mix_prop function to characterize the mixing proportion for all contact layers
 ## define function settings
@@ -539,20 +501,11 @@ names(mix_prop_rural_layers) <- names(mix_prop_urban_layers) <-locs # assigning 
 
 ## Compare the glm-based and crude proportions, and those proportions of matched age groups based on the ARTnet approach
 ### glm-based and crude proportions
-mix_prop_rural_layers[[1]]
-mix_prop_urban_layers[[3]]
-
-### proportions of matched age groups based on dataframe of the ARTnet approach
-contact_count_rural$same.age.grp_status %>% filter(contact_location == "Home")  %>% group_by(contact_location, participant_age) %>% summarize(match.prop = mean(same.age.grp)
-) 
-contact_count_urban$same.age.grp_status  %>% filter(contact_location == "Home")%>% group_by(contact_location, participant_age) %>% summarize(match.prop = mean(same.age.grp)
-) 
+mix_prop_rural_layers
+mix_prop_urban_layers
 
 
-
-
-# Function characterizing network statistics of age effect for edge, nodefactor, and nodematch
-## to-do: the script characterizing uncertenties needs to be replaced by ci_95 function
+# Function characterizing egocentric network statistics of age effect for edge, nodefactor, and nodematch
 edge_node_factor_match <- function(contact_count_site){
   
   output <- list()
@@ -646,10 +599,10 @@ edge_node_factor_match <- function(contact_count_site){
   output[[2]] <- nf
   
   
-  # nodematch - porportion of matched edges of each age group among all the edges
+  # nodematch - proportion of matched edges of each age group among all the edges
   
-  nm <- data.frame() #matrix(NA, nrow = length(locations), ncol = length(levels(contact_count$participant_age)))
-  for (i in 1:4 #length(locations)
+  nm <- data.frame()
+  for (i in 1:4 
   ) {
     
     
@@ -657,7 +610,7 @@ edge_node_factor_match <- function(contact_count_site){
       contact_count_site$same.age.grp_status %>% filter(contact_location == levels(contact_count_site$same.age.grp_status$contact_location)[i]) 
     
     n_obs_age.grp <- data_nm %>% group_by(participant_age) %>% summarize(n=n()) %>% mutate(participant_age = as.character(participant_age)
-    ) # "n" is the total number of edges in each age agoup in a network
+    ) # "n" is the total number of edges in each age group in a network
     
     
     fit_nm_single <- 
@@ -676,7 +629,7 @@ edge_node_factor_match <- function(contact_count_site){
         n_obs_age.grp
       )
     
-    # 2024 uncertainty to-be-updated
+
     fit_nm_single <- 
       fit_nm_single %>% 
       mutate(
@@ -703,10 +656,6 @@ edge_node_factor_match <- function(contact_count_site){
   
   output[[3]] <- nm
   
-  
-  #### nodemix TB finished - porportion of edges of specific mixing among all the edges ###
-  
-  
   names(output) <- c("edge", "nf.age.grp", "nm.age.grp")
   
   output
@@ -719,9 +668,10 @@ edge_node_factor_match_urban <- edge_node_factor_match(contact_count_site = cont
 
 # Correlation between layers
 ## Characterization of regression coefficients
-### We tabulated the degrees between layers. We observed the following - in both the rural and urban networks, the contacts at school and work are relatively separated
-# Function for bivariate Poisson regression for associations of degree between layers. 
-# two-day regression coefficeint, single day predicted mean degs, two-day proportions of having contacts, and the wide-format data for the analysis are outputted 
+
+## Function assessing associations of degree between layers using Poisson regression, with dichotomized degree as independent variable. 
+### Two-day regression coefficients of the associations (coefficient_summary_2days), single-day predicted mean degrees conditioning on the other layer (mean_deg_1day),
+### two-day proportions of having contacts (deg.layer.dist_2days), and the raw data in wide-format (data_wide) for the regressions are outputted 
 assoc_btw_layers <- function(contact_count_long # contact count over the two days for each participant
                              ){
   
@@ -979,14 +929,13 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
 }
 
 
-
- 
 layer_assoc_rural <- assoc_btw_layers(contact_count_long=contact_count_rural$contact_degree 
                                       )
 layer_assoc_urban <- assoc_btw_layers(contact_count_long=contact_count_urban$contact_degree) 
 
 
 ## Visual evaluation of correlation between layers and assessing effect sizes
+### We tabulated the degrees between layers. We observed the following - in both the rural and urban networks, the contacts at school and work are relatively separated
 ### spearman correlation,rural
 layer_assoc_rural$data_wide %>% select(-c(rec_id, participant_age, Nonhome_cat, Home_cat, School_cat, Work_cat)) %>% 
   ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
