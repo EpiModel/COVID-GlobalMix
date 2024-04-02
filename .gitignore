@@ -41,7 +41,6 @@ R/old_scripts/
 # miscellaneous things
 miscellaneous/
 
-data/network_params/*.RData
 
 # old data
 data/network_params/corp_mix_deg
