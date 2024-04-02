@@ -28,7 +28,7 @@ if (context == "local") {
 target_age_grp <- netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
 layers <-  netstats$formation$formation_stats_rural$edge_node_factor_match_rural$edge$contact_location %>% unique()
 
-# target population numbers in urban & rural networks 
+# Target population numbers in urban & rural networks 
 target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
                                    dss_pop_age_grp=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural area from DSS
                                                c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)  # number of population in the urban area from DSS
@@ -43,10 +43,10 @@ target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
   mutate(#tar_pop = round(prop*n_node)
     tar_pop = total_pop*prop
          ) %>%  # number of node at each age group of the modeled population
-  select(target_age_grp, network, tar_pop ) # variable needed for below
+  select(target_age_grp, network, tar_pop ) # variable needed for below analysis
 
-################# Simulate age and age group for individual nodes #################
-# Function generating age and age group for each node based on distribution of target population
+################# Generating nodal attributes of age and layer-specific contact status #################
+## Define function generating age and age group for each node based on distribution of target population
 node.age.grp <- 
   function(target_age_dist_site # number of target population by age group of a network (urban/rual)
   ){
@@ -79,7 +79,7 @@ node.age.grp <-
     data.frame(age.grp.num, age) %>% 
       left_join(age.grp.df %>% select(age.grp.num, target_age_grp), by = "age.grp.num") # merging the categorical age group with the corresponding numerically coded age group
   }
-
+## Generating age and age group for each node based on distribution of target population
 node.age.grp.rural <- 
   node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
                
@@ -90,8 +90,7 @@ node.age.grp.urban <-
                ) # urban network
 
 
-################# Simulate contact status at each layer for individual nodes #################
-# Function generating nodal attribute of contact status at each layer
+## Define function generating nodal attribute of contact status at each layer
 node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist, node.age.group){
   
   ## Extracting proportion of having any contact
@@ -154,40 +153,22 @@ cbind(
   layer_attribute_layers
   
 }
-
+## Generating nodal attribute of contact status at each layer
 node.age.grp.rural <- 
 node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days, 
                    target_age_dist = target_age_distribut %>% filter( network == "rural"), 
                    node.age.group = node.age.grp.rural) # rural network
-
 node.age.grp.urban <- 
   node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
                      target_age_dist = target_age_distribut %>% filter( network == "urban"), 
                      node.age.group = node.age.grp.urban) # urban network
 
-# Compare simulated proportion to observed ones
-## Observed proportion, rural
-netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days %>% filter(contact_status ==1) %>% mutate_if(is.numeric, round, 2)%>% 
-  select("layer", "0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y"   ) %>% t() %>% data.frame() 
-
-## Simulated proportion, rural
-node.age.grp.rural  %>% group_by(target_age_grp) %>% 
-select(contact_attribute_Home, contact_attribute_School, contact_attribute_Work, contact_attribute_Nonhome
-)%>%  summarize(Home= mean(contact_attribute_Home), 
-                School= mean(contact_attribute_School), 
-                Work= mean(contact_attribute_Work), 
-                Nonhome= mean(contact_attribute_Nonhome)
-                ) %>% arrange(target_age_grp) %>% 
-  mutate_if(is.numeric, round, 2)
-
-
-
 
 ############## Target statistics (age.grp) ##############
 # function to calculate formation target stats related to age
 target_stats_age <- 
-  function(form_stat, 
-           target_age_dist
+  function(form_stat, # individual-level summary statistics 
+           target_age_dist # total number of nodes of a network
   ){
     
     # Note form_stat[[1]] and form_stat[[2]] respectively are the edge_node_factor_match and mix_prop
@@ -396,8 +377,7 @@ targetstats_age.grp$formation_stats_rural <-
 targetstats_age.grp$formation_stats_urban <- 
   target_stats_age(form_stat = netstats$formation$formation_stats_urban, 
                          target_age_dist = target_age_distribut %>% filter(network == "urban")%>% select(target_age_grp, tar_pop)
-  ) # observation: at the school layer, the both the summary and target stat for the mixing in 20-29y ==0. 
-
+  ) 
 
 
 ############## Target statistics (cross-layer effects) ##############
@@ -460,7 +440,8 @@ target_stats_x_layer <-
       mutate(
         coeffi = coefficient %>% pull(coefficient),
         p_value = coefficient %>% pull(p_value)
-               )
+               ) %>% 
+      rename(md_other_layer_0 =other_layer.0, md_other_layer_1 = other_layer.1 ) # renaming to names that are more understandable
     
   }
 
@@ -486,27 +467,27 @@ output <- list()
 output$attr$rural <- node.age.grp.rural
 output$attr$urban <- node.age.grp.urban
 
-# Target stats
+# Target stats - we only export the edge counts for nodemix and the x-layer effects, as only them will be used for building the model
 ## selecting variable in edge needing output
-targetstats_age.grp$formation_stats_rural$edge <- 
-  targetstats_age.grp$formation_stats_rural$edge %>% 
-  select(contact_location, edges.artnet, edges)
+targetstats_age.grp$formation_stats_rural$edge <- NULL
+  # targetstats_age.grp$formation_stats_rural$edge %>% 
+  # select(contact_location, edges.artnet, edges)
 
-targetstats_age.grp$formation_stats_urban$edge <- 
-  targetstats_age.grp$formation_stats_urban$edge %>% 
-  select(contact_location, edges.artnet, edges)
+targetstats_age.grp$formation_stats_urban$edge <- NULL
+  # targetstats_age.grp$formation_stats_urban$edge %>% 
+  # select(contact_location, edges.artnet, edges)
 
  
 ## selecting variable in nodefactor(age.grp) needing output 
-targetstats_age.grp$formation_stats_rural$nf.age.grp <- 
-  targetstats_age.grp$formation_stats_rural$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
-  rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
+targetstats_age.grp$formation_stats_rural$nf.age.grp <- NULL
+  # targetstats_age.grp$formation_stats_rural$nf.age.grp %>% 
+  # select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
+  # rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
 
-targetstats_age.grp$formation_stats_urban$nf.age.grp <- 
-  targetstats_age.grp$formation_stats_urban$nf.age.grp %>% 
-  select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
-  rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
+targetstats_age.grp$formation_stats_urban$nf.age.grp <- NULL
+  # targetstats_age.grp$formation_stats_urban$nf.age.grp %>% 
+  # select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
+  # rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
 
 
 ## nodemix(age.grp)
