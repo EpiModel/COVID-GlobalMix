@@ -1,5 +1,4 @@
 
-source("R/network_params.R")
 
 # Characterization of target statistics and model parameterization
 library("tidyverse")

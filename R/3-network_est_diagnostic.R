@@ -1,5 +1,5 @@
 
-source("R/network_targetstats.R")
+
 
 library("tidyverse")
 library("EpiModel")
