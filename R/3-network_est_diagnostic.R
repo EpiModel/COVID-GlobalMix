@@ -392,6 +392,26 @@ est_eight_layers_nh_u <-
   est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Nonhome", site = "Urban")
 
 
+nws_r <- list(est_eight_layers_h_r,
+              est_eight_layers_s_r,
+              est_eight_layers_w_r,
+              est_eight_layers_nh_r )
+names(nws_r) <- layers
+
+nws_u <- list(est_eight_layers_h_u,
+              #est_eight_layers_s_u,
+              est_eight_layers_w_u,
+              est_eight_layers_nh_u)
+names(nws_u) <- layers[-2]
+
+nws <- list(nws_r, nws_u)
+names(nws) <- c("Rural", "Urban")
+
+saveRDS(nws,  file = "./data/models/netest_8_layers.RData")
+
+test <- 
+readRDS("./data/models/netest_8_layers.RData")
+
 #### Based on the estimates, simulating network - ergm.ego target statistics
 sim <-
   netdx(est.mcmle,
