@@ -1,6 +1,4 @@
 
-
-
 library("tidyverse")
 library("EpiModel")
 library("ggpubr")
@@ -15,71 +13,77 @@ attri_tarstats <- readRDS("data/network_params/network_targetstats.RData")
 ## summary statistics, provides duration of contacts
 netstats <- readRDS("data/network_params/network_params.RData")
 
-############## Set up vertex attribute ##############
-# Total number of nodes in each network - difference caused by rounding
-n_node_rural = attri_tarstats$attr$rural %>% nrow() # compared to 117,808
-n_node_urban= attri_tarstats$attr$urban %>% nrow() # compared to 257,977
+############## Set up vertex attributes ##############
+# function to initiate a network and assign nodal attribute of age group and layer-specific contact status to that network
+initiate_nw <- 
+function(attri_tarstats, network){
 
+# Create a list to store things for output
+output <- list()  
+  
+# Total number of nodes in each network - difference caused by rounding
+n_node = attri_tarstats$attr[[network]] %>% nrow() 
 
 # Initiate nodes
-nw_rural <- network_initialize(n_node_rural)
-nw_urban <- network_initialize(n_node_urban)
+nw <- network_initialize(n_node)
 
-# Rural
-## Adding age attribute
-nw_rural <- set_vertex_attribute(nw_rural, attrname = "age.grp",
-                                value= as.character(attri_tarstats$attr$rural$target_age_grp )
+# Adding age attribute to the nodes
+output$nw <- set_vertex_attribute(nw, attrname = "age.grp",
+                                value= as.character(attri_tarstats$attr[[network]]$target_age_grp )
                                 )
-## Adding the x-layer effect
-## For school 
-nw_rural_s <- set_vertex_attribute(nw_rural, attrname = "deg.x_layer", 
-                                   value = as.character(attri_tarstats$attr$rural$contact_attribute_School
-                                   )
-)
-## For work
-nw_rural_w <- set_vertex_attribute(nw_rural, attrname = "deg.x_layer",
-                                   value = as.character(attri_tarstats$attr$rural$contact_attribute_Work
+
+# Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
+## For school as the conditioned layer
+output$nw_s <- set_vertex_attribute(output$nw, attrname = "deg.x_layer", 
+                                   value = as.character(attri_tarstats$attr[[network]]$contact_attribute_School
                                    )
 )
 
-# Urban
-## Adding age attribute
-nw_urban <- set_vertex_attribute(nw_urban, attrname = "age.grp",
-                                 value= as.character(attri_tarstats$attr$urban$target_age_grp )
-)
-## Adding the x-layer effect
-## For school 
-nw_urban_s <- set_vertex_attribute(nw_urban, attrname = "deg.x_layer", 
-                                   value = as.character(attri_tarstats$attr$urban$contact_attribute_School
-                                   )
-)
-## For work
-nw_urban_w <- set_vertex_attribute(nw_urban, attrname = "deg.x_layer",
-                                   value = as.character(attri_tarstats$attr$urban$contact_attribute_Work
+## For work as the conditioned layer
+output$nw_w <- set_vertex_attribute(output$nw, attrname = "deg.x_layer",
+                                   value = as.character(attri_tarstats$attr[[network]]$contact_attribute_Work
                                    )
 )
 
+output
+
+}
+
+# run the function to set up the nodal attributes 
+nw_rural <- initiate_nw(attri_tarstats = attri_tarstats, network = "rural")
+
+nw_urban <- initiate_nw(attri_tarstats = attri_tarstats, network = "urban")
 
 
-############## Set up target statistics  ##############
-# Note: we treat the 1st age group (0-10 years old) as reference group for nodemix
+############## Arrange target statistics for age mixing in lexicographic order  ##############
+# Note: we treat the 1st non-zero age group as reference group for nodemix -
+# for the home, nonhome, and school layers, it's the edge of "0-9y-0-9y"
+# for the work layer, it's the edge of "20-29y-20-29y"
 
-# Target statistics of nodemix 
-## Write a function to pull target statistics from list and organize them in lexicographical order for model fitting
+# Target statistics for age mixing
+## Function to arrange edge counts from mixing matrix to lexicographical order for model fitting
 nmix_tar_lex <- 
 function(edge_ct_mx){
+  
+  # convert matrix from list into a matrix item
   matrix <- edge_ct_mx %>% as.matrix()
+  
+  # arrange the upper triangular matrix into a vector containing edges in lexicographic order
   target_nmix_vec <- c(matrix[,1][1] %>% as.numeric(), 
                        matrix[,2][1:2] %>% as.numeric(),
                        matrix[,3][1:3] %>% as.numeric(),
                        matrix[,4][1:4] %>% as.numeric(),
                        matrix[,5][1:5] %>% as.numeric(),
                        matrix[,6][1:6] %>% as.numeric()
-  ) # target stat of nodemix in lexicographic order
+  ) 
   
-  data.frame(target_nmix_vec) %>% rownames_to_column(var= "lexi_order") %>% # create a column indicating the lexicographic order
+  # create a column "lexi_order" indicating the lexicographic order
+  data.frame(target_nmix_vec) %>% rownames_to_column(var= "lexi_order") %>% 
+    # the lexicographic order is labeled in numbers
     mutate(lexi_order = as.numeric(as.character(lexi_order))) %>% 
-    mutate(mx_loc = c("1_1",
+    # "mx_loc" is a variable indicating the corresponding matrix location of the edges reordered into the dataframe
+    # the left and right sides of "._." indicate the row and column indices of a upper triangular matrix
+    mutate(mx_loc = c("1_1", 
                       paste0(c(1:2), "_2"),
                       paste0(c(1:3), "_3"),
                       paste0(c(1:4), "_4"),
@@ -88,35 +92,34 @@ function(edge_ct_mx){
            )
 }
 
-## Target statistics of nodemix at each layer, rural
+## Apply the function to each layer
+### Rural
 target_nmix_vec_rural <- lapply( attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix, nmix_tar_lex)
+### Urban
 target_nmix_vec_urban <- lapply( attri_tarstats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix, nmix_tar_lex)
 
+############## Set up model formulas and network statistics  ##############
 
-# model formulas and corresponding target statistics.
-## We are interested in fitting different formation model to the school and work layer
-
-# Defining a formula to try different target statistics
-### layers of interest for both networks: home, school
-### models of interest in form_model
+# Defining a function to try different target statistics
+## Note the function reads the list of target statistics from the global environment. The following explains the meaning of each argument 
+### layer - 1 of the 4 layers: "Home", "School", "Work", "Nonhome"
+### site - 1 of the 2 sites: "Rural", "Urban"
+### form_model - 1 of the following 2 formation models of interest 
 #### 1) nmix_saturate:  ~edges+ nodemix("age.grp", levels2 = -1)
 #### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("deg.work", levels =-1)
 
 ### nth_large_ct is to specify the edge types with the largest edge count to include, indexed in lexicographic order
 formula_tarstats <- 
   function(layer, 
-           form_model,
            site,
-           nth_large_ct  
+           form_model 
   ){
     
-    if (site == "Rural"){
-      form_stats <- attri_tarstats$targetstats_age.grp$formation_stats_rural
+    if (site == "Rural"){ # 
       target_nmix_vec <- target_nmix_vec_rural
       x_layer <- attri_tarstats$targetstats_x.layer$rural
       
     } else{
-      form_stats <- attri_tarstats$targetstats_age.grp$formation_stats_urban
       target_nmix_vec <- target_nmix_vec_urban
       x_layer <- attri_tarstats$targetstats_x.layer$urban
     }
@@ -131,11 +134,14 @@ formula_tarstats <-
     } else {}
     
     
-   ## formation model and its target statistics
-   ### specify the lexicographic location of the first non-zero edge
-    target_nmix_vec_layer <-  target_nmix_vec[[layer]]
-    fst_gt0_edge <- which(target_nmix_vec_layer$target_nmix_vec != 0)[1]
+   # Formation model and its target statistics
+   ## Extract the lexicographically ordered edge count of a layer from the list  
+   target_nmix_vec_layer <-  target_nmix_vec[[layer]]
     
+   ## Specify the lexicographic location of the first non-zero edge
+   fst_gt0_edge <- which(target_nmix_vec_layer$target_nmix_vec != 0)[1]
+    
+   ## Define the formula of formation model
  if (form_model == "nmix_saturate"){
    ### Fully saturate model for age mixing without x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
     frmn_fm <- 
@@ -145,14 +151,12 @@ formula_tarstats <-
      )
    frmn_fm <- as.formula(frmn_fm)
    
+   ### Target statistics correspond to the formation model
    tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
               target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge]  #  edges counts from nodemix, excluding the first non-zero edge
-              
-   )
+              )
       
     } else if (form_model == "nmix_saturate_xlayer"){
-      
-    
       ### Fully saturate model for age mixing with x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
       frmn_fm <- 
         paste0(
@@ -162,15 +166,15 @@ formula_tarstats <-
         )
       frmn_fm <- as.formula(frmn_fm)
        
+      ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
                  x_layer %>% pull(nf_other_layer_1) # x-layer effect
                 )
-    
     } 
     
     # layer-based dissolution model statistics
-    diss <-  # still need to add the duration for the nonhome layer
+    diss <- 
       if(layer == "Home"){
         dissolution_coefs(dissolution = ~offset(edges), 
                           duration =1e6)
@@ -180,7 +184,8 @@ formula_tarstats <-
                           duration =1)
         
       } else if (layer %in% c("School", "Work")  
-                 ){
+                 ){ 
+        # For school and work, we used the durations calculated from the query
         dissolution_coefs(dissolution = ~offset(edges), 
                           duration = netstats$dissolution %>% filter(study_site ==site & contact_location == layer) %>% pull(know_contact_duration)
         )
@@ -193,9 +198,12 @@ formula_tarstats <-
     output
   }
 
+# Use the function to specify models and network statistics
+## Create a list to store things
 model_inputs_rural <- model_inputs_urban <- list()
 
-layers <- c("Home", "School", "Work", "Nonhome") # layers that we'll define the model formulas and corresponding target statistics
+## Argument specifications for each layer 
+layers <- c("Home", "School", "Work", "Nonhome") 
 form_model_types <- c("nmix_saturate", "nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate")
 
 for (i in 1:4) {
@@ -216,150 +224,172 @@ for (i in 1:4) {
 }
 names(model_inputs_rural) <- names(model_inputs_urban) <- layers
 
-## 20230402 start from here to fit the models target stats 
 
-# Model fitting and simulation
-## network to be used
-site="Rural"
-if(site=="Rural"){
-  nw=nw_rural; nw_s=nw_rural_s; nw_w=nw_rural_w
-}  else if (site == "Urban") {
-  nw=nw_urban
-} else .
+############## Model fitting and simulation  ##############
+# Estimating model stochastic approximation and MCMLE
 
 
-### Estimating using stochastic approximation and MCMLE 
-#### Stochastic approximation
-
-est <- 
-  netest(nw, # Home
-         formation = model_inputs_rural$Home$frmn_fm, 
-         target.stats = model_inputs_rural$Home$tstat, 
-         coef.diss = model_inputs_rural$Home$diss,
-         set.control.ergm = 
-           control.ergm(
-             main.method = "Stochastic-Approximation", # adapted from https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
-             MCMLE.maxit = 500,
-             SAN.maxit = 3,
-             SAN.nsteps.times = 4,
-             MCMC.samplesize = 1e4,
-             MCMC.interval = 5e3,
-             parallel = 1
-           )
-         )
-
-est <- 
-  netest(nw, # Nonhome
-         formation = model_inputs_rural$Nonhome$frmn_fm, 
-         target.stats = model_inputs_rural$Nonhome$tstat, 
-         coef.diss = model_inputs_rural$Nonhome$diss,
-         set.control.ergm = 
-           control.ergm(
-             main.method = "Stochastic-Approximation", # adapted from https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
-             MCMLE.maxit = 500,
-             SAN.maxit = 3,
-             SAN.nsteps.times = 4,
-             MCMC.samplesize = 1e4,
-             MCMC.interval = 5e3,
-             parallel = 1
-           )
+## Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
+control.args <-  
+  list(
+    sto_apoxy=
+      control.ergm(
+        # The following setting is copied from - https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
+        main.method = "Stochastic-Approximation", 
+        MCMLE.maxit = 500,
+        SAN.maxit = 3,
+        SAN.nsteps.times = 4,
+        MCMC.samplesize = 1e4,
+        MCMC.interval = 5e3,
+        parallel = 1
+      ),
+    mcmle=
+      control.ergm(
+        main.method = "MCMLE",
+        MCMLE.maxit = 500,
+        MCMC.samplesize = 1e4,
+        MCMC.interval = 5e3,
+        parallel = 1
+      )
   )
 
-est <- 
-  netest(nw_s, # School
-         formation = model_inputs_rural$School$frmn_fm, 
-         target.stats = model_inputs_rural$School$tstat, 
-         coef.diss = model_inputs_rural$School$diss,
-         set.control.ergm = 
-           control.ergm(
-             main.method = "Stochastic-Approximation", # adapted from https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
-             MCMLE.maxit = 500,
-             SAN.maxit = 3,
-             SAN.nsteps.times = 4,
-             MCMC.samplesize = 1e4,
-             MCMC.interval = 5e3,
-             parallel = 1
-           )
-  )
+## Define function to estimate models of the 8 layers, using either stochastic approximation or MCMLE
+est_nws <- function(control.arg, all_layers, layers, site){
+  if(all_layers ==T){
+    ## Create lists to store results of the 8 layers, one for stochastic approximation, one for MCMLE
+    est_layer <- 
+      list(Rural = c(), Urban = c()
+      )
+    
+for (i in 1:2) { # i=1 is for rural network, i=2 is for urban network
+ 
+ if(i==1){ 
+   nw_attributes <- nw_rural # network attributes of all layers
+   model_inputs <- model_inputs_rural # network statistics and formation model formula of all layers
 
-est <- 
-  netest(nw_w, # Work
-         formation = model_inputs_rural$Work$frmn_fm, 
-         target.stats = model_inputs_rural$Work$tstat, 
-         coef.diss = model_inputs_rural$Work$diss,
-         set.control.ergm = 
-           control.ergm(
-             main.method = "Stochastic-Approximation", # adapted from https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
-             MCMLE.maxit = 500,
-             SAN.maxit = 3,
-             SAN.nsteps.times = 4,
-             MCMC.samplesize = 1e4,
-             MCMC.interval = 5e3,
-             parallel = 1
-           )
-  ) # fail to run the problem is deg.school rather than deg work should be assigned as nodal attribute
+ } else {
+   nw_attributes <- nw_urban
+   model_inputs <- model_inputs_urban
+ }
 
-# scrutinize target statistics as the model cannot run - we found its arranged in correct order
+for (j in 1:length(layers) # j of 1, 2, 3, 4 corresponds to home, school, work, nonhome
+     ) {
+  # define nodal attribute for the model
+  if(
+    layers[j] %in% c("Home", "Nonhome")
+  ){
+    nw_attributes_layer = nw_attributes$nw
+  } else if (
+    layers[j] == "School"
+  ){
+    nw_attributes_layer = nw_attributes$nw_s
+  } else if (
+    layers[j] == "Work"
+  ){
+    nw_attributes_layer = nw_attributes$nw_w
+  } else .
+  
+  # model fitting for each layer
+  est_layer[[i]][[j]] <- 
+    netest(nw= nw_attributes_layer,
+           formation = model_inputs[[layers[j]]]$frmn_fm, 
+           target.stats = model_inputs[[layers[j]]]$tstat, 
+           coef.diss = model_inputs[[layers[j]]]$diss,
+           set.control.ergm = control.arg 
+           
+    )
+  
+  print(paste0("i=", i, " j=", j)
+        )
+}
+}
+  
 
-model_inputs_rural$Work$tstat
+#### Assign layer names to each network
+names(est_layer$Rural) <- names(est_layer$Urban) <- layers
+  
+est_layer
 
-(attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work %>% sum() 
-  )==  model_inputs_rural$Work_some_edges_x_layer$tstat[1]
+  } else {
+    
+      if(site=="Rural"){ 
+        nw_attributes <- nw_rural # network attributes of all layers
+        model_inputs <- model_inputs_rural # network statistics and formation model formula of all layers
+        
+      } else if (site =="Urban"){
+        nw_attributes <- nw_urban
+        model_inputs <- model_inputs_urban
+      } else{}
+      
+    
+        # define nodal attribute for the model
+        if(
+          layers %in% c("Home", "Nonhome")
+        ){
+          nw_attributes_layer = nw_attributes$nw
+        } else if (
+          layers == "School"
+        ){
+          nw_attributes_layer = nw_attributes$nw_s
+        } else if (
+          layers == "Work"
+        ){
+          nw_attributes_layer = nw_attributes$nw_w
+        } else {}
+        
+        # model fitting for each layer
+        est_layer <- 
+          netest(nw= nw_attributes_layer,
+                 formation = model_inputs[[layers]]$frmn_fm, 
+                 target.stats = model_inputs[[layers]]$tstat, 
+                 coef.diss = model_inputs[[layers]]$diss,
+                 set.control.ergm = control.arg 
+                 
+          )
+    
+    est_layer
+  }
+}
 
-## Notes:
-### attempt 1 - Since model doesn't run w/ x-layer effect, we run the following a model with saturated nodemix terms for age, but the running failed
-### attempt 2 - We include the largest nodemix term, netest and netsim run successfully
-### attempt 3 - We extract the first ten largest edges, which are also all those that are non-zero. This make me realize that the error of the model in the
-### saturated nodemix model is likely caused by the lack of degree of freedom, despite "level2 = -1" was used, so we choose another edge as reference group.
-model_inputs_rural$Work_some_edges_x_layer <- 
-formula_tarstats(
-  layer = "Work",
-  form_model = "nmix_saturate_xlayer",
-  site ="Rural"
-)
+## Use function to estimate model, based on stochastic approximation
+est_eight_layers_sa <- 
+est_nws(control.arg=control.args$sto_apoxy, all_layers = T)
 
-model_inputs_rural$Work_some_edges_x_layer$tstat
+est_eight_layers_sa$Rural
+est_eight_layers_sa$Urban
 
-##### stochastic approximation
-est <- 
-  netest(nw_w, # Work_some_edges_x_layer, w/o x-layer effect
-         formation = model_inputs_rural$Work_some_edges_x_layer$frmn_fm, 
-         target.stats = model_inputs_rural$Work_some_edges_x_layer$tstat, 
-         coef.diss = model_inputs_rural$Work_some_edges_x_layer$diss,
-         set.control.ergm = 
-           control.ergm(
-             main.method = "Stochastic-Approximation", # adapted from https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
-             MCMLE.maxit = 500,
-             SAN.maxit = 3,
-             SAN.nsteps.times = 4,
-             MCMC.samplesize = 1e4,
-             MCMC.interval = 5e3,
-             parallel = 1
-           )
-  )
+## Use function to estimate model, based on MCMLE
+### Note: netest freeze at iteration of 32 for j=3, i=1, when put in loop
+### Rural
+est_eight_layers_h_r <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Home", site = "Rural")
 
-##### MCMLE 
-est.mcmle <- 
-  netest(nw_w, 
-         formation = model_inputs_rural$Work_some_edges_x_layer$frmn_fm, 
-         target.stats = model_inputs_rural$Work_some_edges_x_layer$tstat, 
-         coef.diss = model_inputs_rural$Work_some_edges_x_layer$diss,
-         edapprox = TRUE,
-         set.control.ergm = control.ergm(
-           main.method = "MCMLE",
-           MCMLE.maxit = 500,
-           MCMC.samplesize = 1e4,
-           MCMC.interval = 5e3,
-           parallel = 1
-         )
-         
-  ) 
 
-## SJ: runs with fixed edges calculation, 
-##  also added control.ergm settings to help convergence; 
-##   converged in 6 iterations (about 30 seconds)
-summary(est.mcmle)
-# SJ: coefficients are pretty close across the two methods
+est_eight_layers_s_r <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "School", site = "Rural")
+
+est_eight_layers_w_r <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Work", site = "Rural")
+
+est_eight_layers_nh_r <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Nonhome", site = "Rural")
+
+### Urban
+est_eight_layers_h_u <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Home", site = "Urban")
+
+
+est_eight_layers_s_u <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "School", site = "Urban")
+#### Encounter the following error
+# Error in ergm.MCMLE(init, s, s.obs, control = control, verbose = verbose,  : 
+#                       Number of edges in a simulated network exceeds that in the observed by a factor of more than 20. This is a strong indicator of model degeneracy or a very poor starting parameter configuration. If you are reasonably certain that neither of these is the case, increase the MCMLE.density.guard control.ergm() parameter.
+
+est_eight_layers_w_u <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Work", site = "Urban")
+
+est_eight_layers_nh_u <- 
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Nonhome", site = "Urban")
 
 
 #### Based on the estimates, simulating network - ergm.ego target statistics
@@ -375,57 +405,12 @@ sim <-
         skip.dissolution = FALSE
         #keep.tedgelist = TRUE
 )
-# 
-# ## SJ: added the two set.control arguments to improve the overall fit. Good diagnostics (<0.5% of targets)
-# ##   Often need to bump up the nsteps for long-duration edges like this model
-# 
-# sim
-# 
+
 par(mar = c(3,3,2,1), mgp = c(2,1,0))
 plot(sim, plots.joined = FALSE)
 
 mcmc.diagnostics(est.mcmle$fit)
-# 
-# 
-# ## SJ: Experiment with fully saturated nodemix model
-# 
-# # Check ordering of nodemix values/target stats
-# sim1 <-   netdx(est.mcmle,  
-#                 nsims = 1, 
-#                 ncores = 1,
-#                 nsteps = 100,
-#                 nwstats.formula = model_inputs$frmn_fm, 
-#                 set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-#                 dynamic = TRUE,
-#                 keep.tnetwork = TRUE
-# )
-# nw100 <- get_network(sim1, collapse = TRUE, at = 100)
-# nw100
-# 
-# summary(nw100 ~ edges + nodemix("age.grp", levels2 = NULL))
-# 
-# nmix.mat <- as.numeric(as.matrix(attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% round()))
-# nmix.vec <- nmix.mat[c(1, 7:8, 13:15, 19:22, 25:29, 31:36)]
-# 
-# est.mcmle.full <- 
-#   netest(nw, 
-#          formation = ~edges + nodemix("age.grp", levels2 = -1), 
-#          target.stats = c(sum(nmix.mat), nmix.vec[-1]), 
-#          coef.diss = model_inputs$diss,
-#          edapprox = TRUE,
-#          set.control.ergm = control.ergm(
-#            main.method = "MCMLE",
-#            MCMLE.maxit = 500,
-#            MCMC.samplesize = 1e4,
-#            MCMC.interval = 5e3,
-#            parallel = 1
-#          )
-#          
-#   )
-# summary(est.mcmle.full)
-# 
-# # No problems with convergence
-# 
+
 # sim <- 
 #   netdx(est.mcmle.full,  
 #         nsims = 20, 
@@ -441,7 +426,4 @@ mcmc.diagnostics(est.mcmle$fit)
 # 
 # print(sim)
 # plot(sim)
-# 
-# # Target stats look great
-# 
-# 
+
