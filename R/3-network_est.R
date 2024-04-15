@@ -95,6 +95,7 @@ function(edge_ct_mx){
 ## Apply the function to each layer
 ### Rural
 target_nmix_vec_rural <- lapply( attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix, nmix_tar_lex)
+
 ### Urban
 target_nmix_vec_urban <- lapply( attri_tarstats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix, nmix_tar_lex)
 
@@ -108,7 +109,6 @@ target_nmix_vec_urban <- lapply( attri_tarstats$targetstats_age.grp$formation_st
 #### 1) nmix_saturate:  ~edges+ nodemix("age.grp", levels2 = -1)
 #### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("deg.work", levels =-1)
 
-### nth_large_ct is to specify the edge types with the largest edge count to include, indexed in lexicographic order
 formula_tarstats <- 
   function(layer, 
            site,
@@ -227,8 +227,6 @@ names(model_inputs_rural) <- names(model_inputs_urban) <- layers
 
 ############## Model fitting and simulation  ##############
 # Estimating model stochastic approximation and MCMLE
-
-
 ## Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
 control.args <-  
   list(
@@ -254,8 +252,10 @@ control.args <-
   )
 
 ## Define function to estimate models of the 8 layers, using either stochastic approximation or MCMLE
-est_nws <- function(control.arg, all_layers, layers, site){
+est_nws <- function(control.arg, all_layers, layer, site){
   if(all_layers ==T){
+
+    layers <- c("Home", "School", "Work", "Nonhome") 
     ## Create lists to store results of the 8 layers, one for stochastic approximation, one for MCMLE
     est_layer <- 
       list(Rural = c(), Urban = c()
@@ -324,15 +324,15 @@ est_layer
     
         # define nodal attribute for the model
         if(
-          layers %in% c("Home", "Nonhome")
+          layer %in% c("Home", "Nonhome")
         ){
           nw_attributes_layer = nw_attributes$nw
         } else if (
-          layers == "School"
+          layer == "School"
         ){
           nw_attributes_layer = nw_attributes$nw_s
         } else if (
-          layers == "Work"
+          layer == "Work"
         ){
           nw_attributes_layer = nw_attributes$nw_w
         } else {}
@@ -340,9 +340,9 @@ est_layer
         # model fitting for each layer
         est_layer <- 
           netest(nw= nw_attributes_layer,
-                 formation = model_inputs[[layers]]$frmn_fm, 
-                 target.stats = model_inputs[[layers]]$tstat, 
-                 coef.diss = model_inputs[[layers]]$diss,
+                 formation = model_inputs[[layer]]$frmn_fm, 
+                 target.stats = model_inputs[[layer]]$tstat, 
+                 coef.diss = model_inputs[[layer]]$diss,
                  set.control.ergm = control.arg 
                  
           )
@@ -351,47 +351,53 @@ est_layer
   }
 }
 
-## Use function to estimate model, based on stochastic approximation
+## Use function to estimate model, based on stochastic approximation (sa)
 est_eight_layers_sa <- 
 est_nws(control.arg=control.args$sto_apoxy, all_layers = T)
 
 est_eight_layers_sa$Rural
 est_eight_layers_sa$Urban
 
-## Use function to estimate model, based on MCMLE
-### Note: netest freeze at iteration of 32 for j=3, i=1, when put in loop
+## Use function to estimate model for each layer, using MCMLE
+### Note: initially, I set the netest to est the model of the 8 layers by one under MCMLE, as under stochastic approximation
+### this can be done successfully. However, the program froze at iteration of 32 for urban school when using loop
+### So I estimate the model by site using MCMLE
+
 ### Rural
 est_eight_layers_h_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Home", site = "Rural")
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Home", site = "Rural")
 
 
 est_eight_layers_s_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "School", site = "Rural")
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "School", site = "Rural")
 
 est_eight_layers_w_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Work", site = "Rural")
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Work", site = "Rural")
 
 est_eight_layers_nh_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Nonhome", site = "Rural")
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Nonhome", site = "Rural")
 
 ### Urban
 est_eight_layers_h_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Home", site = "Urban")
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Home", site = "Urban")
 
 
 est_eight_layers_s_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "School", site = "Urban")
-#### Encounter the following error
-# Error in ergm.MCMLE(init, s, s.obs, control = control, verbose = verbose,  : 
-#                       Number of edges in a simulated network exceeds that in the observed by a factor of more than 20. This is a strong indicator of model degeneracy or a very poor starting parameter configuration. If you are reasonably certain that neither of these is the case, increase the MCMLE.density.guard control.ergm() parameter.
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "School", site = "Urban")
+#### NoteL: I checked the network statistics and they seems to be organized appropriately
+
 
 est_eight_layers_w_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Work", site = "Urban")
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Work", site = "Urban")
+
 
 est_eight_layers_nh_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layers = "Nonhome", site = "Urban")
+  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Nonhome", site = "Urban")
 
 
+
+## Outputting things in lists
+### Estimated model
 nws_r <- list(est_eight_layers_h_r,
               est_eight_layers_s_r,
               est_eight_layers_w_r,
@@ -407,43 +413,18 @@ names(nws_u) <- layers[-2]
 nws <- list(nws_r, nws_u)
 names(nws) <- c("Rural", "Urban")
 
-saveRDS(nws,  file = "./data/models/netest_8_layers.RData")
+### outputting the 7 layers
+saveRDS(nws,  file = "./data/models/netest_7_layers.RData")
 
-test <- 
-readRDS("./data/models/netest_8_layers.RData")
+# ### outputting the yrban school layers
+# names(est_eight_layers_s_u) <- layers[2]
+# saveRDS(est_eight_layers_s_u,  file = "./data/models/netest_7_layers.RData")
 
-#### Based on the estimates, simulating network - ergm.ego target statistics
-sim <-
-  netdx(est.mcmle,
-        nsims = 30,
-        ncores = 10,
-        nsteps = 1000,
-        nwstats.formula = model_inputs_rural$Work_some_edges_x_layer$frmn_fm,
-        set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
-        dynamic = TRUE,
-        skip.dissolution = FALSE
-        #keep.tedgelist = TRUE
-)
+### Model inputs
+model_inputs <- 
+list(model_inputs_rural, model_inputs_urban); names(model_inputs) <- c("Rural", "Urban")
 
-par(mar = c(3,3,2,1), mgp = c(2,1,0))
-plot(sim, plots.joined = FALSE)
+saveRDS(model_inputs,  
+        file = "./data/models/model_inputs.RData")
 
-mcmc.diagnostics(est.mcmle$fit)
-
-# sim <- 
-#   netdx(est.mcmle.full,  
-#         nsims = 20, 
-#         ncores = 5, 
-#         nsteps = 1000, 
-#         # nwstats.formula = model_inputs$frmn_fm, 
-#         set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-#         set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
-#         dynamic = TRUE,
-#         skip.dissolution = FALSE
-#         #keep.tedgelist = TRUE
-#   )
-# 
-# print(sim)
-# plot(sim)
 
