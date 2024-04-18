@@ -15,12 +15,16 @@ sim_network <- function(
   # Dynamic time loop
   for (at in 1:nsteps) {
     # Home #
-    ## the momentary degree (number of edges) each node has at nohome
-    deg_dist_nh <- as.numeric(summary(nw[[4]] ~ sociality(base = 0), at = at)
-    )
+    
+    nw[[1]]
+  
+    
+    ## use the momemtary degree of the interacting layer as the nodal attribute as the layer of interest
     nw[[1]] <- set.vertex.attribute(nw[[1]], attrname = "contact_attribute_Nonhome" , 
                                     value =deg_dist_nh # this is contact status at nonhome layer 
     )
+    
+    ## simulate network with the attribute of the interacting and the coefficient of the layer of interest
     nw[[1]] <- suppressWarnings(simulate(nw[[1]],
                                          formation = est[[1]]$formation,
                                          dissolution = est[[1]]$coef.diss$dissolution,
@@ -32,7 +36,10 @@ sim_network <- function(
                                          monitor = "all",
                                          output = "networkDynamic"))
     
+    ## calculate momentary degree of the layer of interest from the simulated time step
     deg_dist_h <- as.numeric(summary(nw[[1]] ~ sociality(base = 0), at = at))
+    
+    ## set the momentary degree of the primary layer of interest as the nodal attribute of the interacting layer
     nw[[4]] <- set.vertex.attribute(nw[[4]], attrname = "contact_attribute_Home", value = deg_dist_h)
     
     

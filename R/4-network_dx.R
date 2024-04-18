@@ -92,18 +92,24 @@ for (i in 1:3) {
 }
 names(sim_layers_u) <- layers_u
 
+# Outputting netsim items
+# sim_layers_all <- list(sim_layers_r, sim_layers_u); names(sim_layers_all) <- c("Rural", "Urban")
+# saveRDS(sim_layers_all, file = "data/models/netdx_7_layers.RData")
+
+# 
+sim_layers_all <- 
+readRDS("data/models/netdx_7_layers.RData")
+
 # Assessing the simulated layers
 ## rural
-sim_layers_r$Home
-sim_layers_r$School
-sim_layers_r$Work
-sim_layers_r$Nonhome
+sim_layers_all$Rural$Home
+sim_layers_all$Rural$School %>% plot()
+sim_layers_all$Rural$Work
+sim_layers_all$Rural$Nonhome
 
 ## urban
-sim_layers_u$Home
-sim_layers_u$Work
-sim_layers_u$Nonhome
+sim_layers_all$Urban$Home
+sim_layers_all$Urban$Work
+sim_layers_all$Urban$Nonhome
 
-# Outputting netsim items
-sim_layers_all <- list(sim_layers_r, sim_layers_u); names(sim_layers_all) <- c("Rural", "Urban")
-saveRDS(sim_layers_all, file = "data/models/netdx_7_layers.RData")
+
