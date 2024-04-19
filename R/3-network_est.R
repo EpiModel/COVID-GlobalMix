@@ -1,23 +1,26 @@
-rm(list = ls())
 
-library("tidyverse")
-library("EpiModel")
+library(dplyr)
+library(EpiModel)
+library(tibble)
 
 # Loading data
 ## target statistics
-node_attribute_target_stats <- readRDS("data/network_params/node_attribute_target_stats.RData")
+node_attribute_target_stats <- readRDS("data/network_params/node_attribute_target_stats__0.1.Rds")
 
 ## summary statistics, provides duration of contacts
-netstats <- readRDS("data/network_params/network_params.RData")
+netstats <- readRDS("data/network_params/network_params.Rds")
 
+
+
+
+############## Define items which will be read by netest  ##############
 source("R/model_inputs.R")
-
 model_input_items <- 
 model_inputs(attri_tarstats = node_attribute_target_stats, dissolution = netstats$dissolution)
 
-############## Model fitting and simulation  ##############
-# Estimating model stochastic approximation and MCMLE
-## Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
+
+############## Model estimation  ##############
+# Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
 control.args <-  
   list(
     sto_apoxy=
@@ -41,72 +44,52 @@ control.args <-
       )
   )
 
-## Souring function to estimate models of the 8 layers, using either stochastic approximation or MCMLE
+# Sourcing function to estimate model
 source("R/est_nws.R")
 
-## Use function to estimate model, based on stochastic approximation (sa)
-est_eight_layers_sa <- 
-est_nws(control.arg=control.args$sto_apoxy, all_layers = T, model_input_items = model_input_items)
+# Estimate model, based on stochastic approximation / MCMLE
+layers <- c("Home", "School", "Work", "Nonhome")
+networks <- c("Rural", "Urban")
 
+est_apch <- "sto_apoxy" # "sto_apoxy" or "mcmle"
 
-## Use function to estimate model for each layer, using MCMLE
-### Note: initially, I set the netest to est the model of the 8 layers by one under MCMLE, as under stochastic approximation
-### this can be done successfully. However, the program froze at iteration of 32 for urban school when using loop
-### So I estimate the model by site using MCMLE
-
-### Rural
-est_eight_layers_h_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Home", site = "Rural", 
+## Rural
+est_h_r <- 
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[1], site = networks[1], 
           model_input_items = model_input_items)
-est_eight_layers_s_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "School", site = "Rural",
+est_s_r <- 
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[2], site = networks[1],
           model_input_items = model_input_items)
-est_eight_layers_w_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Work", site = "Rural",
+est_w_r <- 
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[3], site = networks[1],
           model_input_items = model_input_items)
-est_eight_layers_nh_r <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Nonhome", site = "Rural",
+est_nh_r <- 
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[4], site = networks[1],
           model_input_items = model_input_items)
 
-### Urban
-est_eight_layers_h_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Home", site = "Urban",
+## Urban
+est_h_u <-
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[1], site = networks[2],
           model_input_items = model_input_items)
-est_eight_layers_s_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "School", site = "Urban", 
+est_s_u <-
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[2], site = networks[2], 
           model_input_items = model_input_items)
-est_eight_layers_w_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Work", site = "Urban",
+est_w_u <-
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[3], site = networks[2],
           model_input_items = model_input_items)
-est_eight_layers_nh_u <- 
-  est_nws(control.arg=control.args$mcmle, all_layers = F, layer = "Nonhome", site = "Urban",
+est_nh_u <-
+  est_nws(control.arg=control.args[[est_apch]], layer = layers[4], site = networks[2],
           model_input_items = model_input_items)
 
-
-
-## Outputting things in lists
-### Estimated model
-nws_r <- list(est_eight_layers_h_r,
-              est_eight_layers_s_r,
-              est_eight_layers_w_r,
-              est_eight_layers_nh_r )
-names(nws_r) <- layers
-
-nws_u <- list(est_eight_layers_h_u,
-              #est_eight_layers_s_u,
-              est_eight_layers_w_u,
-              est_eight_layers_nh_u)
-names(nws_u) <- layers[-2]
-
-nws <- list(nws_r, nws_u)
-names(nws) <- c("Rural", "Urban")
-
-### outputting the 8 layers of stochastic approximation
-saveRDS(est_eight_layers_sa,  file = "./data/models/netest_8_layers_stocha_apoxy.RData")
+# outputting estimation result of the 8 layers 
+## see if I can add a vector
+# 20240419 reach here, save thing it folders in eight items
+file.name <- paste0("data/models/netest_8_layers_stocha_apoxy", layers, "__", networks,"__", est_apch, ".Rds")
+saveRDS(est_eight_layers_sa,  file = file.name)
 
 
 ### outputting model formula and target statistics
-saveRDS(model_input_items$formula_tarstats, file = "./data/models/formulas.targetstats.RData")
+saveRDS(model_input_items$formula_tarstats, file = "data/models/formulas.targetstats.Rds")
 
 
 

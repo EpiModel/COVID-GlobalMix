@@ -26,14 +26,8 @@
 
 
 # Load libraries and data  ------------------------------------------------
-library("ggpubr")
-library("statnet")
-library("EpiModel")
-library("tidyverse")
-library("socialmixr")
+library("dplyr")
 library("sjlabelled")
-library("kableExtra")
-library("broom")
 library("stringr")
 library("GGally")
 
@@ -975,6 +969,4 @@ network_stats$formation <- list(formation_stats_rural=formation_stats_rural, for
 
 network_stats$dissolution <- known_dur_school_work 
 
-
-
-saveRDS(network_stats, file = "data/network_params/network_params.RData")
+saveRDS(network_stats, file = "data/network_params/network_params.Rds")

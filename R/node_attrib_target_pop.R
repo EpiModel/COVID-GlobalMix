@@ -1,21 +1,14 @@
 
 node_attrib_target_pop <- 
-  function(netstats, context){
+  function(netstats, pct_target_pop){
     
     # Total number of rural and urban target populations
     tar_pop_size_rural = 117808
     tar_pop_size_urban = 257977
     
-    if (context == "ten_percent_target_pop") {
-      n_node_rural=round(tar_pop_size_rural*0.1); n_node_urban=round(tar_pop_size_urban*0.1) # 10% of total observed numbers of populations in rural and urban sites in India
-    } else if (context == "forty_percent_target_pop") {
-      n_node_rural=tar_pop_size_rural*0.4; n_node_urban=tar_pop_size_urban*0.4 # total observed numbers of populations in rural and urban sites in India
-    } else if (context == "all_target_pop") {
-      n_node_rural=tar_pop_size_rural; n_node_urban=tar_pop_size_urban # total observed numbers of populations in rural and urban sites in India
-    } else  {
-      stop("The `context` variable must be set to either 'local' or 'hpc'")
-    }
-    
+    # Define the total number of nodes of modeled population to be a percentage of the target population 
+    n_node_rural=round(tar_pop_size_rural*pct_target_pop); n_node_urban=round(tar_pop_size_urban*pct_target_pop) 
+
     # Categories of age and layer variabes
     target_age_grp <- netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
     layers <-  netstats$formation$formation_stats_rural$edge_node_factor_match_rural$edge$contact_location %>% unique()

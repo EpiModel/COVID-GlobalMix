@@ -221,8 +221,8 @@ model_inputs <- function(attri_tarstats, dissolution){
   
   # Output all things 
   output <- list()
-  output$initiate_nw$rural <- nw_rural; output$initiate_nw$urban <- nw_urban
-  output$formula_tarstats$rural <- formula_tarstats_rural; output$formula_tarstats$urban <- formula_tarstats_urban
+  output$initiate_nw$Rural <- nw_rural; output$initiate_nw$Urban <- nw_urban
+  output$formula_tarstats$Rural <- formula_tarstats_rural; output$formula_tarstats$Urban <- formula_tarstats_urban
   
   output
   
