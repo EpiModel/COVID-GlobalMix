@@ -1,10 +1,10 @@
 
-library("tidyverse")
+library("dplyr")
 library("EpiModel")
 
 # reading estimated models and model's formulas
-est_2_nws  <- 
-  readRDS("./data/models/netest_8_layers_stocha_apoxy.RData")
+est_nws  <- 
+  readRDS("data/netest_outputs/netest_8_layers_Home__Rural__sto_apoxy.Rds") #0421 see how this can be read by once.
 
 formulas.targetstats  <- 
   readRDS("./data/models/formulas.targetstats.RData")

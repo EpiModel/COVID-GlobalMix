@@ -17,7 +17,7 @@ netstats <- readRDS("data/network_params/network_params.Rds")
 source("R/model_inputs.R")
 model_input_items <- 
 model_inputs(attri_tarstats = node_attribute_target_stats, dissolution = netstats$dissolution)
-
+node_attribute_target_stats$targetstats_age.grp
 
 ############## Model estimation  ##############
 # Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
@@ -82,14 +82,28 @@ est_nh_u <-
           model_input_items = model_input_items)
 
 # outputting estimation result of the 8 layers 
-## see if I can add a vector
-# 20240419 reach here, save thing it folders in eight items
-file.name <- paste0("data/models/netest_8_layers_stocha_apoxy", layers, "__", networks,"__", est_apch, ".Rds")
-saveRDS(est_eight_layers_sa,  file = file.name)
+file.name <- 
+  c(
+  paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[1],"__", est_apch, ".Rds"),
+  paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[2],"__", est_apch, ".Rds")
+  )
 
+saveRDS(est_h_r,  file = file.name[1])
+saveRDS(est_s_r,  file = file.name[2])
+saveRDS(est_w_r,  file = file.name[3])
+saveRDS(est_nh_r,  file = file.name[4])
+saveRDS(est_h_u,  file = file.name[5])
+saveRDS(est_s_u,  file = file.name[6])
+saveRDS(est_w_u,  file = file.name[7])
+saveRDS(est_nh_u,  file = file.name[8])
 
 ### outputting model formula and target statistics
-saveRDS(model_input_items$formula_tarstats, file = "data/models/formulas.targetstats.Rds")
+formation_formulas <- list()
+formation_formulas$Home <- model_input_items$formula_tarstats$Rural$Home$frmn_fm
+formation_formulas$School <-model_input_items$formula_tarstats$Rural$School$frmn_fm
+formation_formulas$Work <-model_input_items$formula_tarstats$Rural$Work$frmn_fm
+formation_formulas$Nonhome <-model_input_items$formula_tarstats$Rural$Nonhome$frmn_fm
 
+saveRDS(model_input_items$formula_tarstats, file = "data/netest_outputs/formation_formulas.Rds")
 
 
