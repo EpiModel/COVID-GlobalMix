@@ -14,17 +14,43 @@ sim_network <- function(
   
   # Dynamic time loop
   for (at in 1:nsteps) {
-    # Home #
     
-    nw[[1]]
-  
-    
-    ## use the momemtary degree of the interacting layer as the nodal attribute as the layer of interest
-    nw[[1]] <- set.vertex.attribute(nw[[1]], attrname = "contact_attribute_Nonhome" , 
-                                    value =deg_dist_nh # this is contact status at nonhome layer 
+    # update age at each time step
+    ## get age of the current time step
+    age <- 
+      as.numeric(get_vertex_attribute(nw[[1]], attrname = "age") 
+      )
+    ## update age
+    ### update continuous age
+    age<- age+1/365
+    ### update categorical age
+    age.grp <- case_when( age>0 & age<10 ~ "0-9y",
+                          age>= 10 & age<=20 ~ "10-19y",
+                          age>= 20 & age<=30 ~ "20-29y",
+                          age>= 30 & age<=40 ~ "30-39y",
+                          age>= 40 & age<=60 ~ "40-59y",
+                          age>= 60  ~ "60+y",
     )
+    ## reassign age to the nodal attribute of the 4 layers
+    for (i in 1:4) {
+      nw[[i]] <- set.vertex.attribute(nw[[i]], attrname = "age" , 
+                                      value =age)
+      nw[[i]] <- set.vertex.attribute(nw[[i]], attrname = "age.grp", 
+                                      value =age.grp)
+    }
     
-    ## simulate network with the attribute of the interacting and the coefficient of the layer of interest
+    # update momemtary degree of each layer
+    ## for home & nonhome, we use the momentary degree of themselves as the nodal attribute 
+    ### Home
+    #### momentary degree (number of edges) of each node at home
+    deg_node_h <- 
+      as.numeric(summary(nw[[1]] ~ sociality(base = 0), at = at)
+      )
+    #### assign the degree to the own layer
+    nw[[1]] <- set.vertex.attribute(nw[[1]], attrname = "contact_attribute_Home" , 
+                                    value =deg_node_h  
+    )
+    #### simulate network 
     nw[[1]] <- suppressWarnings(simulate(nw[[1]],
                                          formation = est[[1]]$formation,
                                          dissolution = est[[1]]$coef.diss$dissolution,
@@ -36,14 +62,16 @@ sim_network <- function(
                                          monitor = "all",
                                          output = "networkDynamic"))
     
-    ## calculate momentary degree of the layer of interest from the simulated time step
-    deg_dist_h <- as.numeric(summary(nw[[1]] ~ sociality(base = 0), at = at))
-    
-    ## set the momentary degree of the primary layer of interest as the nodal attribute of the interacting layer
-    nw[[4]] <- set.vertex.attribute(nw[[4]], attrname = "contact_attribute_Home", value = deg_dist_h)
-    
-    
-    # Nonhome #
+    ### Nonhome
+    #### momentary degree (number of edges) of each node at nonhome
+    deg_node_nh <- 
+      as.numeric(summary(nw[[4]] ~ sociality(base = 0), at = at)
+      )
+    #### assign the degree to the own layer
+    nw[[4]] <- set.vertex.attribute(nw[[4]], attrname = "contact_attribute_Nonhome", 
+                                    value = deg_node_nh
+                                    )
+    #### simulate network
     nw[[4]] <- suppressWarnings(simulate(nw[[4]],
                                          formation = est[[4]]$formation,
                                          dissolution = est[[4]]$coef.diss$dissolution,
@@ -55,18 +83,15 @@ sim_network <- function(
                                          monitor = "all",
                                          output = "networkDynamic"))
     
-    deg_dist_h <- as.numeric(summary(nw[[1]] ~ sociality(base = 0), at = at))
-    deg_dist_nh <- as.numeric(summary(nw[[4]] ~ sociality(base = 0), at = at))
-    
-    #deg_dist_tot <- pmin(deg_dist_h + deg_dist_s, 3) # parallel minima of 3 and the total of edges of each node
-    
-    
-    # School #
-    ## the momentary degree (number of edges) each node has at work
-    deg_dist_w <- as.numeric(summary(nw[[3]] ~ sociality(base = 0), at = at)
-    )
+    ## for School & Work, we use the momentary degree of the interacting layer as the nodal attribute for the main layer 
+    ### School 
+    #### momentary degree (number of edges) of each node at work
+    deg_node_w <- 
+      as.numeric(summary(nw[[3]] ~ sociality(base = 0), at = at)
+      )
+    #### assign the degree at work to school
     nw[[2]] <- set.vertex.attribute(nw[[2]], attrname = "contact_attribute_Work" , 
-                                    value =deg_dist_w # this is contact status at nonhome layer 
+                                    value =deg_node_w # this is contact status at nonhome layer 
     )
     nw[[2]] <- suppressWarnings(simulate(nw[[2]],
                                          formation = est[[2]]$formation,
@@ -79,11 +104,14 @@ sim_network <- function(
                                          monitor = "all",
                                          output = "networkDynamic"))
     
-    deg_dist_s <- as.numeric(summary(nw[[2]] ~ sociality(base = 0), at = at))
-    nw[[3]] <- set.vertex.attribute(nw[[3]], attrname = "contact_attribute_School", value = deg_dist_s)
+    ### Work
+    #### momentary degree (number of edges) of each node at school
+    deg_node_s <- 
+      as.numeric(summary(nw[[2]] ~ sociality(base = 0), at = at)
+      )
+    #### assign the degree at school to work
+    nw[[3]] <- set.vertex.attribute(nw[[3]], attrname = "contact_attribute_School", value = deg_node_s)
     
-    
-    # Work #
     nw[[3]] <- suppressWarnings(simulate(nw[[3]],
                                          formation = est[[3]]$formation,
                                          dissolution = est[[3]]$coef.diss$dissolution,
@@ -94,12 +122,6 @@ sim_network <- function(
                                          time.offset = 0,
                                          monitor = "all",
                                          output = "networkDynamic"))
-    
-    deg_dist_s <- as.numeric(summary(nw[[2]] ~ sociality(base = 0), at = at))
-    deg_dist_w <- as.numeric(summary(nw[[3]] ~ sociality(base = 0), at = at))
-    
-    
-    
     
     
     cat("\n Step ", at, "/", nsteps)

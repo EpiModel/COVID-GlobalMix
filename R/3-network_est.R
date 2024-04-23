@@ -97,13 +97,6 @@ saveRDS(est_s_u,  file = file.name[6])
 saveRDS(est_w_u,  file = file.name[7])
 saveRDS(est_nh_u,  file = file.name[8])
 
-### outputting model formula and target statistics
-formation_formulas <- list()
-formation_formulas$Home <- model_input_items$formula_tarstats$Rural$Home$frmn_fm
-formation_formulas$School <-model_input_items$formula_tarstats$Rural$School$frmn_fm
-formation_formulas$Work <-model_input_items$formula_tarstats$Rural$Work$frmn_fm
-formation_formulas$Nonhome <-model_input_items$formula_tarstats$Rural$Nonhome$frmn_fm
 
-saveRDS(model_input_items$formula_tarstats, file = "data/netest_outputs/formation_formulas.Rds")
-
+  
 

@@ -3,79 +3,115 @@ library("dplyr")
 library("EpiModel")
 
 # reading estimated models and model's formulas
-est_nws  <- 
-  readRDS("data/netest_outputs/netest_8_layers_Home__Rural__sto_apoxy.Rds") #0421 see how this can be read by once.
+layers <- c("Home", "School", "Work", "Nonhome")
+networks <- c("Rural", "Urban")
+est_apch <- "sto_apoxy"
 
-formulas.targetstats  <- 
-  readRDS("./data/models/formulas.targetstats.RData")
+file.name <- 
+  c(
+    paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[1],"__", est_apch, ".Rds"),
+    paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[2],"__", est_apch, ".Rds")
+  )
+
+est_h_r  <- 
+  readRDS(file.name[1]) 
+est_s_r  <- 
+  readRDS(file.name[2]) 
+est_w_r  <- 
+  readRDS(file.name[3]) 
+est_nh_r  <- 
+  readRDS(file.name[4]) 
+est_h_u  <- 
+  readRDS(file.name[5]) 
+est_s_u  <- 
+  readRDS(file.name[6]) 
+est_w_u  <- 
+  readRDS(file.name[7]) 
+est_nh_u  <- 
+  readRDS(file.name[8]) 
+
+est_nws <- list()
+est_nws$Rural$Home <- est_h_r
+est_nws$Rural$School <- est_s_r
+est_nws$Rural$Work <- est_w_r
+est_nws$Rural$Nonhome <- est_nh_r
+est_nws$Urban$Home <- est_h_u
+est_nws$Urban$School <- est_s_u
+est_nws$Urban$Work <- est_w_u
+est_nws$Urban$Nonhome <- est_nh_u
+
 
 # Diagnosing layers 
-layers_dx <- function(est_eight_layers, formulas.targetstats, nw){
-  layers <- c("Home", "School", "Work", "Nonhome") 
-  dx_layers  <- list()
-for (i in 1:length(layers)) {
-  print(i)
-  if(i %in% c(1:3) # T-ERGM for home, school, work
-     ){
-  dx_layers[[i]] <-
-    netdx(est_eight_layers[[nw]][[layers[i]]],
-          nsims = 30,
-          ncores = 10,
-          nsteps = 1000,
-          nwstats.formula = formulas.targetstats[[nw]][[layers[i]]]$frmn_fm,
-          set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-          set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
-          dynamic = TRUE,
-          skip.dissolution = FALSE
-          #keep.tedgelist = TRUE
-    )
-  }else{ # ERGM for nonhome
-    dx_layers[[i]] <- 
-      netdx(est_eight_layers[[nw]][[layers[i]]],
-            nsims = 30,
-            ncores = 10,
-            nsteps = 1000,
-            nwstats.formula = formulas.targetstats[[nw]][[layers[i]]]$frmn_fm,
-            set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-            set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
-            dynamic = FALSE,
-            skip.dissolution = FALSE
-            #keep.tedgelist = TRUE
-      )
-  }
-  
-  
-}
-names(sim_layers_r) <- layers
-
-sim_layers_r
-}
-
-layers_dx_r <- 
-layers_dx(est_eight_layers = est_2_nws, 
-          formulas.targetstats = formulas.targetstats, 
-          nw = "Rural" # can be "Rural" / "Urban"
+source("R/layers_dx.R")
+## Rural
+dx_h_r <- 
+layers_dx(est_nws = est_nws, 
+          
+          nw = "Rural", # can be "Rural" / "Urban"
+          layer = "Home"
           )
 
+dx_s_r <- 
+  layers_dx(est_nws = est_nws, 
+          
+            nw = "Rural", # can be "Rural" / "Urban"
+            layer = "School"
+  ) # netdx for this layer failed
 
-# Outputting netsim items
-# sim_layers_all <- list(sim_layers_r, sim_layers_u); names(sim_layers_all) <- c("Rural", "Urban")
-# saveRDS(sim_layers_all, file = "data/models/netdx_7_layers.RData")
+dx_w_r <- 
+  layers_dx(est_nws = est_nws, 
+           
+            nw = "Rural", # can be "Rural" / "Urban"
+            layer = "Work"
+  )
 
-# 
-sim_layers_all <- 
-readRDS("data/models/netdx_7_layers.RData")
+dx_nh_r <- 
+  layers_dx(est_nws = est_nws, 
+            
+            nw = "Rural", # can be "Rural" / "Urban"
+            layer = "Nonhome"
+  )
 
-# Assessing the simulated layers
-## rural
-sim_layers_all$Rural$Home
-sim_layers_all$Rural$School %>% plot()
-sim_layers_all$Rural$Work
-sim_layers_all$Rural$Nonhome
+## Urban
+dx_h_u <- 
+  layers_dx(est_nws = est_nws, 
+            
+            nw = "Urban", # can be "Rural" / "Urban"
+            layer = "Home"
+  )
 
-## urban
-sim_layers_all$Urban$Home
-sim_layers_all$Urban$Work
-sim_layers_all$Urban$Nonhome
+dx_s_u <- 
+  layers_dx(est_nws = est_nws, 
+            
+            nw = "Urban", # can be "Rural" / "Urban"
+            layer = "School"
+  )
+
+dx_w_u <- 
+  layers_dx(est_nws = est_nws, 
+            
+            nw = "Urban", # can be "Rural" / "Urban"
+            layer = "Work"
+  )
+
+dx_nh_u <- 
+  layers_dx(est_nws = est_nws, 
+            
+            nw = "Urban", # can be "Rural" / "Urban"
+            layer = "Nonhome"
+  )
+
+
+# Outputting netdx items
+dx_layers <- list()
+dx_layers$Rural$Home <- dx_h_r; dx_layers$Rural$Work <- dx_w_r; dx_layers$Rural$Nonhome <- dx_nh_r;
+dx_layers$Urban$Home <- dx_h_u; dx_layers$Urban$School <- dx_s_u; dx_layers$Urban$Work <- dx_w_u; dx_layers$Urban$Nonhome <- dx_nh_u;
+
+saveRDS(dx_layers, "data/netdx_outputs/dx_layers.Rds")
+
+dx_layers <- 
+readRDS("data/netdx_outputs/dx_layers.Rds")
+
+
 
 
