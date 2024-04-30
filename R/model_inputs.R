@@ -22,22 +22,20 @@ model_inputs <- function(attri_tarstats, dissolution){
       
       ## Continuous age
       output$nw <- set_vertex_attribute(output$nw, attrname = "age",
-                                        value= as.character(attri_tarstats$attr[[network]]$node.age )
+                                        value= attri_tarstats$attr[[network]]$node.age
       )
       
       
       # Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
       ## For school as the conditioned layer
       output$nw_s <- set_vertex_attribute(output$nw, attrname = "deg.x_layer", 
-                                          value = as.character(attri_tarstats$attr[[network]]$contact_attribute_School
+                                          value = attri_tarstats$attr[[network]]$contact_attribute_School
                                           )
-      )
       
       ## For work as the conditioned layer
       output$nw_w <- set_vertex_attribute(output$nw, attrname = "deg.x_layer",
-                                          value = as.character(attri_tarstats$attr[[network]]$contact_attribute_Work
+                                          value = attri_tarstats$attr[[network]]$contact_attribute_Work
                                           )
-      )
       
       output
       

@@ -43,13 +43,13 @@ sim_network <- function(
     ## for home & nonhome, we use the momentary degree of themselves as the nodal attribute 
     ### Home
     #### momentary degree (number of edges) of each node at home
-    deg_node_h <- 
-      as.numeric(summary(nw[[1]] ~ sociality(base = 0), at = at)
-      )
-    #### assign the degree to the own layer
-    nw[[1]] <- set.vertex.attribute(nw[[1]], attrname = "contact_attribute_Home" , 
-                                    value =deg_node_h  
-    )
+    # deg_node_h <-
+    #   as.numeric(summary(nw[[1]] ~ sociality(base = 0), at = at)
+    #   )
+    # #### assign the degree to the own layer
+    # nw[[1]] <- set.vertex.attribute(nw[[1]], attrname = "contact_attribute_Home" , 
+    #                                 value =deg_node_h  
+    # )
     #### simulate network 
     nw[[1]] <- suppressWarnings(simulate(nw[[1]],
                                          formation = est[[1]]$formation,
@@ -64,13 +64,13 @@ sim_network <- function(
     
     ### Nonhome
     #### momentary degree (number of edges) of each node at nonhome
-    deg_node_nh <- 
-      as.numeric(summary(nw[[4]] ~ sociality(base = 0), at = at)
-      )
-    #### assign the degree to the own layer
-    nw[[4]] <- set.vertex.attribute(nw[[4]], attrname = "contact_attribute_Nonhome", 
-                                    value = deg_node_nh
-                                    )
+    # deg_node_nh <- 
+    #   as.numeric(summary(nw[[4]] ~ sociality(base = 0), at = at)
+    #   )
+    # #### assign the degree to the own layer
+    # nw[[4]] <- set.vertex.attribute(nw[[4]], attrname = "contact_attribute_Nonhome", 
+    #                                 value = deg_node_nh
+    #                                 )
     #### simulate network
     nw[[4]] <- suppressWarnings(simulate(nw[[4]],
                                          formation = est[[4]]$formation,
@@ -90,7 +90,7 @@ sim_network <- function(
       as.numeric(summary(nw[[3]] ~ sociality(base = 0), at = at)
       )
     #### assign the degree at work to school
-    nw[[2]] <- set.vertex.attribute(nw[[2]], attrname = "contact_attribute_Work" , 
+    nw[[2]] <- set.vertex.attribute(nw[[2]], attrname = "deg.x_layer" , 
                                     value =deg_node_w # this is contact status at nonhome layer 
     )
     nw[[2]] <- suppressWarnings(simulate(nw[[2]],
@@ -110,7 +110,9 @@ sim_network <- function(
       as.numeric(summary(nw[[2]] ~ sociality(base = 0), at = at)
       )
     #### assign the degree at school to work
-    nw[[3]] <- set.vertex.attribute(nw[[3]], attrname = "contact_attribute_School", value = deg_node_s)
+    nw[[3]] <- set.vertex.attribute(nw[[3]], attrname = "deg.x_layer", value = deg_node_s)
+    
+    # add binarization here.
     
     nw[[3]] <- suppressWarnings(simulate(nw[[3]],
                                          formation = est[[3]]$formation,

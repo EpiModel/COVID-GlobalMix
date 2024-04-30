@@ -12,3 +12,21 @@ output <- node_attrib_target_pop(netstats = indiv_summary_stats, pct_target_pop 
 file.name <-  paste0("data/network_params/node_attribute_target_stats", "__", pct, ".Rds")
 saveRDS(output, file = file.name) 
 
+# check the mean of the attribute of contact
+## rural school
+output$attr$rural %>% group_by(node.age.grp) %>% summarize(s_by_w_avg = mean(contact_attribute_School)
+                                                           )
+indiv_summary_stats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day_age$s_by_w_age_md
+## rural work
+output$attr$rural %>% group_by(node.age.grp) %>% summarize(s_by_w_avg = mean(contact_attribute_Work)
+)
+indiv_summary_stats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day_age$w_by_s_age_md
+
+## urban school
+output$attr$urban %>% group_by(node.age.grp) %>% summarize(s_by_w_avg = mean(contact_attribute_School)
+)
+indiv_summary_stats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day_age$s_by_w_age_md
+## urban work
+output$attr$urban %>% group_by(node.age.grp) %>% summarize(s_by_w_avg = mean(contact_attribute_Work)
+)
+indiv_summary_stats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day_age$w_by_s_age_md

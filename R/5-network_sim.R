@@ -3,9 +3,6 @@
 library(dplyr)
 library(EpiModel)
 
-# Load function for dynamic network simulation
-source("R/sim_network.R") 
-
 # Load Data 
 layers <- c("Home", "School", "Work", "Nonhome")
 networks <- c("Rural", "Urban")
@@ -41,8 +38,11 @@ initial_attr <- readRDS("data/network_params/node_attribute_target_stats__0.1.Rd
 initial_attr$attr # contact status is binary
 
 
-## Dynamic network simulation
+# Dynamic network simulation
 ests$Urban$Home
+
+## Load function for dynamic network simulation
+source("R/sim_network.R") 
 out <- sim_network(est = ests$Rural , nsteps = 1); names(out) <- c("Home", "School", "Work", "Nonhome")
 
 out[[1]] %>% summary()
@@ -50,4 +50,4 @@ out[[1]] %>% summary()
 
 # fns <- strsplit(fn, "[.]")[[1]]
 # fn.new <- paste(fns[1], "NetSim", fns[3], "rda", sep = ".")
-saveRDS(out, file = "data/models/netsim_rural.RData")
+saveRDS(out, file = "data/models/netsim_rural.Rds")

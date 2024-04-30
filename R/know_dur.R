@@ -61,6 +61,13 @@ know_dur <- function(india_mix.){
     spread(frequency_contact,n) %>% data.frame() %>% rename(daily = Daily..almost.daily) %>% # convert the data frame to wide format to retrieve the frequency of daily contact
     select(study_site, contact_location, known_contact, daily ) %>% 
     filter(!is.na(known_contact)) %>% # filter out the empty category, introduced by the tabulation - this category correspond to the number of rows where both frequency_contact & known_contact are missing
+    mutate(daily = 
+             # after the above steps, we observe NA when known_contact == "Never met before", this category was caused by there wasn't contact with known_contact == "Never met before" & frequency_contact == "Daily/ almost daily"
+             # in the corresponding network layer, we recode the NA to 0. The na.rm = T used before is obviated after this recoding
+             case_when(is.na(daily) & known_contact == "Never met before" ~ 0,
+                       .default = daily
+                       )
+           ) %>% 
     ungroup() %>% 
     # impute known duration of contact - for the duration <= 10 years, we take the middle point of each categorical duration as the duration
     mutate(know_contact_d = # median duration in days
@@ -88,11 +95,11 @@ know_dur <- function(india_mix.){
     group_by(study_site, contact_location) %>% 
     
     mutate(
-      daily_prop = daily/sum(daily, na.rm = T), # proportion of daily contact under each know_contact category
+      daily_prop = daily/sum(daily), # proportion of daily contact under each know_contact category
       weighted_known_contact_d = know_contact_d*daily_prop # duration of known contact weighted by daily contact proportion
     ) %>%   
     # weighted duration of contact
-    summarize(know_contact_duration = sum(weighted_known_contact_d, na.rm = T)
+    summarize(know_contact_duration = sum(weighted_known_contact_d)
     ) %>% ungroup() 
   
 }

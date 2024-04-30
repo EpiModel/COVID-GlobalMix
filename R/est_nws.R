@@ -33,7 +33,6 @@ est_nws <-
                target.stats = model_inputs[[layer]]$tstat, 
                coef.diss = model_inputs[[layer]]$diss,
                set.control.ergm = control.arg 
-               
         )
       
       est_layer

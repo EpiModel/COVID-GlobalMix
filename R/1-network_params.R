@@ -27,6 +27,8 @@
 
 # Load libraries and data  ------------------------------------------------
 library("dplyr")
+library("tidyr")
+library("tibble")
 library("sjlabelled")
 library("stringr")
 library("GGally")
@@ -42,9 +44,7 @@ india_participant <-
 india_contact <- 
   readRDS("data/participant_contact/india_contact_data_aim1.RDS")
 
-table(india_contact$hh_membership, india_contact$study_site )%>%
-  kbl(caption = "Household membership status in GlobalMix India data") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
+table(india_contact$hh_membership, india_contact$study_site )
 
 # Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact
 
@@ -171,154 +171,11 @@ table(
 )
 
 
-## Uncertainties of network statistics
-expit <- function(x){1/(1+exp(-x))}
-logit <- function(x){log(x/(1-x))}
-
-
 ########################## Characterizing formation statistics ##########################
 # Function characterizing 1) number of contact at the individual-level (outputted in "contact_count"), 2)
 # the status of if a participant and contact belonged to a specific mixing pattern of age group (outputted in "age.grp_mix_status"), and 
 # 3) the status of whether participant and contact belonged to the same age group (outputted in "sameage.grp.count") for the contact data over the two-day period.
-contact_freq_site <- function(india_mix., india_participant., india_contact., study_site.){
-  india_mix.site <- 
-    india_mix.  %>% 
-    filter(study_site == study_site.) # here we split the dataset into urban or rural samples
-  
-  
-  id_no_contact.site <- # participants with 0 contacts by study site in India
-    india_participant. %>%
-    filter(!(rec_id %in% india_contact.$rec_id)) %>%
-    filter(study_site == study_site.) 
-  
-  
-  locations <- levels(india_mix.site$contact_location) # retrieve the full levels of contact locations
-  
-  
-  #### Total number of contacts over two days, for ~ edge and nodefactor ####
-  contact_count <- 
-    india_mix.site %>%
-    group_by(rec_id, contact_location, fromdayone, .drop = F)%>% summarise(n_contacts = n()) %>% # summarizing number of contacts by characteristics included in "group_by"
-    ungroup() %>% 
-    mutate(
-      n_contacts = case_when(
-        contact_location %in% c("Home", "Work","School") ~ n_contacts, # for these layers, a replicated contact is counted as unique contact
-        contact_location %in% c("Nonhome" ) & fromdayone == "Both days" ~ n_contacts*2, # for non-home layer, a replicated contact is counted as two contact
-        contact_location %in% c("Nonhome" ) & fromdayone %in% c("Day 1", "Day 2") ~ n_contacts, # for non-home layer, a unique contact is counted as one contact
-        T ~ n_contacts # for observation with fromdayone information missed, we return the original n_contacts
-      )  
-    )%>% 
-    group_by(rec_id, contact_location, .drop = F) %>% summarise(n_contacts = sum(n_contacts)
-    ) %>% ungroup() %>% # total number of contacts of each participant at each contact location over two days
-    # add the participants w/o contact to the data
-    rbind(., 
-          data.frame(
-            rec_id = rep(as.character(id_no_contact.site$rec_id), each = length(locations)),
-            contact_location= rep(locations, 
-                                  nrow(id_no_contact.site)
-            ),
-            n_contacts=rep(0,  nrow(id_no_contact.site)*length(locations))
-          )
-    ) %>% 
-    # joining w/ participant's age
-    left_join(india_participant. %>% select(rec_id, participant_age),
-              by = "rec_id"
-    )
-  
-  
-  #### Status of whether an edge is matched to a specific pattern of mixing between two age groups, for nodemix ####
-  age.grp_mix_status <- 
-    india_mix.site %>% 
-    
-    # The following levels are used to code the age groups "0-9y"~1, "10-19y"~2, "20-29y"~3, "30-39y"~4, "40-59y"~5, "60+y"~6. 
-    # If an edge/contact's age groups matched with one of the 36 patterns, it will be assigned 1 for the corresponding matching pattern
-    mutate(age.grp1_1 = ifelse(participant_age == "0-9y" & contact_age ==  "0-9y", 1, 0),
-           age.grp1_2 = ifelse(participant_age == "0-9y" & contact_age ==  "10-19y", 1, 0),
-           age.grp1_3 = ifelse(participant_age == "0-9y" & contact_age ==  "20-29y" , 1, 0),
-           age.grp1_4 = ifelse(participant_age == "0-9y" & contact_age ==  "30-39y" , 1, 0),
-           age.grp1_5 = ifelse(participant_age == "0-9y" & contact_age ==  "40-59y", 1, 0),
-           age.grp1_6 = ifelse(participant_age == "0-9y" & contact_age ==  "60+y", 1, 0),
-           
-           age.grp2_1 = ifelse(participant_age == "10-19y" & contact_age ==  "0-9y", 1, 0),
-           age.grp2_2 = ifelse(participant_age == "10-19y" & contact_age ==  "10-19y", 1, 0),
-           age.grp2_3 = ifelse(participant_age == "10-19y" & contact_age ==  "20-29y" , 1, 0),
-           age.grp2_4 = ifelse(participant_age == "10-19y" & contact_age ==  "30-39y" , 1, 0),
-           age.grp2_5 = ifelse(participant_age == "10-19y" & contact_age ==  "40-59y", 1, 0),
-           age.grp2_6 = ifelse(participant_age == "10-19y" & contact_age ==  "60+y", 1, 0),
-           
-           age.grp3_1 = ifelse(participant_age == "20-29y" & contact_age ==  "0-9y", 1, 0),
-           age.grp3_2 = ifelse(participant_age == "20-29y" & contact_age ==  "10-19y", 1, 0),
-           age.grp3_3 = ifelse(participant_age == "20-29y" & contact_age ==  "20-29y" , 1, 0),
-           age.grp3_4 = ifelse(participant_age == "20-29y" & contact_age ==  "30-39y" , 1, 0),
-           age.grp3_5 = ifelse(participant_age == "20-29y" & contact_age ==  "40-59y", 1, 0),
-           age.grp3_6 = ifelse(participant_age == "20-29y" & contact_age ==  "60+y", 1, 0),
-           
-           age.grp4_1 = ifelse(participant_age == "30-39y" & contact_age ==  "0-9y", 1, 0),
-           age.grp4_2 = ifelse(participant_age == "30-39y" & contact_age ==  "10-19y", 1, 0),
-           age.grp4_3 = ifelse(participant_age == "30-39y" & contact_age ==  "20-29y" , 1, 0),
-           age.grp4_4 = ifelse(participant_age == "30-39y" & contact_age ==  "30-39y" , 1, 0),
-           age.grp4_5 = ifelse(participant_age == "30-39y" & contact_age ==  "40-59y", 1, 0),
-           age.grp4_6 = ifelse(participant_age == "30-39y" & contact_age ==  "60+y", 1, 0),
-           
-           age.grp5_1 = ifelse(participant_age == "40-59y" & contact_age ==  "0-9y", 1, 0),
-           age.grp5_2 = ifelse(participant_age == "40-59y" & contact_age ==  "10-19y", 1, 0),
-           age.grp5_3 = ifelse(participant_age == "40-59y" & contact_age ==  "20-29y" , 1, 0),
-           age.grp5_4 = ifelse(participant_age == "40-59y" & contact_age ==  "30-39y" , 1, 0),
-           age.grp5_5 = ifelse(participant_age == "40-59y" & contact_age ==  "40-59y", 1, 0),
-           age.grp5_6 = ifelse(participant_age == "40-59y" & contact_age ==  "60+y", 1, 0),
-           
-           age.grp6_1 = ifelse(participant_age == "60+y"  & contact_age ==  "0-9y", 1, 0),
-           age.grp6_2 = ifelse(participant_age == "60+y"  & contact_age ==  "10-19y", 1, 0),
-           age.grp6_3 = ifelse(participant_age == "60+y"  & contact_age ==  "20-29y" , 1, 0),
-           age.grp6_4 = ifelse(participant_age == "60+y"  & contact_age ==  "30-39y" , 1, 0),
-           age.grp6_5 = ifelse(participant_age == "60+y"  & contact_age ==  "40-59y", 1, 0),
-           age.grp6_6 = ifelse(participant_age == "60+y"  & contact_age ==  "60+y", 1, 0)
-           
-    ) %>% 
-    # select subset of variables for output
-    select(rec_id, contact_location, fromdayone, participant_age, contact_age, age.grp1_1:age.grp6_6
-    )
-  
-  age.grp_mix_status <-
-    age.grp_mix_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we replicate it to two edges (i.e., two rows).
-    ) %>% 
-    rbind(., 
-          age.grp_mix_status %>% filter(
-            (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for other contacts/edges (than the above ones) and for those having missing value for fromdayone, we treat it as a single edge (i.e., one row).
-          ) 
-    ) %>% 
-    select(-fromdayone) # exclude this variable as it's not needed
-  
-  
-  #### Status of whether age groups of participant and contact are the same, edge-level, for nodematch ####
-  same.age.grp_status <- 
-    india_mix.site %>% 
-    mutate(same.age.grp = ifelse(participant_age == contact_age, 1, 0) # characterize whether participant and contact are in the same age group
-    )  %>% 
-    select(rec_id,  contact_location, fromdayone, participant_age, contact_age, same.age.grp
-    )
-  
-  same.age.grp_status <- 
-    same.age.grp_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we treat it as two edges (i.e., two rows).
-    ) %>% 
-    rbind(., 
-          same.age.grp_status %>% filter(
-            (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for other contacts/edges (than the above ones) and for those having missing value for fromdayone, we treat it as a single edge (i.e., one row).
-          ) 
-    ) %>% 
-    select(-fromdayone) # exclude this variable as it's not needed
-  
-  
- 
-  
-  
-  out <-list(contact_count, same.age.grp_status, age.grp_mix_status)
-  names(out) <- c("contact_degree", "same.age.grp_status" , "age.grp_mix_status")
-  
-  out
-  
-}
-
+source("R/contact_freq_site.R")
 contact_count_rural <- # rural mixing
   contact_freq_site(india_mix. = india_mix, 
                     india_participant. = india_participant, 
@@ -341,123 +198,8 @@ contact_count_urban  <- # urban mixing
 # function calculates two-day proportions of mixing between age groups of participant and contact 
 # Note: 1)given both the numerator (i.e., number of edges matched to a patterm) and denominator (i.e., total number od edges in a layer) are divided by 2 for converting two- to one-day scale, 
 #the two-day proportion is the same as the single-day propotion. 2) We characterize the proportion using both the glm and summary methods for cross-validation.
-mix_prop <- 
-  function(mix_status_layer,# the mixing statuses of a single layer over the two-day period 
-           unobserve_ego_age_grp 
-           # The "unobserve_ego_age_grp" argument indicates which egocentric age groups weren't observed to have contact or whose contacts where excluded.
-           # For these unobserved egocentric age groups, their corresponding proportions won't be characterized, yielding NA
-  ){
-    
-    age.grps <- c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y") # the 6 age groups
-    
-    # creating dataframes/list to store results
-    ## data frames storing mixing matrix by glm and crude approaches
-    mix_prop_matrix_2d_glm <- mix_prop_matrix_2d_crude<-  data.frame(matrix(NA, 6,6)
-    )
-    rownames(mix_prop_matrix_2d_glm) <- rownames(mix_prop_matrix_2d_crude) <-paste0("ego_",  age.grps)
-    colnames(mix_prop_matrix_2d_glm) <- colnames(mix_prop_matrix_2d_crude) <-paste0("contact_",  age.grps)
-    
-    ## storing dataframes in a list
-    output <- list()
-    
-    ############# GLM-based #############
-    all_mix_patterns <- mix_status_layer %>% select(age.grp1_1:age.grp6_6) %>% names() # names of all mixing between age groups
-    
-    glm_nmix <- # regress the mixing status of each type on age group, the time scale of the data is in two days
-      lapply( all_mix_patterns, function(x) { 
-        
-        glm(substitute(i ~  -1+participant_age, # slope-only model, where the slope is logit(proportion) 
-                       list(i = as.name(x))), family = "binomial", data = mix_status_layer) 
-        
-      } )
-    # Note: the warning of "glm.fit: algorithm did not converge" occurs when all the mixing status == 0
-    
-    glm_nmix_summary <- lapply(glm_nmix, summary)
-    
-    
-    
-    # Filling the two-day proportion to the mixing matrix, the row index (i) and column index correspond to the egocentric and contact's age groups
-    if(unobserve_ego_age_grp == "none"){ # if contacts existed in all the 6 egocentric age groups, we fill all the six corresponding matrix rows. This scenario applies to the home and nonhome layers
-      for (i in 1:6 
-      ) {
-        
-        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit() # convert the regression coefficient to proportion
-        mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 5] <- glm_nmix_summary[[5+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 6] <- glm_nmix_summary[[6+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        
-      }
-      
-    }  else if (unobserve_ego_age_grp == "40+y") { # if the last two oldest egocentric age groups didn't have contact, we fill the first four corresponding matrix rows. This scenario applies to the rural and urban school layers
-      
-      for (i in 1:4
-      ) {
-        
-        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 5] <- glm_nmix_summary[[5+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 6] <- glm_nmix_summary[[6+6*(i-1)]]$coefficients[i,"Estimate"] %>% expit()
-        
-      }
-      
-    } else if (unobserve_ego_age_grp == "<19y") { # if the first two youngest egocentric age groups didn't have contact, we fill the last four corresponding matrix rows. This scenario applies to the rural work layer
-      
-      for (i in 3:6
-      ) {
-        
-        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit() # Given there is an mismatch between the i of the loop and the location in the coefficient, we use "-2" to handle the mismatching in coefficients[i-2,"Estimate"] 
-        mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 5] <- glm_nmix_summary[[5+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 6] <- glm_nmix_summary[[6+6*(i-1)]]$coefficients[i-2,"Estimate"] %>% expit()
-        
-      }
-      
-    } else if (unobserve_ego_age_grp == "<9y") { # if the first youngest egocentric age group didn't have contact, we fill the last five corresponding matrix rows. This scenario applies to the urban work layer
-      
-      for (i in 2:6
-      ) {
-        
-        mix_prop_matrix_2d_glm[i, 1] <- glm_nmix_summary[[1+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit() # Given there is an mismatch between the i of the loop and the location in the coefficient, we use "-1" to handle the mismatching in coefficients[i-1,"Estimate"] 
-        mix_prop_matrix_2d_glm[i, 2] <- glm_nmix_summary[[2+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 3] <- glm_nmix_summary[[3+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 4] <- glm_nmix_summary[[4+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 5] <- glm_nmix_summary[[5+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
-        mix_prop_matrix_2d_glm[i, 6] <- glm_nmix_summary[[6+6*(i-1)]]$coefficients[i-1,"Estimate"] %>% expit()
-        
-      }
-      
-    }
-    
-    
-    
-    
-    ############## crude calculation #########
-    # fill the two-day proportion to the matrix 
-    for (i in 1:6 # for each egocentric age group, we calculate its proportion of contact with the contact group. 
-         #For egocentric age group that isn't available in a layer, NaN is returned for the corresponding row.
-    ) { 
-      mix_status_layer_i <- mix_status_layer %>% filter( participant_age == age.grps[i]) 
-      mix_prop_matrix_2d_crude[i, 1] <- mix_status_layer_i[, (5+6*(i-1))] %>% mean()
-      mix_prop_matrix_2d_crude[i, 2] <-  mix_status_layer_i[, (6+6*(i-1))] %>% mean()
-      mix_prop_matrix_2d_crude[i, 3] <-  mix_status_layer_i[, (7+6*(i-1))] %>% mean()
-      mix_prop_matrix_2d_crude[i, 4] <-  mix_status_layer_i[, (8+6*(i-1))] %>% mean()
-      mix_prop_matrix_2d_crude[i, 5] <-  mix_status_layer_i[, (9+6*(i-1))] %>% mean()
-      mix_prop_matrix_2d_crude[i, 6] <-  mix_status_layer_i[, (10+6*(i-1))] %>% mean()
-      
-    }
-    
-    output$mix_prop_matrix_2d_glm <- mix_prop_matrix_2d_glm 
-    output$mix_prop_matrix_2d_crude <- mix_prop_matrix_2d_crude
-    
-    output  
-    
-  }
+source("R/mix_prop.R")
+
 
 
 # Characterizing mixing proportions by layer
@@ -499,160 +241,8 @@ mix_prop_urban_layers
 
 
 # Function characterizing egocentric network statistics of age effect for edge, nodefactor, and nodematch
-edge_node_factor_match <- function(contact_count_site){
-  
-  output <- list()
-  
-  # Edges 
-  fit_edge <- 
-    contact_count_site$contact_degree %>% 
-    glm(n_contacts~ -1+contact_location, data=., family = poisson) %>% summary() # getting coefficient for two-day contact rate
-  
-  fit_edge <- fit_edge$coefficients%>% as.data.frame()  
-  
-  n_participants_site <- 
-    contact_count_site$contact_degree$rec_id %>% unique() %>% length()  # number of participants of a network, all age groups
-  
-  fit_edge <- 
-    fit_edge %>% 
-    mutate(
-      # single-day mean degree, original scale
-      single_day_md = exp(Estimate)/2, # the 2 here is two covert the 2 to 1 day scale
-      
-      # calculation, log-link scale
-      two_day_sd_link = `Std. Error`*sqrt(n_participants_site), # two-day standard deviation for the coefficient at the log scale
-      single_day_sd_link = two_day_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
-      single_day_se_link = single_day_sd_link/sqrt(n_participants_site), # single-day standard error for the coefficient at the log scale
-      single_day_md_link = log(single_day_md),
-      
-      # uncertainties, original scale
-      single_day_lower95ci = exp(single_day_md_link -1.96*single_day_se_link),
-      single_day_upper95ci =  exp(single_day_md_link +1.96*single_day_se_link)
-    ) %>% select(single_day_md, single_day_lower95ci, single_day_upper95ci
-    )
-  
-  
-  
-  output[[1]] <- fit_edge %>% rownames_to_column(var="contact_location") %>%
-    mutate(contact_location=str_remove(contact_location, "contact_location")
-    )
-  
-  
-  # nodefactor - age.grp
-  n_participants_nf_site <- # number of participants in each age.grp in a network
-    contact_count_site$contact_degree %>% group_by( participant_age) %>% 
-    summarize(n_participants_nf_site = n_distinct(rec_id)) %>% mutate(participant_age = as.character(participant_age))
-  
-  nf <- data.frame() 
-  for (i in 1:4 # characterize mean degree and uncertainties for each layer
-  ) {
-    fit_nf_single <- 
-      contact_count_site$contact_degree %>% filter(contact_location == levels(contact_count_site$contact_degree$contact_location)[i]) %>% 
-      glm(n_contacts~ -1+participant_age, data=., family = poisson) %>% summary() # coefficients of each age group for two-day contact rate
-    
-    fit_nf_single <- fit_nf_single$coefficients %>% as.data.frame()
-    
-    fit_nf_single <-
-      fit_nf_single%>% rownames_to_column() %>% 
-      rename(participant_age=1) %>% mutate(participant_age= str_remove(participant_age, "participant_age") 
-      ) %>% 
-      left_join(
-        n_participants_nf_site
-      )
-    
-    fit_nf_single <- 
-      fit_nf_single %>% 
-      mutate(
-        # single-day mean degree, original scale
-        single_day_nf_md = exp(Estimate)/2, # the 2 here is two covert the 2 to 1 day scale
-        
-        # calculation, log-link scale
-        two_day_nf_sd_link = `Std. Error`*sqrt(n_participants_nf_site), # two-day standard deviation for the coefficient at the log scale
-        single_day_nf_sd_link = two_day_nf_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
-        single_day_nf_se_link = single_day_nf_sd_link/sqrt(n_participants_nf_site), # single-day standard error for the coefficient at the log scale
-        single_day_nf_md_link = log(single_day_nf_md), # single-day mean degree, log scale
-        
-        # uncertainties, original scale
-        single_day_nf_lower95ci = exp(single_day_nf_md_link -1.96*single_day_nf_se_link),
-        single_day_nf_upper95ci =  exp(single_day_nf_md_link +1.96*single_day_nf_se_link)
-      ) %>% select(participant_age, single_day_nf_md, single_day_nf_lower95ci, single_day_nf_upper95ci
-      ) %>% 
-      mutate(contact_location = levels(contact_count_site$contact_degree$contact_location)[i]) # specify layer
-    
-    
-    
-    
-    
-    nf <- 
-      rbind(nf, fit_nf_single)
-    
-  }
-  
-  
-  output[[2]] <- nf
-  
-  
-  # nodematch - proportion of matched edges of each age group among all the edges
-  
-  nm <- data.frame()
-  for (i in 1:4 
-  ) {
-    
-    
-    data_nm <- 
-      contact_count_site$same.age.grp_status %>% filter(contact_location == levels(contact_count_site$same.age.grp_status$contact_location)[i]) 
-    
-    n_obs_age.grp <- data_nm %>% group_by(participant_age) %>% summarize(n=n()) %>% mutate(participant_age = as.character(participant_age)
-    ) # "n" is the total number of edges in each age group in a network
-    
-    
-    fit_nm_single <- 
-      data_nm %>% 
-      glm(same.age.grp ~ -1+ participant_age,
-          data = ., family = "binomial"
-      )  %>% summary() # coefficients for matching proportion under each age group, this proportion is the same between the two-day and one-day scale
-    
-    fit_nm_single <- fit_nm_single$coefficients %>% as.data.frame()
-    
-    fit_nm_single <-
-      fit_nm_single%>% rownames_to_column() %>% 
-      rename(participant_age=1) %>% mutate(participant_age= str_remove(participant_age, "participant_age") 
-      ) %>% 
-      left_join(
-        n_obs_age.grp
-      )
-    
 
-    fit_nm_single <- 
-      fit_nm_single %>% 
-      mutate(
-        # single-day mean degree, original scale
-        single_day_nm_md = expit(Estimate), # the proportion at the single-day scale is the same as the two-day scale
-        
-        # calculation, logit-link scale
-        two_day_nm_sd_link = `Std. Error`*sqrt(n), # two-day standard deviation for the coefficient at the logit scale. 
-        single_day_nm_sd_link = two_day_nm_sd_link/2,  # single-day standard deviation for the coefficient at the logit scale
-        single_day_nm_se_link = single_day_nm_sd_link/sqrt(n), # single-day standard error for the coefficient at the logit scale
-        single_day_nm_md_link = logit(single_day_nm_md), # single-day mean degree, logit scale
-        
-        # uncertainties, original scale
-        single_day_nm_lower95ci = expit(single_day_nm_md_link -1.96*single_day_nm_se_link),
-        single_day_nm_upper95ci =  expit(single_day_nm_md_link +1.96*single_day_nm_se_link)
-      ) %>% select(participant_age, single_day_nm_md, single_day_nm_lower95ci, single_day_nm_upper95ci
-      ) %>% 
-      mutate(contact_location = levels(contact_count_site$same.age.grp_status$contact_location)[i]) # specify layer
-    
-    nm <- 
-      rbind(nm, fit_nm_single)
-    
-  }
-  
-  output[[3]] <- nm
-  
-  names(output) <- c("edge", "nf.age.grp", "nm.age.grp")
-  
-  output
-}
+source("R/edge_node_factor_match.R")
 
 edge_node_factor_match_rural <- edge_node_factor_match(contact_count_site = contact_count_rural)
 
@@ -729,6 +319,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
   output_model$s_nh <- 
     contact_count_wide %>% 
     glm(School~ Nonhome_cat , data=., family = poisson(link=log))
+  
   
   # Effects of other layers on work 
   output_model$w_h <- 
@@ -870,6 +461,102 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
       )
     
     
+    
+    ############### Characterizing the age-group-specific mean degree, conditioned on the other layer  ###############
+    ## Effects of Work on School, age-group-specific, 1-day scale
+    s_w_age <- 
+      contact_count_wide %>% 
+      glm(School~   Work_cat + participant_age + Work_cat * participant_age, data=., family = poisson(link=log)
+      )
+    
+    # preds <- predict(s_w_age, newdata = expand.grid(Work_cat = 0:1, participant_age = c("0-9y", "10-19y")), type = "response")
+    # preds
+    s_w_age <- 
+      contact_count_wide %>% 
+      glm(Work~  -1+ participant_age,  data=., family = poisson(link=log)
+      )
+    s_w_age %>% summary()
+    
+    coefficients <- exp(s_w_age$coefficients)
+    
+    s_w_age_md <- 
+    cbind(
+      
+      # glm method
+      c(
+        exp(coefficients["(Intercept)"]), # MD of 0-9y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["Work_cat1"]*1 + coefficients["participant_age10-19y"]*1 + coefficients["Work_cat1:participant_age10-19y"]*1) , # MD of 10-19y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["Work_cat1"]*1 + coefficients["participant_age20-29y"]*1 + coefficients["Work_cat1:participant_age20-29y"]*1), # MD of 20-29y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["Work_cat1"]*1 + coefficients["participant_age30-39y"]*1 + coefficients["Work_cat1:participant_age30-39y"]*1), # MD of 30-39y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["Work_cat1"]*1 + coefficients["participant_age40-59y"]*1 + coefficients["Work_cat1:participant_age40-59y"]*1), # MD of 40-59y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["Work_cat1"]*1 + coefficients["participant_age60+y"]*1 + coefficients["Work_cat1:participant_age60+y"]*1) # MD of 60+y
+      )%>% as.numeric() %>% round(., 4),
+      
+      # filter method
+      c(
+        contact_count_wide %>% filter(participant_age =="0-9y" & Work_cat == "1") %>% summarize(md = mean(School)),
+        contact_count_wide %>% filter(participant_age =="10-19y" & Work_cat == "1") %>% summarize(md = mean(School)),
+        contact_count_wide %>% filter(participant_age =="20-29y" & Work_cat == "1") %>% summarize(md = mean(School)),
+        contact_count_wide %>% filter(participant_age =="30-39y" & Work_cat == "1") %>% summarize(md = mean(School)),
+        contact_count_wide %>% filter(participant_age =="40-59y" & Work_cat == "1") %>% summarize(md = mean(School)),
+        contact_count_wide %>% filter(participant_age =="60+y" & Work_cat == "1") %>% summarize(md = mean(School))
+      ) %>% as.numeric()  %>% round(., 4)
+    ) %>% data.frame() %>% 
+      mutate(age.grp = c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y",   "60+y")
+             ) %>% 
+      rename(poisson_reg=1, dplyr_summary =2)%>% 
+      mutate(poisson_reg=poisson_reg/2, dplyr_summary =dplyr_summary/2 # convert the mean degree from two- to single-day scale
+      )
+    
+    
+    ## Effects of School on Work, age-group-specific, 1-day scale
+    w_s_age <- 
+      contact_count_wide %>% 
+      glm(Work~   School_cat + participant_age + School_cat * participant_age, data=., family = poisson(link=log)
+      )
+    
+    coefficients <- w_s_age$coefficients
+    
+    w_s_age_md <- 
+    cbind(
+      
+      # glm method
+      c(
+        exp(coefficients["(Intercept)"]), # MD of 0-9y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["School_cat1"]*1 + coefficients["participant_age10-19y"]*1 + coefficients["School_cat1:participant_age10-19y"]*1) , # MD of 10-19y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["School_cat1"]*1 + coefficients["participant_age20-29y"]*1 + coefficients["School_cat1:participant_age20-29y"]*1), # MD of 20-29y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["School_cat1"]*1 + coefficients["participant_age30-39y"]*1 + coefficients["School_cat1:participant_age30-39y"]*1), # MD of 30-39y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["School_cat1"]*1 + coefficients["participant_age40-59y"]*1 + coefficients["School_cat1:participant_age40-59y"]*1), # MD of 40-59y
+        
+        exp(coefficients["(Intercept)"]+ coefficients["School_cat1"]*1 + coefficients["participant_age60+y"]*1 + coefficients["School_cat1:participant_age60+y"]*1) # MD of 60+y
+      )%>% as.numeric() %>% round(., 4),
+      
+      # filter method
+      c(
+        contact_count_wide %>% filter(participant_age =="0-9y" & School_cat == "1") %>% summarize(md = mean(Work)),
+        contact_count_wide %>% filter(participant_age =="10-19y" & School_cat == "1") %>% summarize(md = mean(Work)),
+        contact_count_wide %>% filter(participant_age =="20-29y" & School_cat == "1") %>% summarize(md = mean(Work)),
+        contact_count_wide %>% filter(participant_age =="30-39y" & School_cat == "1") %>% summarize(md = mean(Work)),
+        contact_count_wide %>% filter(participant_age =="40-59y" & School_cat == "1") %>% summarize(md = mean(Work)),
+        contact_count_wide %>% filter(participant_age =="60+y" & School_cat == "1") %>% summarize(md = mean(Work))
+      ) %>% as.numeric()  %>% round(., 4)
+    ) %>% data.frame() %>% 
+      mutate(age.grp = c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y",   "60+y")
+      ) %>% 
+      rename(poisson_reg=1, dplyr_summary =2) %>% 
+      mutate(poisson_reg=poisson_reg/2, dplyr_summary =dplyr_summary/2 # convert the mean degree from two- to single-day scale
+             )
+    
+    
     ############### Characterizing the proportion of having and not having contact for each layer, and the raw mean degree ###############
     # check with Sam about whether the 2 should be used to divide the proportion for the single-day scale
     # Overall proportion, w/o stratifying for age
@@ -913,7 +600,8 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
       ); row.names(deg.age.layer.dist_2days) <- NULL
     
     ############### Outputting ###############
-    output$coefficient_summary_2days <- tb_slope; output$mean_deg_1day <-  nf.deg.oth_layers;
+    output$coefficient_summary_2days <- tb_slope; output$mean_deg_1day <-  nf.deg.oth_layers; 
+    output$mean_deg_1day_age$s_by_w_age_md <- s_w_age_md; output$mean_deg_1day_age$w_by_s_age_md <- w_s_age_md
     output$deg.layer.dist_2days <- deg.layer.dist_2days; output$deg.age.layer.dist_2days <- deg.age.layer.dist_2days
     output$data_wide <- contact_count_wide
     
@@ -924,6 +612,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
 
 layer_assoc_rural <- assoc_btw_layers(contact_count_long=contact_count_rural$contact_degree 
                                       )
+
 layer_assoc_urban <- assoc_btw_layers(contact_count_long=contact_count_urban$contact_degree) 
 
 
