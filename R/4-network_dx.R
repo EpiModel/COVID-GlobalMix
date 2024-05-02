@@ -102,12 +102,21 @@ dx_nh_u <-
   )
 
 
-# Outputting netdx items
-dx_layers <- list()
-dx_layers$Rural$Home <- dx_h_r; dx_layers$Rural$Work <- dx_w_r; dx_layers$Rural$Nonhome <- dx_nh_r;
-dx_layers$Urban$Home <- dx_h_u; dx_layers$Urban$School <- dx_s_u; dx_layers$Urban$Work <- dx_w_u; dx_layers$Urban$Nonhome <- dx_nh_u;
+# Outputting netdx items of the 8 layers
+file.name <- 
+  c(
+    paste0("data/netdx_outputs/dx_", layers, "__", networks[1],"__", est_apch, ".Rds"),
+    paste0("data/netdx_outputs/dx_", layers, "__", networks[2],"__", est_apch, ".Rds")
+  )
 
-saveRDS(dx_layers, "data/netdx_outputs/dx_layers.Rds")
+saveRDS(dx_h_r,  file = file.name[1])
+saveRDS(dx_s_r,  file = file.name[2])
+saveRDS(dx_w_r,  file = file.name[3])
+saveRDS(dx_nh_r,  file = file.name[4])
+saveRDS(dx_h_u,  file = file.name[5])
+saveRDS(dx_s_u,  file = file.name[6])
+saveRDS(dx_w_u,  file = file.name[7])
+saveRDS(dx_nh_u,  file = file.name[8])
 
 dx_layers <- 
 readRDS("data/netdx_outputs/dx_layers.Rds")

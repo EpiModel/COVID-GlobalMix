@@ -33,21 +33,23 @@ ests$Rural$Work <-
 ests$Rural$Nonhome <- 
   readRDS(file.name[8]) 
 
-# nodal attribute for the sin
+# nodal attribute
 initial_attr <- readRDS("data/network_params/node_attribute_target_stats__0.1.Rds")
-initial_attr$attr # contact status is binary
+initial_attr$attr 
 
 
 # Dynamic network simulation
-ests$Urban$Home
-
 ## Load function for dynamic network simulation
 source("R/sim_network.R") 
-out <- sim_network(est = ests$Rural , nsteps = 1); names(out) <- c("Home", "School", "Work", "Nonhome")
+## Simulate rural network
+rural_nw <- sim_network(est = ests$Rural , nsteps = 3)
+urban_nw <- sim_network(est = ests$Urban , nsteps = 3)
 
-out[[1]] %>% summary()
+
+file.name <- 
+    paste0("data/netsim_outputs/sim_", "__", networks,"__", est_apch, ".Rds")
 
 
-# fns <- strsplit(fn, "[.]")[[1]]
-# fn.new <- paste(fns[1], "NetSim", fns[3], "rda", sep = ".")
-saveRDS(out, file = "data/models/netsim_rural.Rds")
+
+saveRDS(rural_nw, file = file.name[1])
+saveRDS(urban_nw, file = file.name[2])

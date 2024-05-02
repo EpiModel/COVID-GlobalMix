@@ -77,80 +77,88 @@ node_attrib_target_pop <-
       ) # urban network
     
     ## Define function generating nodal attribute of contact status at each layer
-    node.layer.contact <- function(mean_deg_1day_age, target_age_dist){
+    node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist){
       
-      ## Extracting conditioned mean degree by age group
-      s_by_w_age_md <- 
-      mean_deg_1day_age$s_by_w_age_md %>% mutate(across(dplyr_summary, ~ replace(., is.nan(.), 0)
-                                                        )
-                                                 )
-      
-      w_by_s_age_md <- 
-        mean_deg_1day_age$w_by_s_age_md %>% mutate(across(dplyr_summary, ~ replace(., is.nan(.), 0)
-                                                          )
-                                                   )
+      ## Extracting proportion of having any contact
+      deg.layer.prop <- # deg.layer.prop stores the proportion w/ any contact at each age group
+        deg.age.layer.dist_2days %>% 
+        filter(contact_status == 1 # filter out the proportion of having any contact
+        ) %>% select(-contact_status) %>% pivot_longer(!layer, names_to = "age.grp", values_to = "gt_0_prop") # converting to long format to facilitate data manipulation
       
       
-      contact_attribute_School <-  contact_attribute_Work  <- target_age_grp_vec <-  c() # create dataframe to store nodal status of contact
+      layer_attribute_single_layer   <-  data.frame() # create dataframe to store intermediate results
+      layer_attribute_layers <- list() # create list to store nodal status of contact for a whole layer
       
-      ## generate nodal attribute of contact at each layer (i), at each age group (j)
-      ### explanation of the below code: for a layer, we generate nodal status of contact for each age group 
-      ### using the age-specific conditioned single-day mean degree of contact and the total number of nodes in a layer. We replicate this for all age groups.
-  
-        for (i in 1:length(target_age_grp)) {
-          age_grp_i <- as.character(target_age_grp[i])
+      ## generate nodal attribute of contact  at each layer (i), at each age group (j)
+      ### explanation of the below code: for a layer, we generate nodel status of contact for each age group 
+      ### using the proportion of contact and the total number of nodes in a layer. We replicate this for all age group and all layers
+      for (i in 1:length(layers)
+      ) {
+        for (j in 1:length(target_age_grp)) {
+          deg.prop_single_layer_age_grp <-  deg.layer.prop %>% filter(layer == layers[i] & age.grp == target_age_grp[j]) %>% pull(gt_0_prop) # retrieving the proportion of having any contact in a age group of a layer in a network
           
-          n_pop_single <- target_age_dist %>% filter(target_age_grp == age_grp_i) %>% pull(tar_pop) # number of nodes to generate 
-        
-          s_by_w_age_i_md <-  s_by_w_age_md %>% filter(age.grp == age_grp_i) %>% pull(dplyr_summary) # retrieving the proportion of having any contact in a age group of a layer in a network
-          w_by_s_age_i_md <-  w_by_s_age_md %>% filter(age.grp == age_grp_i) %>% pull(dplyr_summary) # retrieving the proportion of having any contact in a age group of a layer in a network
+          n_pop_single <- target_age_dist %>% filter(target_age_grp == target_age_grp[j]) %>% pull(tar_pop) # number of nodes to generate 
           
-          contact_attribute_School_age_i <- # attribute of contact in a single age group and layer
-            rpois(n =  n_pop_single, 
-                  lambda = s_by_w_age_i_md
+          contact_attribute <- # attribute of contact in a single age group and layer
+            rbinom(n =  n_pop_single, 
+                   size = 1,#  for Bernoulli trial
+                   prob = deg.prop_single_layer_age_grp 
             ) 
-          contact_attribute_School <- c(contact_attribute_School, contact_attribute_School_age_i)
           
-          contact_attribute_Work_age_i <- # attribute of contact in a single age group and layer
-            rpois(n =  n_pop_single, 
-                  lambda = w_by_s_age_i_md
-            ) 
-          contact_attribute_Work <- c(contact_attribute_Work, contact_attribute_Work_age_i)
+          ## combining the simulated nodal status in different age groups
+          layer_attribute_single_layer <- 
+            rbind(layer_attribute_single_layer,
+                  data.frame( target_age_grp=rep(target_age_grp[j], length = n_pop_single),
+                              contact_attribute
+                  )
+            )
           
-          target_age_grp_vec = 
-            c(target_age_grp_vec,
-              rep(age_grp_i, length = n_pop_single)
-                                 )
         }
+        colnames(layer_attribute_single_layer)[2]= paste0("contact_attribute_", layers[i])
+        
+        layer_attribute_layers[[i]]<- layer_attribute_single_layer 
+        
+        layer_attribute_single_layer <- data.frame() # before moving to the next iteration of i + 1, we remove the data from iteration of i
+        
+        
+        ## Note: previously, we had some logic to see whether the simulated age group of node in this function is the same as those by node.age.grp. Given the two function generate nodal statuses
+        ## based on the same target population. The logic must be TRUE, so, we remove the logic.
+        
+        
+      }
       
+      ## Combining results from all layers into a dataframe 
+      layer_attribute_layers <- 
+        cbind(
+          layer_attribute_layers[[1]],
+          contact_attribute_School=layer_attribute_layers[[2]]$contact_attribute_School,
+          contact_attribute_Work=layer_attribute_layers[[3]]$contact_attribute_Work,
+          contact_attribute_Nonhome=layer_attribute_layers[[4]]$contact_attribute_Nonhome
+        )
       
-      ### combining the simulated nodal status in different age groups and layers
-      contact_attribute_School_Work <- data.frame(target_age_grp_vec, contact_attribute_School, contact_attribute_Work)
+      layer_attribute_layers
       
-      contact_attribute_School_Work
     }
-    
     ## Generating nodal attribute of contact status at each layer, with proportion of contact specific to each age group
     node.contact.layer.rural <- 
-      node.layer.contact(mean_deg_1day_age = netstats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day_age, 
+      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days, 
                          target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop)
       ) # rural network
-    
     node.contact.layer.urban <- 
-      node.layer.contact(mean_deg_1day_age = netstats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day_age, 
+      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
                          target_age_dist = target_age_distribut %>% filter( network == "urban") %>% select(target_age_grp, tar_pop)
       ) # urban network
     
     ## Merging nodal status of age and layer-specific contact
     node.attr.rural <- 
       cbind(node.age.grp.rural %>% select(-age.grp.num), # we can safely use cbind here as the two attributes are generated from the same number of observations.
-            node.contact.layer.rural %>% select(-target_age_grp_vec)
+            node.contact.layer.rural %>% select(-target_age_grp)
       ) %>% 
       rename(node.age = age, node.age.grp = target_age_grp)
     
     node.attr.urban <- 
       cbind(node.age.grp.urban %>% select(-age.grp.num),
-            node.contact.layer.urban %>% select(-target_age_grp_vec)
+            node.contact.layer.urban %>% select(-target_age_grp)
       ) %>% 
       rename(node.age = age, node.age.grp = target_age_grp)
     

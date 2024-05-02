@@ -78,49 +78,11 @@ est_nh_u <-
   est_nws(control.arg=control.args[[est_apch]], layer = layers[4], site = networks[2],
           model_input_items = model_input_items)
 
-# Diagnosing why script for School and Work doesn't work.
-## Rural School estimation
-netest(nw= model_input_items$initiate_nw$Rural$nw_s,
-       formation = model_input_items$formula_tarstats$Rural$School$frmn_fm, 
-       target.stats = model_input_items$formula_tarstats$Rural$School$tstat, 
-       coef.diss = model_input_items$formula_tarstats$Rural$School$diss,
-       set.control.ergm = control.args$sto_apoxy
-)
-
-
-
-## Rural Work estimation
-netest(nw= model_input_items$initiate_nw$Rural$nw_w,
-       formation = model_input_items$formula_tarstats$Rural$Work$frmn_fm, 
-       target.stats = model_input_items$formula_tarstats$Rural$Work$tstat, 
-       coef.diss = model_input_items$formula_tarstats$Rural$Work$diss,
-       set.control.ergm = control.args$sto_apoxy
-)
-
-## Individual component - interpretation: the conditioned mean degree seems only can be coupled with the nodal attribute of 1/0, as only the rural school layer runs
-### Nodal conditioned degree
-model_input_items$initiate_nw$Rural$nw_s %v% "deg.x_layer" #%>% table()
-model_input_items$initiate_nw$Rural$nw_w %v% "deg.x_layer" #%>% table()
-model_input_items$initiate_nw$Urban$nw_s %v% "deg.x_layer" #%>% table()
-model_input_items$initiate_nw$Urban$nw_w %v% "deg.x_layer" #%>% table()
-
-### Target statistics
-model_input_items$formula_tarstats$Rural$School$tstat %>% length()
-model_input_items$formula_tarstats$Rural$Work$tstat %>% length()
-model_input_items$formula_tarstats$Urban$School$tstat %>% length()
-model_input_items$formula_tarstats$Urban$Work$tstat %>% length()
-
-### Formula
-model_input_items$formula_tarstats$Rural$School$frmn_fm
-model_input_items$formula_tarstats$Rural$Work$frmn_fm
-model_input_items$formula_tarstats$Urban$School$frmn_fm
-model_input_items$formula_tarstats$Urban$Work$frmn_fm
-
 # outputting estimation result of the 8 layers 
 file.name <- 
   c(
-  paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[1],"__", est_apch, ".Rds"),
-  paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[2],"__", est_apch, ".Rds")
+    paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[1],"__", est_apch, ".Rds"),
+    paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[2],"__", est_apch, ".Rds")
   )
 
 saveRDS(est_h_r,  file = file.name[1])
@@ -133,6 +95,4 @@ saveRDS(est_w_u,  file = file.name[7])
 saveRDS(est_nh_u,  file = file.name[8])
 
 
-est_w_r
-node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work
 

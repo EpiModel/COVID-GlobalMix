@@ -12,14 +12,16 @@ sim_network <- function(
     )
   } # nw contains simulations for the 4 layers
   
+  names(nw) <- c("Home", "School", "Work", "Nonhome")
+  
   # Dynamic time loop
   for (at in 1:nsteps) {
     
     # update age at each time step
     ## get age of the current time step
     age <- 
-      as.numeric(get_vertex_attribute(nw[[1]], attrname = "age") 
-      )
+      get_vertex_attribute(nw[[1]], attrname = "age") 
+      
     ## update age
     ### update continuous age
     age<- age+1/365
@@ -31,7 +33,7 @@ sim_network <- function(
                           age>= 40 & age<=60 ~ "40-59y",
                           age>= 60  ~ "60+y",
     )
-    ## reassign age to the nodal attribute of the 4 layers
+    ## reassign continuous and categorical age to the nodal attribute of the 4 layers
     for (i in 1:4) {
       nw[[i]] <- set.vertex.attribute(nw[[i]], attrname = "age" , 
                                       value =age)
@@ -39,86 +41,79 @@ sim_network <- function(
                                       value =age.grp)
     }
     
-    # update momemtary degree of each layer
-    ## for home & nonhome, we use the momentary degree of themselves as the nodal attribute 
-    ### Home
-    #### momentary degree (number of edges) of each node at home
-    # deg_node_h <-
-    #   as.numeric(summary(nw[[1]] ~ sociality(base = 0), at = at)
-    #   )
-    # #### assign the degree to the own layer
-    # nw[[1]] <- set.vertex.attribute(nw[[1]], attrname = "contact_attribute_Home" , 
-    #                                 value =deg_node_h  
-    # )
-    #### simulate network 
-    nw[[1]] <- suppressWarnings(simulate(nw[[1]],
-                                         formation = est[[1]]$formation,
-                                         dissolution = est[[1]]$coef.diss$dissolution,
-                                         coef.form = est[[1]]$coef.form,
-                                         coef.diss = est[[1]]$coef.diss$coef.crude,
+    # Simulate network for Home layer
+    nw[["Home"]] <- suppressWarnings(simulate(nw[["Home"]],
+                                         formation = est[["Home"]]$formation,
+                                         dissolution = est[["Home"]]$coef.diss$dissolution,
+                                         coef.form = est[["Home"]]$coef.form,
+                                         coef.diss = est[["Home"]]$coef.diss$coef.crude,
                                          time.start = at,
                                          time.slices = 1,
                                          time.offset = 0,
                                          monitor = "all",
                                          output = "networkDynamic"))
     
-    ### Nonhome
-    #### momentary degree (number of edges) of each node at nonhome
-    # deg_node_nh <- 
-    #   as.numeric(summary(nw[[4]] ~ sociality(base = 0), at = at)
-    #   )
-    # #### assign the degree to the own layer
-    # nw[[4]] <- set.vertex.attribute(nw[[4]], attrname = "contact_attribute_Nonhome", 
-    #                                 value = deg_node_nh
-    #                                 )
-    #### simulate network
-    nw[[4]] <- suppressWarnings(simulate(nw[[4]],
-                                         formation = est[[4]]$formation,
-                                         dissolution = est[[4]]$coef.diss$dissolution,
-                                         coef.form = est[[4]]$coef.form,
-                                         coef.diss = est[[4]]$coef.diss$coef.crude,
+    # Simulate network for Nonhome layer
+    nw[["Nonhome"]] <- suppressWarnings(simulate(nw[["Nonhome"]],
+                                         formation = est[["Nonhome"]]$formation,
+                                         dissolution = est[["Nonhome"]]$coef.diss$dissolution,
+                                         coef.form = est[["Nonhome"]]$coef.form,
+                                         coef.diss = est[["Nonhome"]]$coef.diss$coef.crude,
                                          time.start = at,
                                          time.slices = 1,
                                          time.offset = 0,
                                          monitor = "all",
                                          output = "networkDynamic"))
     
-    ## for School & Work, we use the momentary degree of the interacting layer as the nodal attribute for the main layer 
-    ### School 
-    #### momentary degree (number of edges) of each node at work
+    # Note: for the following School & Work, we use the binary contact status (0-no contact [momentary degree =0], 1-have contact [momentary degree >0]) of the interacting layer as the nodal attribute for the main layer 
+    
+    # Simulate network for School layer 
+    ## momentary degree (number of edges) of each node at work
     deg_node_w <- 
-      as.numeric(summary(nw[[3]] ~ sociality(base = 0), at = at)
+      as.numeric(summary(nw[["Work"]] ~ sociality(base = 0), at = at)
       )
-    #### assign the degree at work to school
-    nw[[2]] <- set.vertex.attribute(nw[[2]], attrname = "deg.x_layer" , 
-                                    value =deg_node_w # this is contact status at nonhome layer 
+    
+    ## dichotomize momentary degree (number of edges) of each node at work into contact status
+    deg_bi_node_w <- 
+      ifelse(deg_node_w>0, yes=1, no=0)
+
+    ## assign the contact status at work to school
+    nw[["School"]] <- set.vertex.attribute(nw[["School"]], attrname = "deg.x_layer" , 
+                                    value =deg_bi_node_w # this is contact status at nonhome layer 
     )
-    nw[[2]] <- suppressWarnings(simulate(nw[[2]],
-                                         formation = est[[2]]$formation,
-                                         dissolution = est[[2]]$coef.diss$dissolution,
-                                         coef.form = est[[2]]$coef.form,
-                                         coef.diss = est[[2]]$coef.diss$coef.crude,
+    
+    ## simulate
+    nw[["School"]] <- suppressWarnings(simulate(nw[["School"]],
+                                         formation = est[["School"]]$formation,
+                                         dissolution = est[["School"]]$coef.diss$dissolution,
+                                         coef.form = est[["School"]]$coef.form,
+                                         coef.diss = est[["School"]]$coef.diss$coef.crude,
                                          time.start = at,
                                          time.slices = 1,
                                          time.offset = 0,
                                          monitor = "all",
                                          output = "networkDynamic"))
     
-    ### Work
-    #### momentary degree (number of edges) of each node at school
+    # Simulate network for Work layer
+    ## momentary degree (number of edges) of each node at school
     deg_node_s <- 
-      as.numeric(summary(nw[[2]] ~ sociality(base = 0), at = at)
+      as.numeric(summary(nw[["School"]] ~ sociality(base = 0), at = at)
       )
-    #### assign the degree at school to work
-    nw[[3]] <- set.vertex.attribute(nw[[3]], attrname = "deg.x_layer", value = deg_node_s)
     
-    # add binarization here.
+    ## dichotomize momentary degree (number of edges) of each node at school into contact status
+    deg_bi_node_s <- 
+      ifelse(deg_node_s>0, yes=1, no=0)
     
-    nw[[3]] <- suppressWarnings(simulate(nw[[3]],
-                                         formation = est[[3]]$formation,
-                                         dissolution = est[[3]]$coef.diss$dissolution,
-                                         coef.form = est[[3]]$coef.form,
-                                         coef.diss = est[[3]]$coef.diss$coef.crude,
+    ## assign the contact status at school to work
+    nw[["Work"]] <- set.vertex.attribute(nw[["Work"]], attrname = "deg.x_layer", 
+                                    value = deg_bi_node_s)
+    
+    ## simulate
+    nw[["Work"]] <- suppressWarnings(simulate(nw[["Work"]],
+                                         formation = est[["Work"]]$formation,
+                                         dissolution = est[["Work"]]$coef.diss$dissolution,
+                                         coef.form = est[["Work"]]$coef.form,
+                                         coef.diss = est[["Work"]]$coef.diss$coef.crude,
                                          time.start = at,
                                          time.slices = 1,
                                          time.offset = 0,
@@ -129,5 +124,5 @@ sim_network <- function(
     cat("\n Step ", at, "/", nsteps)
   }
   
-  return(nw)
+  nw
 }
