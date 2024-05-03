@@ -1,3 +1,4 @@
+# Note: the purpose of this script is to calculate summary statistics
 
 ####### Characterization of network statistics for GlobalMix India Data #######
 

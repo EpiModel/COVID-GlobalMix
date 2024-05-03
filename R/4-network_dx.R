@@ -1,3 +1,4 @@
+# Note: the purpose of this script is to diagnose networks
 
 library("dplyr")
 library("EpiModel")

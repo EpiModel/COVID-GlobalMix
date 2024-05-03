@@ -1,4 +1,4 @@
-
+# Note: the purpose of this script is to simulate networks
 
 library(dplyr)
 library(EpiModel)
