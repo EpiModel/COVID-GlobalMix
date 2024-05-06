@@ -1,7 +1,9 @@
 # Note: the purpose of this script is to calculate target statistics
 
 # Characterization of nodal attributes and target statistics 
-library("dplyr")
+library(dplyr)
+library(tidyr)
+library(tibble)
 
 indiv_summary_stats <- readRDS("data/network_params/network_params.Rds") # load network parameters
 
