@@ -45,55 +45,20 @@ control.args <-
 # Sourcing function to estimate model
 source("R/est_nws.R")
 
-# Estimate model, based on stochastic approximation / MCMLE
-layers <- c("Home", "School", "Work", "Nonhome")
-networks <- c("Rural", "Urban")
-
-est_apch <- "sto_apoxy" # "sto_apoxy" or "mcmle"
-
-## Rural
-est_h_r <- 
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[1], site = networks[1], 
-          model_input_items = model_input_items)
-est_s_r <- 
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[2], site = networks[1],
-          model_input_items = model_input_items)
-est_w_r <- 
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[3], site = networks[1],
-          model_input_items = model_input_items)
-est_nh_r <- 
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[4], site = networks[1],
-          model_input_items = model_input_items)
-
-## Urban
-est_h_u <-
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[1], site = networks[2],
-          model_input_items = model_input_items)
-est_s_u <-
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[2], site = networks[2], 
-          model_input_items = model_input_items)
-est_w_u <-
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[3], site = networks[2],
-          model_input_items = model_input_items)
-est_nh_u <-
-  est_nws(control.arg=control.args[[est_apch]], layer = layers[4], site = networks[2],
-          model_input_items = model_input_items)
+est <- est_nws(
+  control.arg = control.args[[est_apch]],
+  layer = layer,
+  site = network,
+  model_input_items = model_input_items
+)
 
 # outputting estimation result of the 8 layers 
-file.name <- 
-  c(
-    paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[1],"__", est_apch, ".Rds"),
-    paste0("data/netest_outputs/netest_8_layers_", layers, "__", networks[2],"__", est_apch, ".Rds")
-  )
+file.name <- paste0(
+  "data/netest_outputs/netest_8_layers_",
+  layer, "__", network,"__", est_apch, ".Rds"
+)
 
-saveRDS(est_h_r,  file = file.name[1])
-saveRDS(est_s_r,  file = file.name[2])
-saveRDS(est_w_r,  file = file.name[3])
-saveRDS(est_nh_r,  file = file.name[4])
-saveRDS(est_h_u,  file = file.name[5])
-saveRDS(est_s_u,  file = file.name[6])
-saveRDS(est_w_u,  file = file.name[7])
-saveRDS(est_nh_u,  file = file.name[8])
+saveRDS(est,  file = file.name)
 
 
 
