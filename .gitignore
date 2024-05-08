@@ -49,6 +49,7 @@ data/age_dist_target_pop
 data/netdx_outputs/
 data/netest_outputs/
 data/netsim_outputs/
+data/network_stats_attributes/network_params.Rds
 data/participant_contact/
 
 
