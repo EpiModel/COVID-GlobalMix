@@ -6,11 +6,10 @@ suppressMessages(library("EpiModel"))
 suppressMessages(library("doParallel"))
 
 network <- Sys.getenv("NETWORK")
-if (network == "Rural") {
-  sim <- readRDS("data/netsim_outputs/sim___Rural__sto_apoxy.Rds")
-} else {
-  sim <- readRDS("data/netsim_outputs/sim___Urban__sto_apoxy.Rds")
-}
+
+file.name_in <- paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch, ".Rds")
+
+sim <- readRDS("data/netsim_outputs/sim___Rural__sto_apoxy.Rds")
 
 layer <- Sys.getenv("LAYER")
 if (layer == "Home") {
