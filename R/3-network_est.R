@@ -1,4 +1,8 @@
 # Note: the purpose of this script is to estimate networks
+# The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
+# layer = "Home"/"School"/"Work"/"Nonhome"
+# network = "Urban"/"Rural"
+# est_apch = "mcmle"/"sto-apoxy"
 
 library(dplyr)
 library(EpiModel)
@@ -6,10 +10,10 @@ library(tibble)
 
 # Loading data
 ## target statistics
-node_attribute_target_stats <- readRDS("data/network_params/node_attribute_target_stats__0.1.Rds")
+node_attribute_target_stats <- readRDS("data/network_stats_attributes/node_attribute_target_stats__0.1.Rds")
 
 ## summary statistics, provides duration of contacts
-netstats <- readRDS("data/network_params/network_params.Rds")
+netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
 
 ############## Define items which will be read by netest  ##############
 source("R/model_inputs.R")

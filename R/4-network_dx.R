@@ -1,4 +1,8 @@
 # Note: the purpose of this script is to diagnose networks
+# The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
+# layer = "Home"/"School"/"Work"/"Nonhome"
+# network = "Urban"/"Rural"
+# est_apch = "mcmle"/"sto-apoxy"
 
 library("dplyr")
 library("EpiModel")

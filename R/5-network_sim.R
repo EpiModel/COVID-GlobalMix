@@ -1,4 +1,8 @@
-# Note: the purpose of this script is to simulate networks
+# Note: the purpose of this script is to simulate networks from the 4 layers of each network
+# The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
+# network = "Urban"/"Rural"
+# est_apch = "mcmle"/"sto-apoxy"
+
 library(dplyr)
 library(EpiModel)
 
@@ -27,7 +31,7 @@ initial_attr <- readRDS("data/network_params/node_attribute_target_stats__0.1.Rd
 # Dynamic network simulation
 ## Load function for dynamic network simulation
 source("R/sim_network.R") 
-## Simulate rural network
+## Simulate network
 nw_sim <- sim_network(est = ests, nsteps = 3)
 
 
