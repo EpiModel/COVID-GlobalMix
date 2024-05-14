@@ -2,7 +2,7 @@
 # The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
 # layer = "Home"/"School"/"Work"/"Nonhome"
 # network = "Urban"/"Rural"
-# est_apch = "mcmle"/"sto-apoxy"
+# est_apch = "mcmle"/"sto_apoxy"
 
 library(dplyr)
 library(EpiModel)

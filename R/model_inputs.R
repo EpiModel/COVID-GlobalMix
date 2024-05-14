@@ -79,19 +79,11 @@ nmix_tar_lex <-
 #### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("deg.work", levels =-1)
 formula_tarstats <- 
   function(layer, 
-           site,
-           form_model 
+           form_model,
+           target_nmix_vec,
+           x_layer,
+           dissolution
   ){
-    
-    if (site == "Rural"){ # 
-      target_nmix_vec <- target_nmix_vec_rural
-      x_layer <- attri_tarstats$targetstats_x.layer$rural
-      
-    } else{
-      target_nmix_vec <- target_nmix_vec_urban
-      x_layer <- attri_tarstats$targetstats_x.layer$urban
-    }
-    
     
     if (layer == "School"){ # if the main layer of interest is school
       x_layer <-  x_layer %>% filter(association =="s_by_w")
@@ -155,7 +147,7 @@ formula_tarstats <-
       ){ 
         # For school and work, we used the durations calculated from the query
         dissolution_coefs(dissolution = ~offset(edges), 
-                          duration = dissolution %>% filter(study_site ==site & contact_location == layer) %>% pull(know_contact_duration)
+                          duration = dissolution %>% filter(contact_location == layer) %>% pull(know_contact_duration)
         )
       } else {}
     
@@ -204,14 +196,18 @@ model_inputs <- function(attri_tarstats, dissolution){
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
-        site ="Rural" 
+        target_nmix_vec=target_nmix_vec_rural,
+        x_layer = attri_tarstats$targetstats_x.layer$rural,
+        dissolution = dissolution  %>% filter(study_site =="Rural")
       )
     
     formula_tarstats_urban[[i]] <- 
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
-        site ="Urban"
+        target_nmix_vec = target_nmix_vec_urban,
+        x_layer = attri_tarstats$targetstats_x.layer$urban,
+        dissolution = dissolution  %>% filter(study_site =="Urban")
       )
     
   }
