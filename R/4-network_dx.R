@@ -2,14 +2,14 @@
 # The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
 # layer = "Home"/"School"/"Work"/"Nonhome"
 # network = "Urban"/"Rural"
-# est_apch = "mcmle"/"sto-apoxy"
+# est_apch = "mcmle"/"sto_apoxy"
 
 library("dplyr")
 library("EpiModel")
 
 
 file.name_in <- 
-    paste0("data/netest_outputs/netest_8_layers_", layer, "__", network,"__", est_apch, ".Rds")
+    paste0("data/netest_outputs/netest_", layer, "__", network,"__", est_apch, ".Rds")
   
 est  <- 
   readRDS(file.name_in) 
@@ -18,8 +18,7 @@ est  <-
 source("R/layers_dx.R")
 
 dx <- 
-layers_dx(est_nws = est, 
-          nw = network, # can be "Rural" / "Urban"
+layers_dx(est_nw = est, 
           layer = layer
           )
 

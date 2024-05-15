@@ -33,10 +33,11 @@
 .Renviron
 .Rproj
 .DS_Store
-data/input/est.*
+data/raw_data/
 
-# Old scripts
+# scripts
 R/old_scripts/
+R/testing/
 
 # miscellaneous things
 miscellaneous/
@@ -50,7 +51,7 @@ data/netdx_outputs/
 data/netest_outputs/
 data/netsim_outputs/
 data/network_stats_attributes/network_params.Rds
-data/participant_contact/
+data/raw_data/
 
 
 

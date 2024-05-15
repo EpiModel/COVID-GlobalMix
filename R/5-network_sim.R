@@ -10,7 +10,7 @@ library(EpiModel)
 layers <- c("Home", "School", "Work", "Nonhome")
 
 file.name_in <- 
-    paste0("data/netest_outputs/netest_8_layers_", layers, "__", network,"__", est_apch, ".Rds")
+    paste0("data/netest_outputs/netest_", layers, "__", network,"__", est_apch, ".Rds")
 
 ests <- list()
 
@@ -25,7 +25,7 @@ ests$Nonhome <-
 
 
 # nodal attribute
-initial_attr <- readRDS("data/network_stats_attributes/node_attribute_target_stats__0.1.Rds")
+#initial_attr <- readRDS("data/network_stats_attributes/node_attribute_target_stats__0.1.Rds")
 
 
 # Dynamic network simulation

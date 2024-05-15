@@ -58,7 +58,7 @@ est <- est_nws(
 
 # outputting estimation result of the 8 layers 
 file.name <- paste0(
-  "data/netest_outputs/netest_8_layers_",
+  "data/netest_outputs/netest_",
   layer, "__", network,"__", est_apch, ".Rds"
 )
 

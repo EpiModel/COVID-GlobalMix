@@ -37,13 +37,13 @@ library("GGally")
 
 ## participant data
 india_participant <- 
-  readRDS("data/participant_contact/india_participant_data_aim1.RDS")
+  readRDS("data/raw_data/india_participant_data_aim1.RDS")
 
 
 
 ## contact data 
 india_contact <- 
-  readRDS("data/participant_contact/india_contact_data_aim1.RDS")
+  readRDS("data/raw_data/india_contact_data_aim1.RDS")
 
 table(india_contact$hh_membership, india_contact$study_site )
 
@@ -293,4 +293,4 @@ network_stats$formation <- list(formation_stats_rural=formation_stats_rural, for
 
 network_stats$dissolution <- known_dur_school_work 
 
-saveRDS(network_stats, file = "data/network_params/network_params.Rds")
+saveRDS(network_stats, file = "data/network_stats_attributes/network_params.Rds")
