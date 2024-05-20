@@ -32,7 +32,7 @@ ests$Nonhome <-
 ## Load function for dynamic network simulation
 source("R/sim_network.R") 
 ## Simulate network
-nw_sim <- sim_network(est = ests, nsteps = 3)
+nw_sim <- sim_network(est = ests, nsteps = 365)
 
 
 

@@ -35,9 +35,9 @@ sim_network <- function(
     )
     ## reassign continuous and categorical age to the nodal attribute of the 4 layers
     for (i in 1:4) {
-      nw[[i]] <- set.vertex.attribute(nw[[i]], attrname = "age" , 
+      nw[[i]] <- set_vertex_attribute(nw[[i]], attrname = "age" , 
                                       value =age)
-      nw[[i]] <- set.vertex.attribute(nw[[i]], attrname = "age.grp", 
+      nw[[i]] <- set_vertex_attribute(nw[[i]], attrname = "age.grp", 
                                       value =age.grp)
     }
     
@@ -78,7 +78,7 @@ sim_network <- function(
       ifelse(deg_node_w>0, yes=1, no=0)
 
     ## assign the contact status at work to school
-    nw[["School"]] <- set.vertex.attribute(nw[["School"]], attrname = "deg.x_layer" , 
+    nw[["School"]] <- get_degree(nw[["School"]], attrname = "deg.x_layer" , 
                                     value =deg_bi_node_w # this is contact status at nonhome layer 
     )
     
@@ -97,7 +97,7 @@ sim_network <- function(
     # Simulate network for Work layer
     ## momentary degree (number of edges) of each node at school
     deg_node_s <- 
-      as.numeric(summary(nw[["School"]] ~ sociality(base = 0), at = at)
+      as.numeric(get_degree(nw[["School"]] ~ sociality(base = 0), at = at)
       )
     
     ## dichotomize momentary degree (number of edges) of each node at school into contact status
@@ -105,7 +105,7 @@ sim_network <- function(
       ifelse(deg_node_s>0, yes=1, no=0)
     
     ## assign the contact status at school to work
-    nw[["Work"]] <- set.vertex.attribute(nw[["Work"]], attrname = "deg.x_layer", 
+    nw[["Work"]] <- set_vertex_attribute(nw[["Work"]], attrname = "deg.x_layer", 
                                     value = deg_bi_node_s)
     
     ## simulate

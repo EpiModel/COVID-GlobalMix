@@ -29,13 +29,16 @@ if (layer == "Home") {
   sim_work <- sim[["Work"]]
   sim_nonhome <- sim[["Nonhome"]]
   
-  # adding contact statuses of all layers to a single netowrkDynamic item
-  sim_all <- sim_home
-  sim_school_df <- as.data.frame(sim_school)
-  sim_work_df <- as.data.frame(sim_work)
-  sim_nonhome_df <- as.data.frame(sim_nonhome)
-
   
+  sim_all <- sim_home
+  # Exporting the edge dynamics of layers other than home as dataframes
+  ## Note: "onset" and "terminus" mean times that an edge starts and ends
+  ## "tail" and "head" meaning the tail and head of the edge, by node/vertex's identifier
+  sim_school_df <- as.data.frame.networkDynamic(sim_school)
+  sim_work_df <- as.data.frame.networkDynamic(sim_work)
+  sim_nonhome_df <- as.data.frame.networkDynamic(sim_nonhome)
+
+  # For each node, add edges of the School, Work, and Nonhome layers to the Home layer, and then return it as a networkDynamic item containing edges at all layers for each node
   sim_all <- add.edges.active(sim_all, tail = sim_school_df[["tail"]], head = sim_school_df[["head"]],
                               onset = sim_school_df[["onset"]], terminus = sim_school_df[["terminus"]]
                               )
@@ -55,20 +58,24 @@ sim
 
 
 
-tp <- tsna::tPath(sim, 
-                  v = 1, # integer id of the vertex as starting point of searching the FRP
+tp <- tsna::tPath(nd=sim, # networkDynamic object to be search for the FRP
+                  v = 1, # integer identifier of node/vertex as starting point of searching the FRP
                   start = 1, # time at which to beginning searching
-                  end = 2, # time to end searching
+                  end = 365, # time to end searching
                   direction = "fwd" # searching forward in time and along edge directions
                   )
 
+tp[["tdist"]] %>% summary() # the earliest temporal distance is 0/Inf
+tp[["previous"]] # previous vertx long the FRP
+tp[["gsteps"]] %>% hist() # For urban network, the most common step to vertex 1 is ~40
+ 
 plotPaths(sim,
           tp,
-          label.cex=0.5)
+          label.cex=0.1)
 
 
 
-
+## The following is Emili's script for calculating FRP of the whole population
 # simset <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID")
 #                      )
 # 

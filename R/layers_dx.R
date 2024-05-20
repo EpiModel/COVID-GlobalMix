@@ -10,7 +10,7 @@ layers_dx <-
               nsteps = 1000,
               nwstats.formula = est_nw$formation,
               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-              set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
+              set.control.tergm = control.simulate.formula.tergm(MCMC.maxchanges = 1e7),
               dynamic = TRUE,
               skip.dissolution = FALSE
               #keep.tedgelist = TRUE
