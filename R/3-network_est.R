@@ -3,14 +3,28 @@
 # layer = "Home"/"School"/"Work"/"Nonhome"
 # network = "Urban"/"Rural"
 # est_apch = "mcmle"/"sto_apoxy"
+# percent_target_pop = 0.1/0.4/1
 
-library(dplyr)
-library(EpiModel)
-library(tibble)
+# Packages
+rm(list = ls())
+suppressMessages(library(dplyr)
+                 )
+suppressMessages(library(EpiModel)
+                 )
+suppressMessages(library(tibble)
+)
+
+
+# Inputs
+layer <- Sys.getenv("layer")
+network <- Sys.getenv("network")
+est_apch <- Sys.getenv("est_apch")
+percent_target_pop <- Sys.getenv("percent_target_pop")
 
 # Loading data
 ## target statistics
-node_attribute_target_stats <- readRDS("data/network_stats_attributes/node_attribute_target_stats__0.1.Rds")
+node_attribute_target_stats <- 
+  readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", percent_target_pop, ".Rds"))
 
 ## summary statistics, provides duration of contacts
 netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
