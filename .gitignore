@@ -48,7 +48,6 @@ data/network_params/corp_mix_deg/
 data/age_dist_target_pop
 ## Rds files
 data/netdx_outputs/
-data/netest_outputs/
 data/netsim_outputs/
 data/network_stats_attributes/network_params.Rds
 data/raw_data/
