@@ -33,7 +33,6 @@
 .Renviron
 .Rproj
 .DS_Store
-data/raw_data/
 
 # scripts
 R/old_scripts/
