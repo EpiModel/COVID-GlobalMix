@@ -1,3 +1,3 @@
 #!/bin/bash
 
-sbatch -p preemptable --job-name=r_s_mcmle_pt4 --export=ALL,network="Rural",layer="School",est_apch="mcmle",percent_target_pop="0.4" R/runest.sh
+sbatch -p epimodel --job-name=r_h_sa_pt4 --export=ALL,network="Rural",layer="Home",est_apch=“sto_apoxy",percent_target_pop="0.4" R/runest.sh

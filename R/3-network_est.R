@@ -53,6 +53,7 @@ control.args <-
         MCMLE.maxit = 500,
         MCMC.samplesize = 1e4,
         MCMC.interval = 5e3,
+       # SAN.maxit = 20, SAN.nsteps.times = 20,
         parallel = 1
       )
   )
