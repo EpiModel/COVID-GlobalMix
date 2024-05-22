@@ -43,10 +43,6 @@ R/testing/
 miscellaneous/
 
 # Data won't be committed to GitHub
-data/network_params/corp_mix_deg/
-## Word file
-data/age_dist_target_pop
-## Rds files
 data/netdx_outputs/
 data/netsim_outputs/
 data/network_stats_attributes/network_params.Rds
