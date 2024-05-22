@@ -7,13 +7,10 @@
 
 # Packages
 rm(list = ls())
-suppressMessages(library(dplyr)
-                 )
-suppressMessages(library(EpiModel)
-                 )
-suppressMessages(library(tibble)
-)
-
+suppressMessages(library(dplyr))
+suppressMessages(library(EpiModel))
+suppressMessages(library(tibble))
+suppressMessages(library(fs))
 
 # Inputs
 layer <- Sys.getenv("layer")
@@ -75,6 +72,10 @@ file.name <- paste0(
   "data/netest_outputs/netest_",
   layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
 )
+
+# The following script is for github, which does not read an folder if its empty
+out_dir <- "data/netest_outputs"
+if (!dir_exists(out_dir)) dir_create(out_dir)
 
 saveRDS(est,  file = file.name)
 
