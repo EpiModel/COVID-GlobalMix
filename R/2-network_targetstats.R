@@ -14,4 +14,3 @@ output <- node_attrib_target_pop(netstats = indiv_summary_stats, pct_target_pop 
 file.name <-  paste0("data/network_stats_attributes/node_attribute_target_stats", "__", pct, ".Rds")
 saveRDS(output, file = file.name) 
 
-

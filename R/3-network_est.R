@@ -73,7 +73,7 @@ est <- est_nws(
 # outputting estimation result of the 8 layers 
 file.name <- paste0(
   "data/netest_outputs/netest_",
-  layer, "__", network,"__", est_apch, ".Rds"
+  layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
 )
 
 saveRDS(est,  file = file.name)
