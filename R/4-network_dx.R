@@ -11,6 +11,13 @@ suppressMessages(library(dplyr))
 suppressMessages(library(EpiModel))
 suppressMessages(library(fs))
 
+# Inputs
+layer <- Sys.getenv("layer")
+network <- Sys.getenv("network")
+est_apch <- Sys.getenv("est_apch")
+percent_target_pop <- Sys.getenv("percent_target_pop")
+
+# Loading data
 file.name_in <- 
     paste0("data/netest_outputs/netest_", 
            layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
