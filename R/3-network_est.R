@@ -68,13 +68,13 @@ est <- est_nws(
   model_input_items = model_input_items
 )
 
-# outputting estimation result of the 8 layers 
+# Outputting estimation result the single layer 
 file.name <- paste0(
   "data/netest_outputs/netest_",
   layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
 )
 
-# The following script is for github, which does not read an folder if its empty
+# The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
 out_dir <- "data/netest_outputs"
 if (!dir_exists(out_dir)) dir_create(out_dir)
 
