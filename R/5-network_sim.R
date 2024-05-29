@@ -10,7 +10,9 @@ library(EpiModel)
 layers <- c("Home", "School", "Work", "Nonhome")
 
 file.name_in <- 
-    paste0("data/netest_outputs/netest_", layers, "__", network,"__", est_apch, ".Rds")
+    paste0("data/netest_outputs/netest_",
+           layers, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
+           )
 
 ests <- list()
 
@@ -37,7 +39,7 @@ nw_sim <- sim_network(est = ests, nsteps = 365)
 
 
 file.name_out <- 
-    paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch, ".Rds")
+    paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
 
 

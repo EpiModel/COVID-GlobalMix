@@ -1,0 +1,40 @@
+
+R version 4.1.2 (2021-11-01) -- "Bird Hippie"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+Observed statistic(s) mix.age.grp.40-59y.40-59y, mix.age.grp.0-9y.60+y, mix.age.grp.10-19y.60+y, mix.age.grp.20-29y.60+y, mix.age.grp.30-39y.60+y, mix.age.grp.40-59y.60+y, and mix.age.grp.60+y.60+y are at their smallest attainable values. Their coefficients will be fixed at -Inf.
+Unable to match target stats. Using MCMLE estimation.
+Starting maximum pseudolikelihood estimation (MPLE):
+Obtaining the responsible dyads.
+Evaluating the predictor and response matrix.
+Maximizing the pseudolikelihood.
+Finished MPLE.
+Starting Monte Carlo maximum likelihood estimation (MCMLE):
+Iteration 1 of at most 500:
+Warning: ‘glpk’ selected as the solver, but package ‘Rglpk’ is not available; falling back to ‘lpSolveAPI’. This should be fine unless the sample size and/or the number of parameters is very big.
+Optimizing with step length 0.0144.
+The log-likelihood improved by 147.7588.
+Estimating equations are not within tolerance region.
+Iteration 2 of at most 500:
+Error in ergm.MCMLE(init, s, s.obs, control = control, verbose = verbose,  : 
+  Number of edges in a simulated network exceeds that in the observed by a factor of more than 20. This is a strong indicator of model degeneracy or a very poor starting parameter configuration. If you are reasonably certain that neither of these is the case, increase the MCMLE.density.guard control.ergm() parameter.
+Calls: est_nws -> netest -> ergm -> ergm.fit -> ergm.MCMLE
+In addition: Warning message:
+In mple.existence(pl) : The MPLE does not exist!
+Execution halted

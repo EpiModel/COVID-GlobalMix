@@ -33,6 +33,7 @@ sim_network <- function(
                           age>= 40 & age<=60 ~ "40-59y",
                           age>= 60  ~ "60+y",
     )
+    
     ## reassign continuous and categorical age to the nodal attribute of the 4 layers
     for (i in 1:4) {
       nw[[i]] <- set_vertex_attribute(nw[[i]], attrname = "age" , 
@@ -65,20 +66,20 @@ sim_network <- function(
                                          monitor = "all",
                                          output = "networkDynamic"))
     
-    # Note: for the following School & Work, we use the binary contact status (0-no contact [momentary degree =0], 1-have contact [momentary degree >0]) of the interacting layer as the nodal attribute for the main layer 
+    # Note: for the following School & Work, we use the binary contact status (0-no contact [momentary degree =0], 1-have contact [momentary degree >0]) of the interacting layer as the nodal attribute for the layer of interest 
     
     # Simulate network for School layer 
     ## momentary degree (number of edges) of each node at work
-    deg_node_w <- 
-      as.numeric(summary(nw[["Work"]] ~ sociality(base = 0), at = at)
-      )
+    deg_node_w <-  get_degree(nw[["Work"]])
+      # as.numeric(summary(nw[["Work"]] ~ sociality(base = 0), at = at)
+      # )
     
     ## dichotomize momentary degree (number of edges) of each node at work into contact status
     deg_bi_node_w <- 
       ifelse(deg_node_w>0, yes=1, no=0)
 
     ## assign the contact status at work to school
-    nw[["School"]] <- get_degree(nw[["School"]], attrname = "deg.x_layer" , 
+    nw[["School"]] <- set_vertex_attribute(nw[["School"]], attrname = "deg.x_layer" , 
                                     value =deg_bi_node_w # this is contact status at nonhome layer 
     )
     
@@ -96,9 +97,8 @@ sim_network <- function(
     
     # Simulate network for Work layer
     ## momentary degree (number of edges) of each node at school
-    deg_node_s <- 
-      as.numeric(get_degree(nw[["School"]] ~ sociality(base = 0), at = at)
-      )
+    deg_node_s <- get_degree(nw[["School"]])
+  
     
     ## dichotomize momentary degree (number of edges) of each node at school into contact status
     deg_bi_node_s <- 
