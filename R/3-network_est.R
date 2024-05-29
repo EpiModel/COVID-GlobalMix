@@ -26,9 +26,14 @@ node_attribute_target_stats <-
 ## summary statistics, provides duration of contacts
 netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
 
-############## Recode very low degree at urban school layer to 0  ##############
+############## Recode low degree at school layer to 0  ##############
+# For urban school layer the low values were <0.01, this threshold is used for the re-coding
 node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School[
   node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School <0.01] <- 0
+
+# For rural school layer the low values were <10, this threshold is used for the re-coding
+node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School[
+  node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School <10] <- 0
 
 ############## Define items which will be read by netest  ##############
 source("R/model_inputs.R")
