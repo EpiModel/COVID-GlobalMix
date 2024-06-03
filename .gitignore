@@ -36,7 +36,8 @@
 
 # scripts
 R/old_scripts/
-R/testing/
+R/testing/06.tsna.R
+R/testing/utils-frp.R
 
 # miscellaneous things
 miscellaneous/
