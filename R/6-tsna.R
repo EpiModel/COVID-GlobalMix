@@ -63,51 +63,68 @@ sim
 
 
 
-tp <- tsna::tPath(nd=sim, # networkDynamic object to be search for the FRP
-                  v = 1, # integer identifier of node/vertex as starting point of searching the FRP
-                  start = 1, # time at which to beginning searching
-                  end = 365, # time to end searching
-                  direction = "fwd" # searching forward in time and along edge directions
-                  ) # this is for calculating the FRP of single node using tPath
-
-tp[["tdist"]] %>% summary() # the earliest temporal distance is 0/Inf
-tp[["previous"]] # previous vertx long the FRP
-tp[["gsteps"]] %>% hist() # For urban network, the most common step to vertex 1 is ~40
- 
-plotPaths(sim,
-          tp,
-          label.cex=0.1)
-
-get_all_frp <- function(net, from = 1, to) {
+get_all_frp <- 
+  function(  ## are Billy's understanding; Q: is the question Billy has
+    net, ## networkDynamic item
+    from = 1, ## the starting time point of the FRP
+    to ## the ending time point of the FRP
+    ) {
+  ## number of time intervals in the network; Q: How this was defined? 
   last_obs <- length(net$gal$net.obs.period$observations)
-  to <- if (to > last_obs) last_obs else to
-  n_steps <- to - from + 1
+  
+  ## If the FRP's ending time point is more than the number of time interval of the network, we calculate the FRP until the network's ending time interval
+  ## If the FRP's ending time point is less than the number of time interval of the network, we calculate the FRP until the specified FRP's ending time point
+  to <- if (to > last_obs) last_obs else to 
+  ## Defining number to time steps for the FRP. i.e., number of FRP's time intervals + 1
+  n_steps <- to - from + 1 
+  ## Number of nodes in the network
   n_nodes <- net$gal$n
   
   # nolint start
-  onset <- terminus <- head <- tail <- NULL
+  ## Defining empty items
+  onset <- 
+    terminus <- 
+    head <- 
+    tail <- NULL
+  
+  ## Save the starting (onset), ending (terminus), node ID of the tail and head to a data frame
   df_net <- dplyr::select(
     as.data.frame(net),
     onset, terminus, head, tail
   )
+  
   # nolint end
   # the initial FRP contains only the vertex itself
+  ## Create a list, each element is for a node
   frp_cur <- as.list(seq_len(n_nodes))
+  ## Create a large matrix, whose number of column = FRP's time steps + 1 (for FRP's identifier [1,2,...]) and number of row = total number of nodes
   frp_parts <- matrix(list(numeric(0)), ncol = n_steps + 1, nrow = n_nodes)
+  
+  ## Assign the FRP's identifier to the first column of the matrix
   frp_parts[, 1] <- frp_cur
   
+  ## Present progress of the FRP calculation
   p <- progressr::progressor(n_steps)
+  
+  ## For each time step, the following is iterated
   for (t in seq_len(n_steps)) {
+    ## Progress tracking
     p()
+    ## Defining number of time steps for the FRP
     cur_step <- t + from - 1
     
     # creation of a `connection` list of vectors
     # for each vertex 1:n_nodes we get a vector of the vertices it connects to
+    ## Define an empty list of vector, with each element for a node
     connected <- vector(mode = "list", length = n_nodes)
     # nolint start
+    ## Filter out the edges whose onset time is earlier and ending time is later than the FRP's time step
     el_t <- dplyr::filter(df_net, onset <= cur_step, terminus > cur_step)
+    ## For the filtered edges, retrieve the head and trail information
     el_t <- dplyr::select(el_t, head, tail)
     # nolint end
+    ## For each edge from "el_t", assign the node ID of the other side of the edge to the corresponding side in the "connected" list. 
+    ## The output of this for loop is the "connected" list containing the nodes that an initial node (in each row) sequentially connected to for a single time step "t"
     for (i in seq_len(nrow(el_t))) {
       e_head <- el_t$head[i]
       e_tail <- el_t$tail[i]
@@ -121,11 +138,12 @@ get_all_frp <- function(net, from = 1, to) {
     # nodes in the FRP
     # the while loop is to include the nodes that are connected to the FRP through
     # a node added this step
-    frp_new <- lapply(
-      frp_cur,
+    frp_new <- lapply( ## For each element (i.e., frp_cur[i,j]) in frp_cur, apply the function - frp_cur is read as frp_v in the function
+      frp_cur, ## FRP at time t
       function(frp_v) {
         only_new <- numeric(0)
         new <- frp_v
+        ## When edges exist at time t AND ??? Q: what does "length(frp_v) < n_nodes" mean?
         while (length(new) > 0 & length(frp_v) < n_nodes) {
           new <- unlist(connected[new])
           new <- setdiff(new, frp_v)
@@ -136,6 +154,7 @@ get_all_frp <- function(net, from = 1, to) {
       }
     )
     
+    ## For each node, combine the FRP at t-1 (frp_cur) and new path at t, which is the FRP at t
     frp_cur <- Map(c, frp_cur, frp_new)
     frp_parts[, t + 1] <- frp_new
   }
@@ -145,17 +164,25 @@ get_all_frp <- function(net, from = 1, to) {
 
  
 progressr::with_progress(
-{test <-get_all_frp(net = sim, to =3)}  
+{test <-get_all_frp(net = sim, to =2)}  
 )
   
 # Get FRP from node 10.
-unlist(test[10, seq_len(2)])  # node at 10 has contact with, 1st time step
+unlist(test[10, seq_len(2)])  # node 10 has contact with at t == 1
 
 # Get the length of the FRPs for each node at each timestep
-frp_parts_length <- apply(test, c(1, 2), function(x) length(x[[1]]))
+## Interpretation of the below result: 
+## For primary contact the node had contact with most other nodes in the network, and the number of contact is homogeneous (11756). 
+## For secondary contact, Except for 3 nodes without any contact, the number of secondary contact is 21.
+frp_parts_length <- apply(test, c(1, 2), function(x) length(x[[1]])) 
 
-frp_lengths <- t(apply(frp_parts_length , 1,cumsum)) # 20240531 reach here. The next step is to get into the function.
-# 
+table(rowSums(frp_parts_length))
+
+frp_lengths <- t(apply(frp_parts_length , 1,cumsum)) 
+
+## Question should the from_ts be 1 instead of 100 in the example?
+ # testing the results against tPath
+
  
       
 
