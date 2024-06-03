@@ -1,20 +1,25 @@
 # Note: the purpose of this script is to conduct temporal social network analysis
 # The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
-# network = "Urban"/"Rural"
-# est_apch = "mcmle"/"sto_apoxy"
-# layer = "Home"/"School"/"Work"/"Nonhome"/"all", where "all" means all 4 layers
+# network = "Rural"/"Urban"/
+# est_apch = "sto_apoxy"/"mcmle"/
+# layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, where "ALL" means all 4 layers
+# percent_target_pop = 0.1/0.4/1
 
-suppressMessages(library("tsna"))
-suppressMessages(library("EpiModel"))
-suppressMessages(library("doParallel"))
+# Packages
+rm(list = ls())
+suppressMessages(library(tsna))
+suppressMessages(library(EpiModel))
+suppressMessages(library(doParallel))
+suppressMessages(library(fs))
 
-network <- Sys.getenv("NETWORK")
+# Inputs
+network <- Sys.getenv("network")
+est_apch <- Sys.getenv("est_apch")
+percent_target_pop <- Sys.getenv("percent_target_pop")
 
-file.name_in <- paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch, ".Rds")
+# Loading data
+sim <- readRDS(paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch, ".Rds"))
 
-sim <- readRDS(file.name_in)
-
-layer <- Sys.getenv("LAYER")
 if (layer == "Home") {
   sim <- sim[["Home"]]
 } else if (layer == "School") {
@@ -63,7 +68,7 @@ tp <- tsna::tPath(nd=sim, # networkDynamic object to be search for the FRP
                   start = 1, # time at which to beginning searching
                   end = 365, # time to end searching
                   direction = "fwd" # searching forward in time and along edge directions
-                  )
+                  ) # this is for calculating the FRP of single node using tPath
 
 tp[["tdist"]] %>% summary() # the earliest temporal distance is 0/Inf
 tp[["previous"]] # previous vertx long the FRP
@@ -73,45 +78,98 @@ plotPaths(sim,
           tp,
           label.cex=0.1)
 
+get_all_frp <- function(net, from = 1, to) {
+  last_obs <- length(net$gal$net.obs.period$observations)
+  to <- if (to > last_obs) last_obs else to
+  n_steps <- to - from + 1
+  n_nodes <- net$gal$n
+  
+  # nolint start
+  onset <- terminus <- head <- tail <- NULL
+  df_net <- dplyr::select(
+    as.data.frame(net),
+    onset, terminus, head, tail
+  )
+  # nolint end
+  # the initial FRP contains only the vertex itself
+  frp_cur <- as.list(seq_len(n_nodes))
+  frp_parts <- matrix(list(numeric(0)), ncol = n_steps + 1, nrow = n_nodes)
+  frp_parts[, 1] <- frp_cur
+  
+  p <- progressr::progressor(n_steps)
+  for (t in seq_len(n_steps)) {
+    p()
+    cur_step <- t + from - 1
+    
+    # creation of a `connection` list of vectors
+    # for each vertex 1:n_nodes we get a vector of the vertices it connects to
+    connected <- vector(mode = "list", length = n_nodes)
+    # nolint start
+    el_t <- dplyr::filter(df_net, onset <= cur_step, terminus > cur_step)
+    el_t <- dplyr::select(el_t, head, tail)
+    # nolint end
+    for (i in seq_len(nrow(el_t))) {
+      e_head <- el_t$head[i]
+      e_tail <- el_t$tail[i]
+      connected[[e_head]] <- c(connected[[e_head]], e_tail)
+      connected[[e_tail]] <- c(connected[[e_tail]], e_head)
+    }
+    
+    # PERF: bottleneck is here
+    # frp_v is the current frp for vertex v at timestep t - 1
+    # we add to it all the nodes that have edges at timestep t with any of the
+    # nodes in the FRP
+    # the while loop is to include the nodes that are connected to the FRP through
+    # a node added this step
+    frp_new <- lapply(
+      frp_cur,
+      function(frp_v) {
+        only_new <- numeric(0)
+        new <- frp_v
+        while (length(new) > 0 & length(frp_v) < n_nodes) {
+          new <- unlist(connected[new])
+          new <- setdiff(new, frp_v)
+          frp_v <- c(frp_v, new)
+          only_new <- c(only_new, new)
+        }
+        only_new
+      }
+    )
+    
+    frp_cur <- Map(c, frp_cur, frp_new)
+    frp_parts[, t + 1] <- frp_new
+  }
+  
+  return(frp_parts)
+}
+
+ 
+progressr::with_progress(
+{test <-get_all_frp(net = sim, to =3)}  
+)
+  
+# Get FRP from node 10.
+unlist(test[10, seq_len(2)])  # node at 10 has contact with, 1st time step
+
+# Get the length of the FRPs for each node at each timestep
+frp_parts_length <- apply(test, c(1, 2), function(x) length(x[[1]]))
+
+frp_lengths <- t(apply(frp_parts_length , 1,cumsum)) # 20240531 reach here. The next step is to get into the function.
+# 
+ 
+      
 
 
-## The following is Emili's script for calculating FRP of the whole population
-# simset <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID")
-#                      )
-# 
-# batchSize <- 25
-# v <- ((batchSize*simset) - (batchSize - 1)):(batchSize*simset)
-# 
-# int <- as.numeric(Sys.getenv("INT"))
-# ts <- seq(1, 260, int)
-# 
-# f <- function(layer, v, ts) {
-#   m <- array(NA, dim = c(length(ts), length(v), 5))
-#   for (jj in 1:length(v)) {
-#     for (ii in 1:length(ts)) {
-#       tp <- tsna::tPath(sim, v = v[jj], start = 1, end = ts[ii], direction = "fwd")
-#       # forward reachable path
-#       m[ii, jj, 1] <- sum(tp$tdist < Inf)
-#       # median temporal distance
-#       m[ii, jj, 2] <- median(tp$tdist[tp$tdist < Inf])
-#       # median geodesic steps
-#       m[ii, jj, 3] <- median(tp$gsteps[tp$gsteps < Inf])
-#       # cross-sectional degree
-#       m[ii, jj, 4] <- EpiModel::get_degree(network.collapse(sim, at = ts[ii]))[v[jj]]
-#       # cumulative degree
-#       m[ii, jj, 5] <- EpiModel::get_degree(network.collapse(sim, onset = 1, terminus = ts[[ii]]))[v[jj]]
-#       # betweenness centrality
-#       # m[ii, jj, 6] <- sna::betweenness(network.collapse(sim, at = ts[ii]), nodes = v[jj])
-#     }
-#   }
-#   return(m)
-# }
-# 
-# registerDoParallel(parallel::detectCores())
-# out <- foreach(vv = 1:length(v)) %dopar% {
-#   f(sim, v[vv], ts)
-# }
-# df <- do.call("cbind", out)
-# 
-# fn <- paste(network, layer, int, stringr::str_pad(simset, 3, pad = "0"), "rda", sep = ".")
-# save(df, file = paste0("data/", fn))
+# Outputting estimation result for the network 
+file.name <- paste0(
+  "data/frp_outputs/frp_",
+   network,"__", est_apch,"__", percent_target_pop, ".Rds"
+)
+
+# The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
+out_dir <- "data/frp_outputs"
+if (!dir_exists(out_dir)) dir_create(out_dir)
+
+
+frp_r <- saveRDS(file.name)
+
