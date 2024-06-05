@@ -69,6 +69,10 @@ dx_s_u_dyna_f <-
         skip.dissolution = FALSE
         #keep.tedgelist = TRUE
   )
+
+
+par(mfrow=c(2,1))
+plot(dx_s_u)
 plot(dx_s_u_dyna_f)
 
 ## Compare with input target statistics for urban school layer
