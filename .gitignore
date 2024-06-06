@@ -49,6 +49,7 @@ data/netsim_outputs/
 data/network_stats_attributes/network_params.Rds
 data/raw_data/
 data/frp_outputs/
+#workflow/
 
 
 

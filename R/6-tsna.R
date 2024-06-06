@@ -64,12 +64,12 @@ sim
 
 
 get_all_frp <- 
-  function(  ## are Billy's understanding; Q: is the question Billy has
+  function(  ## Question: go through the script w/ Adrien to check Billy's understanding
     net, ## networkDynamic item
-    from = 1, ## the starting time point of the FRP
+    from = 1, ## the starting time point of the FRP search
     to ## the ending time point of the FRP
     ) {
-  ## number of time intervals in the network; Q: How this was defined? 
+  ## number of time intervals in the network; Question: How this was defined? 
   last_obs <- length(net$gal$net.obs.period$observations)
   
   ## If the FRP's ending time point is more than the number of time interval of the network, we calculate the FRP until the network's ending time interval
@@ -81,7 +81,7 @@ get_all_frp <-
   n_nodes <- net$gal$n
   
   # nolint start
-  ## Defining empty items
+  ## Defining empty items (this can be removed)
   onset <- 
     terminus <- 
     head <- 
@@ -110,7 +110,7 @@ get_all_frp <-
   for (t in seq_len(n_steps)) {
     ## Progress tracking
     p()
-    ## Defining number of time steps for the FRP
+    ## Defining the current time step of interest for the FRP
     cur_step <- t + from - 1
     
     # creation of a `connection` list of vectors
@@ -118,7 +118,7 @@ get_all_frp <-
     ## Define an empty list of vector, with each element for a node
     connected <- vector(mode = "list", length = n_nodes)
     # nolint start
-    ## Filter out the edges whose onset time is earlier and ending time is later than the FRP's time step
+    ## Filter out the edges whose onset time is earlier and ending time is later than the FRP's time step - the edges that are active.
     el_t <- dplyr::filter(df_net, onset <= cur_step, terminus > cur_step)
     ## For the filtered edges, retrieve the head and trail information
     el_t <- dplyr::select(el_t, head, tail)
@@ -140,14 +140,15 @@ get_all_frp <-
     # a node added this step
     frp_new <- lapply( ## For each element (i.e., frp_cur[i,j]) in frp_cur, apply the function - frp_cur is read as frp_v in the function
       frp_cur, ## FRP at time t
-      function(frp_v) {
+      function(frp_v) { # a current FRP for a given node
         only_new <- numeric(0)
         new <- frp_v
-        ## When edges exist at time t AND ??? Q: what does "length(frp_v) < n_nodes" mean?
+        ## When edges exist at time t AND ??? Question: what does "length(frp_v) < n_nodes" mean? - if this is F, the calculation should stop
+        ## length(new) > 0 - 
         while (length(new) > 0 & length(frp_v) < n_nodes) {
-          new <- unlist(connected[new])
-          new <- setdiff(new, frp_v)
-          frp_v <- c(frp_v, new)
+          new <- unlist(connected[new]) # new is the current FRP, see who's connect to "new"
+          new <- setdiff(new, frp_v) # find the difference between the new nodes and the node in frp_v
+          frp_v <- c(frp_v, new) # frp_v growth at each iteration.
           only_new <- c(only_new, new)
         }
         only_new
@@ -159,7 +160,7 @@ get_all_frp <-
     frp_parts[, t + 1] <- frp_new
   }
   
-  return(frp_parts)
+  return(frp_parts) # the additional nodes rather than all nodes.
 }
 
  
@@ -181,7 +182,7 @@ table(rowSums(frp_parts_length))
 frp_lengths <- t(apply(frp_parts_length , 1,cumsum)) 
 
 ## Question should the from_ts be 1 instead of 100 in the example?
- # testing the results against tPath
+
 
  
       

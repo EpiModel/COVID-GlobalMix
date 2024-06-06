@@ -1,0 +1,34 @@
+name: networks
+n_steps: 3.0
+default_sbatch_opts:
+  partition: epimodel
+  mail-type: FAIL
+  mail-user: dehao.chen@emory.edu
+steps:
+- name: ~
+  number: 1.0
+  sbatch_opts:
+    partition: epimodel
+    mail-type: FAIL
+    mail-user: dehao.chen@emory.edu
+    mem: 16G
+    cpus-per-task: 4.0
+    time: 180.0
+- name: ~
+  number: 2.0
+  sbatch_opts:
+    partition: epimodel
+    mail-type: FAIL
+    mail-user: dehao.chen@emory.edu
+    cpus-per-task: 10.0
+    time: '24:00:00'
+    mem: '0'
+- name: ~
+  number: 3.0
+  sbatch_opts:
+    partition: epimodel
+    mail-type: FAIL
+    mail-user: dehao.chen@emory.edu
+    cpus-per-task: 10.0
+    time: '24:00:00'
+    mem: '0'
