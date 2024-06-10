@@ -84,4 +84,33 @@ node_attribute_target_stats <-
 node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School %>% round() 
 
 
+# Diagnosing FRP results
+netsim_r <- readRDS("data/netsim_outputs/sim___Rural__sto_apoxy.Rds")
+str(netsim_r$Home)
+
+library(sna)
+
+# Get the degree of each node
+node_degrees_layers <- 
+  data.frame(
+      Home=  degree(netsim_r$Home),
+      School=  degree(netsim_r$School),
+      Work=  degree(netsim_r$Work),
+      Nonhome=  degree(netsim_r$Nonhome)
+        )
+
+## Interpretation to the plots below: we observe there are ~40% nodes with >100 contacts at the school layers - this likely contribute to the unrelistic FRP.
+par(mfrow = c(2, 2))
+node_degrees_layers$Home %>% hist(main = "Home")
+node_degrees_layers$School %>% hist(main= "School") # something wrong at the school layer.
+sum(node_degrees_layers$School>100)
+node_degrees_layers$Work %>% hist(main= "Work")
+node_degrees_layers$Nonhome %>% hist(main = "Nonhome")
+
+
+
+
+
+
+
 
