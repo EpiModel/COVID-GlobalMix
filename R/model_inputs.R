@@ -27,12 +27,12 @@ initiate_nw <-
     # Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
     ## For school as the conditioned layer
     output$nw_s <- set_vertex_attribute(output$nw, attrname = "deg.x_layer", 
-                                        value = attri_tarstats$attr[[network]]$contact_attribute_School
+                                        value = attri_tarstats$attr[[network]]$contact_attribute_Work
     )
     
     ## For work as the conditioned layer
     output$nw_w <- set_vertex_attribute(output$nw, attrname = "deg.x_layer",
-                                        value = attri_tarstats$attr[[network]]$contact_attribute_Work
+                                        value = attri_tarstats$attr[[network]]$contact_attribute_School
     )
     
     output
