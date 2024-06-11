@@ -107,7 +107,14 @@ sum(node_degrees_layers$School>100)
 node_degrees_layers$Work %>% hist(main= "Work")
 node_degrees_layers$Nonhome %>% hist(main = "Nonhome")
 
+## Tabulating nodal attributes for rural school layer
+### Initial nodal attribute
+table(node_attribute_target_stats$attr$rural$contact_attribute_School, node_attribute_target_stats$attr$rural$node.age.grp
+      )
 
+table(
+model_input_items$initiate_nw$Rural$nw_s %v% "age.grp", model_input_items$initiate_nw$Rural$nw_s %v% "deg.x_layer"
+)
 
 
 

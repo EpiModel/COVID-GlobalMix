@@ -3,8 +3,6 @@
 # network = "Urban"/"Rural"
 # est_apch = "mcmle"/"sto_apoxy"
 
-# Restart R
-.rs.restartR()
 
 # Packages
 library(dplyr)

@@ -3,7 +3,6 @@
 ## Define a workflow to run the estimation and diagnostics of the network models
 ## on the HPC
 
-# Restart R before running this script (Ctrl_Shift_F10 / Cmd_Shift_0)
 
 # Setup ------------------------------------------------------------------------
 library(slurmworkflow)
@@ -15,6 +14,7 @@ source("R/hpc_configs.R", local = TRUE)
 # Process ----------------------------------------------------------------------
 wf <- make_em_workflow("networks", override = TRUE)
 
+# netest
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_do_call_script(
@@ -33,6 +33,7 @@ wf <- add_workflow_step(
   )
 )
 
+# netdx
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_do_call_script(
