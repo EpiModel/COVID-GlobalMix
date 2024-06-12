@@ -60,10 +60,9 @@ control.args <-
       control.ergm(
         main.method = "MCMLE",
         MCMLE.maxit = 500,
-        MCMC.samplesize = 1e4,
-        MCMC.interval = 5e3,
-       # SAN.maxit = 20, SAN.nsteps.times = 20,
-        parallel = 1
+        MCMC.samplesize = 5e5,
+        MCMC.interval = 25000,
+        parallel = 10
       )
   )
 
