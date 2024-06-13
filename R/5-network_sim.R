@@ -28,9 +28,6 @@ ests$Nonhome <-
   readRDS(file.name_in[4]) 
 
 
-# nodal attribute
-#initial_attr <- readRDS("data/network_stats_attributes/node_attribute_target_stats__0.1.Rds")
-
 
 # Dynamic network simulation
 ## Load function for dynamic network simulation

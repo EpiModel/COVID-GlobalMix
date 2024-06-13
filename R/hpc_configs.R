@@ -24,7 +24,7 @@ make_em_workflow <- function(wf_name, override = FALSE) {
       #"partition" = "preemptable",
        "partition" = "epimodel",
       # "account" = "csde",
-      "mail-type" = "FAIL",
+      #"mail-type" = "FAIL",
       "mail-user" = mail_user
     )
   )
