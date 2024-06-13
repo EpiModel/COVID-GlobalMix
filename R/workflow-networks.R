@@ -21,7 +21,7 @@ wf <- add_workflow_step(
     r_script = "R/3-network_est.R",
     args = list(hpc_context = TRUE, 
                 network="Rural",
-                layer="Nonhome",
+                layer="School",
                 est_apch="mcmle",
                 percent_target_pop="0.4"),
     setup_lines = hpc_node_setup
@@ -40,7 +40,7 @@ wf <- add_workflow_step(
     r_script = "R/4-network_dx.R",
     args = list(hpc_context = TRUE,
                 network="Rural",
-                layer="Nonhome",
+                layer="School",
                 est_apch="mcmle",
                 percent_target_pop="0.4"),
     setup_lines = hpc_node_setup

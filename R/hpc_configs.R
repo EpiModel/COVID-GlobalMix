@@ -21,10 +21,9 @@ make_em_workflow <- function(wf_name, override = FALSE) {
   wf <- slurmworkflow::create_workflow(
     wf_name = wf_name,
     default_sbatch_opts = list(
-      #"partition" = "preemptable",
        "partition" = "epimodel",
       # "account" = "csde",
-      #"mail-type" = "FAIL",
+      "mail-type" = c("FAIL", "BEGIN", "END"),
       "mail-user" = mail_user
     )
   )
