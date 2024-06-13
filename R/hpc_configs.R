@@ -23,7 +23,7 @@ make_em_workflow <- function(wf_name, override = FALSE) {
     default_sbatch_opts = list(
        "partition" = "epimodel",
       # "account" = "csde",
-      "mail-type" = c("FAIL", "BEGIN", "END"),
+      "mail-type" = "FAIL",
       "mail-user" = mail_user
     )
   )
@@ -38,7 +38,8 @@ make_em_workflow <- function(wf_name, override = FALSE) {
     sbatch_opts = list(
       "mem" = "16G",
       "cpus-per-task" = 4,
-      "time" = 180
+      "time" = 180,
+      "mail-type" = "END"
     )
   )
 
