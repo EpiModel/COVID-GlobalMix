@@ -4,8 +4,9 @@
 # est_apch = "mcmle"/"sto_apoxy"
 
 # Packages
-library(dplyr)
-library(EpiModel)
+suppressMessages(library(dplyr))
+suppressMessages(library(EpiModel))
+suppressMessages(library(fs))
 
 # Load Data 
 layers <- c("Home", "School", "Work", "Nonhome")

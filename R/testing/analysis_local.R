@@ -41,10 +41,11 @@ dx_nh_u <-
 
 # Plot netdx outputs
 ## Rural
-plot(dx_h_r)
-plot(dx_s_r)
-plot(dx_w_r)
-plot(dx_nh_r)
+ggpubr::ggarrange(
+plot(dx_h_r),
+plot(dx_s_r),
+plot(dx_w_r),
+plot(dx_nh_r))
 
 ## Urban
 plot(dx_h_u)
