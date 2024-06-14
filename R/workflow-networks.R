@@ -6,6 +6,7 @@
 
 # Setup ------------------------------------------------------------------------
 library(slurmworkflow)
+library(future.apply)
 
 hpc_context <- TRUE
 
@@ -17,11 +18,11 @@ wf <- make_em_workflow("networks", override = TRUE)
 # netest
 wf <- add_workflow_step(
   wf_summary = wf,
-  step_tmpl = step_tmpl_do_call_script(
+  step_tmpl = step_tmpl_map_script(
     r_script = "R/3-network_est.R",
+    layer=c("Home","School","Work","Nonhome"),
     args = list(hpc_context = TRUE, 
-                network="Rural",
-                layer="Home",
+                network="Urban",
                 est_apch="mcmle",
                 percent_target_pop="0.4"),
     setup_lines = hpc_node_setup
@@ -36,11 +37,11 @@ wf <- add_workflow_step(
 # netdx
 wf <- add_workflow_step(
   wf_summary = wf,
-  step_tmpl = step_tmpl_do_call_script(
+  step_tmpl = step_tmpl_map_script(
     r_script = "R/4-network_dx.R",
     args = list(hpc_context = TRUE,
                 network="Rural",
-                layer="School",
+                layer="Home",
                 est_apch="mcmle",
                 percent_target_pop="0.4"),
     setup_lines = hpc_node_setup

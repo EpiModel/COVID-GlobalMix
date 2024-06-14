@@ -3,7 +3,6 @@
 # network = "Urban"/"Rural"
 # est_apch = "mcmle"/"sto_apoxy"
 
-
 # Packages
 library(dplyr)
 library(EpiModel)
@@ -27,20 +26,21 @@ ests$Work <-
 ests$Nonhome <- 
   readRDS(file.name_in[4]) 
 
-
-
 # Dynamic network simulation
 ## Load function for dynamic network simulation
 source("R/sim_network.R") 
 ## Simulate network
 nw_sim <- sim_network(est = ests, nsteps = 365)
 
+# The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
+out_dir <- "data/netsim_outputs"
+if (!dir_exists(out_dir)) dir_create(out_dir)
 
 
-file.name_out <- 
-    paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch,"__", percent_target_pop, ".Rds")
+# Outputting estimation result the single layer 
+file.name <- 
+  paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
 
-
-saveRDS(nw_sim, file = file.name_out)
+saveRDS(nw_sim, file = file.name)
 
