@@ -2,6 +2,7 @@
 # The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
 # network = "Urban"/"Rural"
 # est_apch = "mcmle"/"sto_apoxy"
+# percent_target_pop = "0.1"/"0.4"/"1"
 
 # Packages
 suppressMessages(library(dplyr))
@@ -40,7 +41,8 @@ if (!dir_exists(out_dir)) dir_create(out_dir)
 
 # Outputting estimation result the single layer 
 file.name <- 
-  paste0("data/netsim_outputs/sim_", "__", network,"__", est_apch,"__", percent_target_pop, ".Rds")
+  paste0("data/netsim_outputs/sim_", 
+         network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
 
 saveRDS(nw_sim, file = file.name)
