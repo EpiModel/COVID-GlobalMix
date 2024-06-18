@@ -11,11 +11,6 @@ suppressMessages(library(dplyr))
 suppressMessages(library(EpiModel))
 suppressMessages(library(fs))
 
-# Inputs
-# layer <- Sys.getenv("layer")
-# network <- Sys.getenv("network")
-# est_apch <- Sys.getenv("est_apch")
-# percent_target_pop <- Sys.getenv("percent_target_pop")
 
 # Loading data
 file.name_in <- 
