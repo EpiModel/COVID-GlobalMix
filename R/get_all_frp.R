@@ -1,6 +1,6 @@
 
 
-get_all_frp <- function(net, from_step, to_step) {
+get_all_frp <- function(net, from_step=1, to_step) {
   
   #' Convert a network dynamic object into a cumulative edgelist
   netdyn2el_cuml <- function(net) {

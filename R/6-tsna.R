@@ -10,7 +10,7 @@ suppressMessages(library(tsna))
 suppressMessages(library(EpiModel))
 suppressMessages(library(doParallel))
 suppressMessages(library(fs))
-suppressMessages(library(progresr))
+suppressMessages(library(progressr))
 
 
 # Loading data
@@ -62,7 +62,7 @@ source("R/get_all_frp.R")
 
  
 with_progress(
-{frp <-get_all_frp(net = sim, to =2)}  
+{frp <-get_all_frp(net = sim, to =365)}  
 )
 
 # The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty

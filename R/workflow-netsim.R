@@ -19,9 +19,9 @@ wf <- add_workflow_step(
   step_tmpl = step_tmpl_do_call_script(
     r_script = "R/5-network_sim.R",
     args = list(hpc_context = TRUE,
-                network="Rural",
+                network="Urban",
                 est_apch="mcmle",
-                percent_target_pop="0.4"),
+                percent_target_pop="0.1"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(

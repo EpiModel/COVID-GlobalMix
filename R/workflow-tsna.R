@@ -18,7 +18,7 @@ wf <- add_workflow_step(
   step_tmpl = step_tmpl_do_call_script(
     r_script = "R/6-tsna.R",
     args = list(hpc_context = TRUE,
-                layer = "All"
+                layer = "All",
                 network="Rural",
                 est_apch="mcmle",
                 percent_target_pop="0.4"),

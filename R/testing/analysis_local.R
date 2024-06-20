@@ -41,40 +41,20 @@ dx_nh_u <-
 
 # Plot netdx outputs
 ## Rural
-ggpubr::ggarrange(
-plot(dx_h_r),
-plot(dx_s_r),
-plot(dx_w_r),
-plot(dx_nh_r))
+test <- 
+plot(dx_h_r)
+plot(dx_s_r)
+plot(dx_w_r)
+plot(dx_nh_r)
 
 ## Urban
+par(mfrow = c(2,2))
 plot(dx_h_u)
 plot(dx_s_u)
 plot(dx_w_u)
 plot(dx_nh_u)
 
-# Diagnose urban school using mcmc.diagnostics, dynamics = F
-## Urban school netest output
-est_s_u <- readRDS("../COVID-GlobalMix/data/netest_outputs/netest_School__Urban__mcmle__0.4.Rds")
 
-
-dx_s_u_dyna_f <-
-  netdx(est_s_u,
-        nsims =  30,
-        ncores = 10,
-        nsteps = 1000,
-        nwstats.formula = est_s_u$formation,
-        set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-        set.control.tergm = control.simulate.formula.tergm(MCMC.maxchanges = 1e7),
-        dynamic = F,
-        skip.dissolution = FALSE
-        #keep.tedgelist = TRUE
-  )
-
-
-par(mfrow=c(2,1))
-plot(dx_s_u)
-plot(dx_s_u_dyna_f)
 
 ## Compare with input target statistics for urban school layer
 ## target statistics
