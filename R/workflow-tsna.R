@@ -19,7 +19,7 @@ wf <- add_workflow_step(
   step_tmpl = step_tmpl_map_script(
     r_script = "R/6-tsna.R",
     layer=c("Home","School","Work","Nonhome"),
-    args = list(hpc_context = TRUE,
+    MoreArgs = list(hpc_context = TRUE,
                 network="Rural",
                 est_apch="mcmle",
                 percent_target_pop="0.4"),
