@@ -41,14 +41,12 @@ dx_nh_u <-
 
 # Plot netdx outputs
 ## Rural
-test <- 
 plot(dx_h_r)
 plot(dx_s_r)
 plot(dx_w_r)
 plot(dx_nh_r)
 
 ## Urban
-par(mfrow = c(2,2))
 plot(dx_h_u)
 plot(dx_s_u)
 plot(dx_w_u)

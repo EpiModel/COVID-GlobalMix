@@ -21,7 +21,7 @@ wf <- add_workflow_step(
     args = list(hpc_context = TRUE,
                 network="Urban",
                 est_apch="mcmle",
-                percent_target_pop="0.1"),
+                percent_target_pop="0.4"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(

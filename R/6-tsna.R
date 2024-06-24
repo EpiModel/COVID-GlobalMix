@@ -72,7 +72,7 @@ if (!dir_exists(out_dir)) dir_create(out_dir)
 # Outputting FRP result
 file.name <- paste0(
   "data/frp_outputs/frp_",
-  network,"__", est_apch,"__", percent_target_pop, ".Rds"
+  layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
 )
 
 saveRDS(frp, file = file.name)
