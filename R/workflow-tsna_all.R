@@ -9,7 +9,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("tsna", override = TRUE)
+wf <- make_em_workflow("tsna_all", override = TRUE)
 
 
 # FRP calculation
