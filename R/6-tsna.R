@@ -5,6 +5,7 @@
 # layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, where "ALL" means all 4 layers
 # percent_target_pop = 0.1/0.4/1
 
+
 # Packages
 suppressMessages(library(tsna))
 suppressMessages(library(EpiModel))
@@ -57,8 +58,12 @@ if (layer == "Home") {
 }
 
 
+if(frp_func == "get_all_frp"){
+  source("R/get_all_frp.R")
+}else{
+  source("R/get_all_frp_nocur.R")
+}
 
-source("R/get_all_frp.R")
 
  
 with_progress(

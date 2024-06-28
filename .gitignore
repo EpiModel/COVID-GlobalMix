@@ -36,8 +36,8 @@
 
 # scripts
 R/old_scripts/
-R/testing/06.tsna.R
-R/testing/utils-frp.R
+R/testing/
+
 
 # miscellaneous things
 miscellaneous/
@@ -48,6 +48,7 @@ data/netest_outputs/
 data/netsim_outputs/
 data/raw_data/
 data/frp_outputs/
+data/frp_summaries/
 workflows/
 
 
