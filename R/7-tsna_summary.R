@@ -29,25 +29,25 @@ n_r <- nrow(netstats$attr$rural)
 n_u <- nrow(netstats$attr$urban)
 
 
-# Loading FRP result
-file.name_r <- paste0(
-  "data/frp_outputs/frp_",
-  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
-)
-
-file.name_u <- paste0(
-  "data/frp_outputs/frp_",
-  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
-)
-
-frp_all_r <- readRDS(file.name_r[1])
-frp_s_r <- readRDS(file.name_r[3])
-frp_w_r <- readRDS(file.name_r[4])
-frp_nh_r <- readRDS(file.name_r[5])
-
-frp_all_u_0.1 <- readRDS("data/frp_outputs/frp_All__Urban__mcmle__0.1.Rds")
-frp_s_u <- readRDS(file.name_u[3])
-frp_w_u <- readRDS(file.name_u[4])
+# # Loading raw FRP result
+# file.name_r <- paste0(
+#   "data/frp_outputs/frp_",
+#   layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
+# )
+# 
+# file.name_u <- paste0(
+#   "data/frp_outputs/frp_",
+#   layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
+# )
+# 
+# frp_all_r <- readRDS(file.name_r[1])
+# frp_s_r <- readRDS(file.name_r[3])
+# frp_w_r <- readRDS(file.name_r[4])
+# frp_nh_r <- readRDS(file.name_r[5])
+# 
+# frp_all_u_0.1 <- readRDS("data/frp_outputs/frp_All__Urban__mcmle__0.1.Rds")
+# frp_s_u <- readRDS(file.name_u[3])
+# frp_w_u <- readRDS(file.name_u[4])
 
 
 # Calculate cumulative FRP length
@@ -72,7 +72,7 @@ frp_w_u <- readRDS(file.name_u[4])
 # ), "./data/frp_summaries/frp_length_0.4.Rds"
 # )
 
-frp_all_u_0.1_length <- frp_length(frp_data = frp_all_u_0.1)
+# frp_all_u_0.1_length <- frp_length(frp_data = frp_all_u_0.1)
 
 # Load FRP length calculated from the above
 frp_length <- readRDS("./data/frp_summaries/frp_length_0.4.Rds")
@@ -85,15 +85,19 @@ frp_s_u_length<- frp_length$frp_s_u_length
 frp_w_u_length<- frp_length$frp_w_u_length
 
 # FRP on day 365
+all_rural= frp_all_r_length[, 366]; school_rural=frp_s_r_length[, 366]; work_rural=frp_w_r_length[, 366]
+nonhome_rural=frp_nh_r_length[, 366]; school_urban=frp_s_u_length[, 366]; work_urban=frp_w_u_length[, 366]
+
+## Table
 frp_365 <- 
 list(
-all_rural= frp_all_r_length[, 366],
-school_rural=frp_s_r_length[, 366],
-work_rural=frp_w_r_length[, 366],
-nonhome_rural=frp_nh_r_length[, 366],
-all_urban_0.1=frp_all_u_0.1_length[,366],
-school_urban=frp_s_u_length[, 366],
-work_urban=frp_w_u_length[, 366]
+all_rural = all_rural,
+school_rural = school_rural,
+work_rural = work_rural,
+nonhome_rural = nonhome_rural,
+
+school_urban = school_urban,
+work_urban = work_urban
 ) %>% 
   lapply(., summary)%>% 
   do.call(rbind, .) %>% 
@@ -102,6 +106,13 @@ work_urban=frp_w_u_length[, 366]
   tibble::rownames_to_column(var="scenario")
 
 frp_365
+
+## Histogram
+par(mfrow = c(3, 2))
+hist(all_rural); hist(nonhome_rural);
+hist(school_rural); hist(work_rural);
+hist(school_urban); hist(work_urban)
+
 
 # mat plot
 ## Color options for plot
@@ -140,12 +151,12 @@ matplot(t( frp_w_r_length), type = "l",
         lty = 1, col = palv6, lwd = 0.5, main = "Rural work, India")
 abline(h = n_r, col = "blue")
 matplot(t( frp_s_u_length), type = "l", 
-        #ylim = c(0, max(frp_s_u_365)), 
+        ylim = c(0, 20000), 
         xlab = "", ylab = "FRP", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban school, India")
 abline(h = n_u, col = "blue")
 matplot(t( frp_w_u_length), type = "l", 
-        #ylim = c(0, max(frp_w_u_365)), 
+        ylim = c(0, 20000), 
         xlab = "", ylab = "FRP", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban work, India")
 abline(h = n_u, col = "blue")

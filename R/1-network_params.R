@@ -15,8 +15,13 @@
 
 # (4) Characterization of network layers: The network layers is processed from multiple questions asking contact locations. 
 # Given these questions are not mutually exclusive due to the check-box design in REDCap, we characterized contact location as the 
-# location having primary contact, following the order of home, school, work, non-home (excluding work and school). There are two contacts 
-# that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering the participants 
+# location of primary contact, following the order of home, school, work, non-home (excluding work and school). That is: 
+# 4.1) if a participant reported the contact is at home, this contact (observed edge) is characterized as a home contact, regardless of the other contact locations. 
+# 4.2) If a participant reported a contact is at school but not home, this contact is characterized as a school contact, regardless of the other contact locations. 
+# 4.3) If a participant reported a contact is at work but not home and school, this contact is characterized as a work, regardless of the other contact locations.
+# 4.4) If a participant reported a contact is at locations other than home, work, and school, this contact is characterized as a non-home contact.
+
+# There are two contacts that occurred at both work (location 3 in REDCap) and school (location 2), we categorized them as at school, considering the participants 
 # (and contacts) were at school age (10-19y, 0-9y). This logic is not spelled out in the below script but is adjusted by the higher priority 
 # of school than work. For a contact checked none of the categories, we assigned an NA to this contact and excluded them considering them as missing data.
 
