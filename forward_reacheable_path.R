@@ -168,13 +168,7 @@ get_all_frp <- function(el_cuml, from_step, to_step, nodes = NULL) {
 
     # creation of a `connection` list of vectors
     # for each vertex 1:n_nodes we get a vector of the vertices it connects to
-    connected <- vector(mode = "list", length = n_nodes)
-    for (i in seq_len(nrow(el_t))) {
-      e_head <- el_t$head[i]
-      e_tail <- el_t$tail[i]
-      connected[[e_head]] <- c(connected[[e_head]], e_tail)
-      connected[[e_tail]] <- c(connected[[e_tail]], e_head)
-    }
+    connected <- get_connected(el_t, n_nodes)
 
     # PERF: bottleneck is here
     # frp_v is the current frp for vertex v at timestep t - 1
@@ -183,22 +177,12 @@ get_all_frp <- function(el_cuml, from_step, to_step, nodes = NULL) {
     # the while loop is to include the nodes that are connected to the FRP
     # through a node added this step
 
-    # use hashmaps? rust?
     frp_new <- lapply(
       frp_cur,
-      function(frp_v) {
-        only_new <- numeric(0)
-        new <- frp_v
-        while (length(new) > 0 && length(frp_v) < n_nodes) {
-          new <- unlist(connected[new])
-          new <- setdiff(new, frp_v)
-          frp_v <- c(frp_v, new)
-          only_new <- c(only_new, new)
-        }
-        only_new
-      }
+      get_subnet_diff,
+      connected = connected,
+      n_nodes = n_nodes
     )
-
     # could speed up here with "true arrays" (growable, pre-alloc)
     frp_cur <- Map(c, frp_cur, frp_new)
     frp_parts[, t + 1] <- frp_new
@@ -206,9 +190,7 @@ get_all_frp <- function(el_cuml, from_step, to_step, nodes = NULL) {
   return(frp_parts)
 }
 
-
-# before subset
-get_all_frp_no_sub <- function(el_cuml, from_step, to_step) {
+get_all_frp_block <- function(el_cuml, from_step, to_step, nodes = NULL) {
   n_steps <- to_step - from_step + 1
   n_nodes <- max(c(el_cuml$head, el_cuml$tail))
 
@@ -223,9 +205,11 @@ get_all_frp_no_sub <- function(el_cuml, from_step, to_step) {
   change_times <- sort(unique(df_net$start))
 
   # the initial FRP contains only the vertex itself
-  frp_cur <- as.list(seq_len(n_nodes))
-  frp_parts <- matrix(list(numeric(0)), ncol = n_steps + 1, nrow = n_nodes)
-  frp_parts[, 1] <- frp_cur
+  if (is.null(nodes))
+    nodes <- seq_len(n_nodes)
+
+  frp_cur <- as.list(nodes)
+  names(frp_cur) <- paste0("node_", nodes)
 
   p <- progressr::progressor(length(change_times))
   for (cur_step in change_times) {
@@ -242,13 +226,7 @@ get_all_frp_no_sub <- function(el_cuml, from_step, to_step) {
 
     # creation of a `connection` list of vectors
     # for each vertex 1:n_nodes we get a vector of the vertices it connects to
-    connected <- vector(mode = "list", length = n_nodes)
-    for (i in seq_len(nrow(el_t))) {
-      e_head <- el_t$head[i]
-      e_tail <- el_t$tail[i]
-      connected[[e_head]] <- c(connected[[e_head]], e_tail)
-      connected[[e_tail]] <- c(connected[[e_tail]], e_head)
-    }
+    connected <- get_connected(el_t, n_nodes)
 
     # PERF: bottleneck is here
     # frp_v is the current frp for vertex v at timestep t - 1
@@ -257,19 +235,131 @@ get_all_frp_no_sub <- function(el_cuml, from_step, to_step) {
     # the while loop is to include the nodes that are connected to the FRP
     # through a node added this step
 
-    # use hashmaps? rust?
+    frp_cur <- lapply(frp_cur, get_subnet,
+                      connected = connected, n_nodes = n_nodes)
+  }
+  return(frp_cur)
+}
+
+get_frp_lengths <- function(el_cuml, from_step, to_step, nodes = NULL) {
+  frp_parts <- get_all_frp(el_cuml, from_step, to_step, nodes)
+  frp_parts_length <- apply(frp_parts, c(1, 2), function(x) length(x[[1]]))
+  frp_lengths <- t(apply(frp_parts_length , 1, cumsum))
+  frp_lengths[, to_step + 1]
+}
+
+# `nodes` are connecting the parts of the subnet if disjointed
+# e.g. `nodes` are the previous FRP
+get_subnet <- function(connected, nodes, n_nodes) {
+  new <- nodes
+  subnet <- nodes
+  while (length(new) > 0 && length(subnet) < n_nodes) {
+    new <- unlist(connected[new])
+    new <- setdiff(new, subnet)
+    subnet <- unique(c(subnet, new))
+  }
+  subnet
+}
+
+get_subnet_diff <- function(connected, nodes, n_nodes) {
+  only_new <- numeric(0)
+  new <- nodes
+  while (length(new) > 0 && length(nodes) < n_nodes) {
+    new <- unlist(connected[new])
+    new <- setdiff(new, nodes)
+    nodes <- c(nodes, new)
+    only_new <- c(only_new, new)
+  }
+  only_new
+}
+
+# Make a `connection` fast acces list from an edgelist
+get_connected <- function(el, n_nodes) {
+  connected <- vector(mode = "list", length = n_nodes)
+  for (i in seq_len(nrow(el))) {
+    e_head <- el$head[i]
+    e_tail <- el$tail[i]
+    connected[[e_head]] <- c(connected[[e_head]], e_tail)
+    connected[[e_tail]] <- c(connected[[e_tail]], e_head)
+  }
+  connected
+}
+
+# get the network components involving some edges
+get_subnets_el <- function(connected, el) {
+  subnets <- list()
+  con_el <- get_connected(el, length(connected))
+  j <- 1
+  for (i in seq_along(con_el)) {
+    if (length(con_el[[i]]) != 0) {
+      subnets[[j]] <- get_subnet(connected, con_el[[i]])
+      con_el[ subnets[[j]] ] <- list(NULL)
+      j <- j + 1
+    }
+  }
+  subnets
+}
+
+# get_subnets_el <- function(connected, el) {
+#   subnets <- list()
+#   i <- 1
+#   while (nrow(el) > 0) {
+#     subnets[[i]] <- get_subnet(connected, el$head[[1]]) # by def: head <-> tail
+#     # TODO: speed up with a `connected` approach?
+#     el <- dplyr::filter(el, !head %in% subnets[[i]])
+#     i <- i + 1
+#   }
+#   subnets
+# }
+
+get_all_frp_sub <- function(el_cuml, from_step, to_step, nodes = NULL) {
+  n_steps <- to_step - from_step + 1
+  n_nodes <- max(c(el_cuml$head, el_cuml$tail))
+
+  # nolint start
+  df_net <- el_cuml |>
+    dplyr::mutate(stop = ifelse(is.na(stop), Inf, stop)) |> # current edges never ends
+    dplyr::filter(start <= to_step, stop >= from_step) |> # remove edges before and after analysis period
+    dplyr::mutate(start = ifelse(start < from_step, from_step, start)) |> # set older edges to start at beginning of analysis
+    dplyr::select(start, stop, head, tail)
+
+  # nolint end
+  change_times <- sort(unique(df_net$start))
+
+  # the initial FRP contains only the vertex itself
+  if (is.null(nodes))
+    nodes <- seq_len(n_nodes)
+
+  frp_cur <- as.list(nodes)
+  frp_parts <- matrix(
+    list(numeric(0)),
+    ncol = n_steps + 1,
+    nrow = length(nodes)
+  )
+  rownames(frp_parts) <- paste0("node_", nodes)
+  frp_parts[, 1] <- frp_cur
+
+  p <- progressr::progressor(length(change_times))
+  for (cur_step in change_times) {
+    p()
+    t <- cur_step - from_step + 1 # the slot in the frp_parts
+    el_t <- dplyr::filter(df_net, start <= cur_step, stop >= cur_step)
+    el_new <- dplyr::filter(el_t, start == cur_step)
+    connected <- get_connected(el_t, n_nodes)
+    subnets <- get_subnets_el(connected, el_new)
+
+    connected_sub <- numeric(n_nodes)
+    for (i in seq_along(subnets)) {
+      connected_sub[subnets[[i]]] <- i
+    }
+
     frp_new <- lapply(
       frp_cur,
       function(frp_v) {
-        only_new <- numeric(0)
-        new <- frp_v
-        while (length(new) > 0 && length(frp_v) < n_nodes) {
-          new <- unlist(connected[new])
-          new <- setdiff(new, frp_v)
-          frp_v <- c(frp_v, new)
-          only_new <- c(only_new, new)
-        }
-        only_new
+        frp_subs <- unique(connected_sub[frp_v])
+        sub <- unlist(subnets[frp_subs])
+        if (is.null(sub)) sub <- numeric(0)
+        setdiff(sub, frp_v)
       }
     )
 
@@ -280,10 +370,9 @@ get_all_frp_no_sub <- function(el_cuml, from_step, to_step) {
   return(frp_parts)
 }
 
-get_frp_lengths <- function(el_cuml, from_step, to_step, nodes = NULL) {
-  frp_parts <- get_all_frp(el_cuml, from_step, to_step, nodes)
+get_frp_lengths_sub <- function(el_cuml, from_step, to_step, nodes = NULL) {
+  frp_parts <- get_all_frp_sub(el_cuml, from_step, to_step, nodes)
   frp_parts_length <- apply(frp_parts, c(1, 2), function(x) length(x[[1]]))
   frp_lengths <- t(apply(frp_parts_length , 1, cumsum))
   frp_lengths[, to_step + 1]
 }
-
