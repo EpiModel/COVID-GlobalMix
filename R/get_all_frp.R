@@ -1,16 +1,16 @@
 
 
 get_all_frp <- function(net, from_step=1, to_step) {
-  
+
   # Function to convert a network dynamic object into a cumulative edgelist
   netdyn2el_cuml <- function(net) {
     as.data.frame(net) |>
       dplyr::select(start = onset, stop = terminus, head, tail) |>
       dplyr::mutate(stop = stop - 1)
   }
-  
+
   el_cuml <- netdyn2el_cuml(net = net)
-  
+
   n_steps <- to_step - from_step + 1
   n_nodes <- max(c(el_cuml$head, el_cuml$tail))
 
