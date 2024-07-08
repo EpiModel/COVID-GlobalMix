@@ -53,5 +53,36 @@ progressr::with_progress(
 )
 print(Sys.time() - start)
 
+dedup_el_cuml <- function(el_all) {
+  ea <- el_all |>
+    dplyr::group_by(head, tail) |>
+    dplyr::mutate(n = n())
+
+  e_unique <- ea |>
+    dplyr::filter(n == 1) |>
+    dplyr::select(-n)
+
+  e_dup <- ea |>
+    dplyr::filter(n > 1) |>
+    dplyr::select(-n)
+
+  e_dup <- e_dup |>
+    dplyr::arrange(head, tail, start, stop) |>
+    dplyr::group_by(head, tail)
+
+  e_dedup <- e_dup |>
+    dplyr::mutate(
+      lstart= dplyr::lag(start),
+      lstop = dplyr::lag(stop),
+      overlap = !is.na(lstop) & !is.na(lstart) & start <= lstop,
+      stop = ifelse(overlap, max(stop, lstop, na.rm = TRUE), stop),
+      start = ifelse(overlap, min(start, lstart, na.rm = TRUE), start)
+      ) |>
+    dplyr::select(-c(lstart, lstop, overlap)) |>
+    dplyr::ungroup() |>
+    unique()
+
+  dplyr::bind_rows(e_unique, e_dedup)
+}
 
 el_cuml <- dedup_el_cuml(el_all)

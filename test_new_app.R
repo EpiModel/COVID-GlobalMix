@@ -14,6 +14,18 @@ el_cuml <- readRDS("el_cuml__non.rds")
 n_nodes <- max(el_cuml$head, el_cuml$tail)
 nodes <- sample(n_nodes, 1e2)
 
+system.time({
+  progressr::with_progress(
+    x <- get_all_frp( el_cuml, 1, 52, nodes)
+  )
+})
+
+system.time({
+  progressr::with_progress(
+    x <- get_frp_lengths( el_cuml, 1, 52, nodes)
+  )
+})
+
 options("browser" = "firefox")
 profvis::profvis({
   progressr::with_progress(
@@ -21,9 +33,6 @@ profvis::profvis({
   )
 })
 
-system.time({
-    x <- get_all_frp( el_cuml, 1, 52, nodes)
-})
 
 # start <- Sys.time()
 # progressr::with_progress(
