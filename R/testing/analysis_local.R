@@ -7,9 +7,6 @@ est_apch =   "mcmle" #  "sto_apoxy"
 percent_target_pop=0.4
 
 
-
-
-
 # Diagnosing FRP results
 netsim_r <- readRDS("data/netsim_outputs/sim___Rural__sto_apoxy.Rds")
 str(netsim_r$Home)

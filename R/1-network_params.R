@@ -275,7 +275,7 @@ layer_assoc_urban$coefficient_summary
 
 ########################## Characterizing dissolution statistics of contact duration at school and work ##########################
 source("R/know_dur.R")
-known_dur_school_work <- know_dur(india_mix. = india_mix)
+known_dur_8_layers <- know_dur(india_mix. = india_mix)
 
 
 
@@ -296,6 +296,6 @@ formation_stats_urban$layer_assoc_urban <- layer_assoc_urban
 
 network_stats$formation <- list(formation_stats_rural=formation_stats_rural, formation_stats_urban=formation_stats_urban)
 
-network_stats$dissolution <- known_dur_school_work 
+network_stats$dissolution <- known_dur_8_layers 
 
 saveRDS(network_stats, file = "data/network_stats_attributes/network_params.Rds")

@@ -5,14 +5,13 @@
 # est_apch = "mcmle"/"sto_apoxy"
 # percent_target_pop = 0.1/0.4/1
 
-
 # Packages
 suppressMessages(library(dplyr))
 suppressMessages(library(EpiModel))
 suppressMessages(library(tibble))
 suppressMessages(library(fs))
 
-# Inputs - note: this shold be unmuted when running the script through sbatch
+# Inputs - note: this shold be unmuted when running the script through sbatch. Currently, we use slurmworkflow to submit jobs of this script to the HPC.
 # layer <- Sys.getenv("layer")
 # network <- Sys.getenv("network")
 # est_apch <- Sys.getenv("est_apch")
@@ -25,15 +24,6 @@ node_attribute_target_stats <-
 
 ## summary statistics, provides duration of contacts
 netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
-
-############## Recode low degree at school layer to 0  ##############
-# For urban school layer the low values were <0.01, this threshold is used for the re-coding - this can make netest run, but netdx shows poor fit
-node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School[
-  node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School <0.01] <- 0
-
-# For rural school layer the low values were <10, this threshold is used for the re-coding 
-node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School[
-  node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School <10] <- 0
 
 ############## Define items which will be read by netest  ##############
 source("R/model_inputs.R")

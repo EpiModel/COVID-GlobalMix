@@ -135,21 +135,9 @@ formula_tarstats <-
     
     # layer-based dissolution model statistics
     diss <- 
-      if(layer == "Home"){
-        dissolution_coefs(dissolution = ~offset(edges), 
-                          duration =1e6)
-        
-      } else if (layer == "Nonhome"){
-        dissolution_coefs(dissolution = ~offset(edges), 
-                          duration =1)
-        
-      } else if (layer %in% c("School", "Work")  
-      ){ 
-        # For school and work, we used the durations calculated from the query
         dissolution_coefs(dissolution = ~offset(edges), 
                           duration = dissolution %>% filter(contact_location == layer) %>% pull(know_contact_duration)
-        )
-      } else {}
+                          )
     
     output <- list() # use a list to store things
     
