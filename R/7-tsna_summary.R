@@ -30,20 +30,20 @@ n_u <- nrow(netstats$attr$urban)
 
 
 # # Loading raw FRP result
-# file.name_r <- paste0(
-#   "data/frp_outputs/frp_",
-#   layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
-# )
-# 
-# file.name_u <- paste0(
-#   "data/frp_outputs/frp_",
-#   layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
-# )
-# 
-# frp_all_r <- readRDS(file.name_r[1])
-# frp_s_r <- readRDS(file.name_r[3])
-# frp_w_r <- readRDS(file.name_r[4])
-# frp_nh_r <- readRDS(file.name_r[5])
+file.name_r <- paste0(
+  "data/frp_outputs/frp_",
+  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
+)
+
+file.name_u <- paste0(
+  "data/frp_outputs/frp_",
+  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
+)
+
+frp_all_r <- readRDS(file.name_r[1])
+frp_s_r <- readRDS(file.name_r[3])
+frp_w_r <- readRDS(file.name_r[4])
+frp_nh_r <- readRDS(file.name_r[5])
 # 
 # frp_all_u_0.1 <- readRDS("data/frp_outputs/frp_All__Urban__mcmle__0.1.Rds")
 # frp_s_u <- readRDS(file.name_u[3])
@@ -88,7 +88,7 @@ frp_w_u_length<- frp_length$frp_w_u_length
 all_rural= frp_all_r_length[, 366]; school_rural=frp_s_r_length[, 366]; work_rural=frp_w_r_length[, 366]
 nonhome_rural=frp_nh_r_length[, 366]; school_urban=frp_s_u_length[, 366]; work_urban=frp_w_u_length[, 366]
 
-## Table
+## Table for FRP on day 365
 frp_365 <- 
 list(
 all_rural = all_rural,
@@ -230,8 +230,11 @@ dx_nh_u <-
   readRDS(file.name_dx_u[4])
 
 # Plot netdx outputs
+library(EpiModel)
 ## Rural
-plot(dx_h_r)
+?plot.netdx
+EpiModel::plot
+plot(dx_h_r, stats = "edges")
 plot(dx_s_r)
 plot(dx_w_r)
 plot(dx_nh_r)
