@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netsim", override = TRUE)
+wf <- make_em_workflow("netsim_urban_0.1", override = TRUE)
 
 
 # netsim
@@ -21,7 +21,7 @@ wf <- add_workflow_step(
     args = list(hpc_context = TRUE,
                 network="Urban",
                 est_apch="mcmle",
-                percent_target_pop="0.4"),
+                percent_target_pop="0.1"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
