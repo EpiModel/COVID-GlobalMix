@@ -13,14 +13,14 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netest_dx_0.1", override = TRUE)
+wf <- make_em_workflow("netest_dx_0.1_school", override = TRUE)
 
 # netest
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/3-network_est.R",
-    layer=c("Home","School","Work","Nonhome"),
+    layer=c("School"),
     MoreArgs = list(
                 hpc_context = TRUE,
                 network="Urban",
@@ -40,7 +40,7 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/4-network_dx.R",
-    layer=c("Home","School","Work","Nonhome"),
+    layer=c("School"),
     MoreArgs = list(
       hpc_context = TRUE,
       network="Urban",

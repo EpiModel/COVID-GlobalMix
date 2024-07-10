@@ -18,7 +18,7 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/6-tsna.R",
-    layer=c("Home","School","Work","Nonhome"),
+    layer=c("All", "Home","School","Work","Nonhome"),
     MoreArgs = list(hpc_context = TRUE,
                 network="Urban",
                 est_apch="mcmle",
