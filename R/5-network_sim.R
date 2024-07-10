@@ -38,12 +38,22 @@ nw_sim <- sim_network(est = ests, nsteps = 365)
 out_dir <- "data/netsim_outputs"
 if (!dir_exists(out_dir)) dir_create(out_dir)
 
-
-# Outputting estimation result the single layer 
+# Create file names to be saved
 file.name <- 
-  paste0("data/netsim_outputs/sim_", 
+  paste0("data/netsim_outputs/el_cuml__", layers, "__", 
          network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
+# Load "netdyn2el_cuml" function
+source("R/forward_reacheable_path.R")
 
-saveRDS(nw_sim, file = file.name)
+# Transforming "networkdynamic" into a "cumulative edgelist" and save
+saveRDS(netdyn2el_cuml(nw_sim$Home), file.name[1])
+saveRDS(netdyn2el_cuml(nw_sim$School), file.name[2])
+saveRDS(netdyn2el_cuml(nw_sim$Work), file.name[3])
+saveRDS(netdyn2el_cuml(nw_sim$Nonhome), file.name[4])
+
+
+
+
+
 
