@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netsim_urban_0.1", override = TRUE)
+wf <- make_em_workflow("netsim_urban_0.1_el_cuml", override = TRUE)
 
 
 # netsim
