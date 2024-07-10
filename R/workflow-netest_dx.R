@@ -13,7 +13,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netest_dx_0.1_school", override = TRUE)
+wf <- make_em_workflow("netest_dx_0.1_school_1", override = TRUE)
 
 # netest
 wf <- add_workflow_step(
