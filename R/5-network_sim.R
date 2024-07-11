@@ -43,14 +43,14 @@ file.name <-
   paste0("data/netsim_outputs/el_cuml__", layers, "__", 
          network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
-# Load "netdyn2el_cuml" function
-source("R/forward_reacheable_path.R")
+# Load "as_cumulative_edgelist" function
+source("R/reachable.R")
 
 # Transforming "networkdynamic" into a "cumulative edgelist" and save
-saveRDS(netdyn2el_cuml(nw_sim$Home), file.name[1])
-saveRDS(netdyn2el_cuml(nw_sim$School), file.name[2])
-saveRDS(netdyn2el_cuml(nw_sim$Work), file.name[3])
-saveRDS(netdyn2el_cuml(nw_sim$Nonhome), file.name[4])
+saveRDS(as_cumulative_edgelist(nw_sim$Home), file.name[1])
+saveRDS(as_cumulative_edgelist(nw_sim$School), file.name[2])
+saveRDS(as_cumulative_edgelist(nw_sim$Work), file.name[3])
+saveRDS(as_cumulative_edgelist(nw_sim$Nonhome), file.name[4])
 
 
 

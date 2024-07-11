@@ -8,9 +8,15 @@ percent_target_pop = 0.1 #0.4/1/
 
 
 
-# Load target stats to retrieve the number of node at each network
+# Load network stats to retrieve the number of node at each network
+## formation stats
 netstats <- 
 readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats__", percent_target_pop, ".Rds"))
+## Dissolution stats
+duration <- 
+readRDS("data/network_stats_attributes/network_params.Rds")$dissolution
+
+
 
 n_r <- nrow(netstats$attr$rural)
 n_u <- nrow(netstats$attr$urban)
@@ -33,8 +39,10 @@ file.name_u <- paste0(
 # frp_length_nh_r <- readRDS(file.name_r[5])
 # 
 # frp_length_all_u <- readRDS("data/frp_outputs/frp_length_All__Urban__mcmle__0.1.Rds")
+frp_length_h_u <- readRDS(file.name_u[2])
 frp_length_s_u <- readRDS(file.name_u[3])
 frp_length_w_u <- readRDS(file.name_u[4])
+frp_length_nh_u <- readRDS(file.name_u[5])
 
 
 str(frp_length_s_u)
@@ -44,13 +52,15 @@ str(frp_length_s_u)
 ## Table for FRP on day 365
 frp_365 <- 
 list(
-all_rural = all_rural,
-school_rural = school_rural,
-work_rural = work_rural,
-nonhome_rural = nonhome_rural,
+# all_rural = all_rural,
+# school_rural = school_rural,
+# work_rural = work_rural,
+# nonhome_rural = nonhome_rural,
 
-school_urban = school_urban,
-work_urban = work_urban
+Home_urban = frp_length_h_u,
+School_urban = frp_length_s_u,
+Work_urban = frp_length_w_u,
+Nonhome_urban = frp_length_nh_u
 ) %>% 
   lapply(., summary)%>% 
   do.call(rbind, .) %>% 
@@ -61,10 +71,10 @@ work_urban = work_urban
 frp_365
 
 ## Histogram
-par(mfrow = c(3, 2))
-hist(all_rural); hist(nonhome_rural);
-hist(school_rural); hist(work_rural);
-hist(school_urban); hist(work_urban)
+# par(mfrow = c(3, 2))
+# hist(all_rural); hist(nonhome_rural);
+# hist(school_rural); hist(work_rural);
+# hist(school_urban); hist(work_urban)
 
 
 # mat plot
@@ -113,38 +123,6 @@ matplot(t( frp_w_u_length), type = "l",
         xlab = "", ylab = "FRP", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban work, India")
 abline(h = n_u, col = "blue")
-
-
-# Diagnose netsim objects
-## Note: the following script is being run at HPC
-
-netsim_r <- readRDS("data/netsim_outputs/sim_Rural__mcmle__0.4.Rds")
-netsim_u <- readRDS("data/netsim_outputs/sim_Urban__mcmle__0.4.Rds")
-
-
-
-library(sna); library(EpiModel)
-
-# Get the degree of each node
-node_degrees_layers_Rural <- 
-  data.frame(
-    Home_Rural=  degree(netsim_r$Home),
-    School_Rural=  degree(netsim_r$School),
-    Work_Rural=  degree(netsim_r$Work),
-    Nonhome_Rural=  degree(netsim_r$Nonhome)
-  )
-
-node_degrees_layers_Urban <- 
-data.frame(
-Home_Urban=  degree(netsim_u$Home),
-School_Urban=  degree(netsim_u$School),
-Work_Urban=  degree(netsim_u$Work),
-Nonhome_Urban=  degree(netsim_u$Nonhome)
-)
-
-apply(node_degrees_layers_Rural, 2, summary)
-apply(node_degrees_layers_Urban, 2, summary)
-
 
 
 
@@ -198,3 +176,11 @@ plot(dx_s_u)
 plot(dx_w_u)
 plot(dx_nh_u)
 
+### Evaluate duration
+dissolution
+dx_h_u$coef.diss$duration
+dx_s_u$coef.diss$duration
+dx_w_u$coef.diss$duration
+dx_nh_u$coef.diss$duration
+
+source("R/reachable.R")

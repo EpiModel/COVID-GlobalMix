@@ -15,7 +15,7 @@ suppressMessages(library(progressr))
 
 
 # Load functions
-source("R/forward_reacheable_path.R")
+source("R/reachable.R")
 
 
 # Loading data
@@ -47,17 +47,19 @@ if (layer == "Home") {
   el_all <- dplyr::bind_rows(el_cuml_home, el_cuml_school, el_cuml_work, el_cuml_nonhome)
   
   # deduplicating edges
-  el_cuml <- dedup_el_cuml(el_all)
+  el_cuml <- dedup_cumulative_edgelist(el = el_all)
 }
 
 
 # Calculating FRP length for each node and time step
 frp_lengths <- 
-  get_frp_lengths(
+progressr::with_progress(
+  get_forward_reachable(
   el_cuml, 
   from_step=1, 
   to_step=365,
   nodes = NULL
+  )
 )
 
 
