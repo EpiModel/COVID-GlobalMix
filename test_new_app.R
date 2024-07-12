@@ -8,46 +8,67 @@ source("./forward_reacheable_path.R")
 #   non_home = readRDS("el_cuml__non.rds")
 # )
 
-el_cuml <- readRDS("el_cuml__non.rds")
+# el_cuml <- readRDS("el_cuml__school.rds")
+# el_cuml <- readRDS("el_cuml__home.rds")
+# el_cuml <- readRDS("el_cuml__non.rds")
+el_cuml <- readRDS("el_cuml__work.rds")
 # el_cuml <- readRDS("./el_cuml_tom.rds")
 
-n_nodes <- max(el_cuml$head, el_cuml$tail)
-nodes <- sample(n_nodes, 1e2)
+node_set <- unique(c(el_cuml$head, el_cuml$tail))
+nodes <- sample(node_set, 1e3)
+
+# from_step = 1
+# to_step = 52
 
 system.time({
   progressr::with_progress(
-    x <- get_all_frp( el_cuml, 1, 52, nodes)
+    x <- get_forward_reachable(el_cuml, 1, 52, nodes, TRUE)
   )
 })
 
 system.time({
   progressr::with_progress(
-    x <- get_frp_lengths( el_cuml, 1, 52, nodes)
+    old <- get_forward_reachable(el_cuml, 1, 52, nodes)
   )
 })
+
+for (nme in names(x$reached)) {
+  if (!setequal(x$reached[[nme]], old$reached[[nme]])) print(nme)
+}
+
+for (nme in setdiff(names(old$reached), names(x$reached))) {
+  if (length(old$reached[[nme]]) > 1) print(nme)
+}
+
+
+
+
+el_cuml$head <- el_cuml$head + 100L
+el_cuml$tail <- el_cuml$tail + 100L
+
+system.time({
+  progressr::with_progress(
+    x <- get_forward_reachable(el_cuml, 1, 52)
+  )
+})
+
+system.time({
+  progressr::with_progress(
+    old <- get_forward_reachable_old(el_cuml, 1, 52)
+  )
+})
+
+
 
 options("browser" = "firefox")
 profvis::profvis({
   progressr::with_progress(
-    x <- get_all_frp( el_cuml, 1, 52, nodes)
+    x <- get_forward_reachable_old(el_cuml, 1, 52, nodes)
   )
 })
 
-
-# start <- Sys.time()
-# progressr::with_progress(
-#  frps_old <- old_get_frp_lengths(
-#    el_cuml, 1, 52,
-#    nodes
-#  )
-# )
-# print(Sys.time() - start)
-#
-# start <- Sys.time()
-# progressr::with_progress(
-#  frps_len <- get_frp_lengths(
-#    el_cuml, 1, 52,
-#    nodes
-#  )
-# )
-# print(Sys.time() - start)
+microbenchmark::microbenchmark(
+  step = get_forward_reachable_steps(el_cuml, 1, 52, nodes),
+  reach = get_forward_reachable_steps(el_cuml, 1, 52, nodes),
+  times = 4
+)

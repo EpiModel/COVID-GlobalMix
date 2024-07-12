@@ -17,7 +17,7 @@ nnodes <- max(el_cuml$head, el_cuml$tail)
 from_step <- 1
 to_step <- 52
 nodes <- sample(nnodes, 100)
-el_tp <- get_all_frp(el_cuml, from_step, to_step, nodes)
+el_tp <- get_forward_reachable(el_cuml, from_step, to_step, nodes)
 
 # ------------------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ for (i in seq_along(el_tp)) {
 
 nodes <- sample(nnodes, 5)
 microbenchmark::microbenchmark(
-  frp = get_all_frp(el_cuml, from_step, to_step, nodes),
+  frp = get_forward_reachable(el_cuml, from_step, to_step, nodes),
   tPath = {
     for (i in seq_along(nodes)) {
       node = nodes[[i]]
@@ -77,7 +77,7 @@ nodes <- sample(nnodes, 100)
 
 
 # `get_all_frp` uses steps [from_step, to_step] inclusive
-el_frp <- get_all_frp(el_cuml, 1, 52, nodes)
+el_frp <- get_forward_reachable(el_cuml, 1, 52, nodes)
 
 # check if the results are consistent with `tsna::tPath`
 for (i in seq_along(el_tp)) {
