@@ -25,7 +25,6 @@ system.time({
     x <- get_forward_reachable(el_cuml, 1, 52, nodes, TRUE)
   )
 })
-
 system.time({
   progressr::with_progress(
     old <- get_forward_reachable(el_cuml, 1, 52, nodes)
@@ -72,3 +71,30 @@ microbenchmark::microbenchmark(
   reach = get_forward_reachable_steps(el_cuml, 1, 52, nodes),
   times = 4
 )
+
+microbenchmark::microbenchmark(
+  raw = get_adj_list(el_cuml, n_nodes),
+  old = get_subnet_adj_list(get_adj_list(el_cuml, n_nodes)),
+  new = new_get_subnet_adj_list(el_cuml, n_nodes),
+  times = 10
+)
+
+n_nodes = max(c(el_cuml$head, el_cuml$tail))
+adj_list = get_adj_list(el_cuml, n_nodes)
+sub_list = get_subnet_adj_list(adj_list)
+new_sub = new_get_subnet_adj_list(el_cuml, n_nodes)
+
+
+for (i in 11555:length(new_sub)) {
+  if (!setequal(sub_list[[i]], new_sub[[i]])) {
+    print(sub_list[[i]])
+    print(new_sub[[i]])
+    break
+  }
+}
+
+# this works - so no info is lost on new_sub
+ns2 <- get_subnet_adj_list(new_sub)
+for (i in seq_along(ns2)) {
+  if (!setequal(sub_list[[i]], ns2[[i]])) print(i)
+}

@@ -151,7 +151,12 @@ get_forward_reachable <- function(el_cuml, from_step, to_step, nodes = NULL,
     el_cur <- dplyr::filter(el_cuml, start <= cur_step, stop >= cur_step)
     # nolint end
 
-    # get subnet works with adjacency list
+    # if (dense_optim) {
+    #   adj_list <- new_get_subnet_adj_list(el_cur, length(orig_indexes))
+    # } else {
+    #   adj_list <- get_adj_list(el_cur, length(orig_indexes))
+    # }
+
     adj_list <- get_adj_list(el_cur, length(orig_indexes))
     if (dense_optim)
       adj_list <- get_subnet_adj_list(adj_list)
@@ -179,14 +184,15 @@ get_forward_reachable <- function(el_cuml, from_step, to_step, nodes = NULL,
 
 #' @rdname reachable-nodes
 #' @export
-get_backward_reachable <- function(el_cuml, from_step, to_step, nodes = NULL) {
+get_backward_reachable <- function(el_cuml, from_step, to_step, nodes = NULL,
+                                   dense_optim = FALSE) {
   # simply invert the time before calling get_forward_reachable`
   el_cuml$stop <- ifelse(is.na(el_cuml$stop), Inf, el_cuml$stop)
   tmp <- el_cuml$start
   el_cuml$start <- - el_cuml$stop
   el_cuml$stop <- - tmp
 
-  get_forward_reachable(el_cuml, -to_step, -from_step, nodes)
+  get_forward_reachable(el_cuml, -to_step, -from_step, nodes, dense_optim)
 }
 
 #' Returns all the node connected directly or indirectly to a set of nodes
@@ -239,7 +245,7 @@ get_adj_list <- function(el, n_nodes) {
 
 #' Return an adjacency list of subnets
 #'
-#' @adj_list A normal adjacency list
+#' @param adj_list A normal adjacency list
 #'
 #' @return An adjacency list where only the first node of a subnet contains the
 #' subnet and all other contain only the first node
@@ -270,6 +276,84 @@ get_subnet_adj_list <- function(adj_list) {
   }
   adj_list
 }
+
+el <- data.frame(
+  head = sample(15),
+  tail = sample(15)
+)
+el <- filter(el, head != tail)
+for (i in seq_len(nrow(el))) {
+  if (el$head[i] < el$tail[i]) {
+    tmp <- el$head[i]
+    el$head[i] <- el$tail[i]
+    el$tail[i] <- tmp
+  }
+}
+
+el <- el[1:10, ]
+
+get_state <- function(adj_list, node) {
+  if (length(adj_list[[node]]) == 0) {
+    return("empty")
+  } else if (adj_list[[node]][1] > node) {
+    return("subnet")
+  } else {
+    return("pointer")
+  }
+}
+
+follow_pointer <- function(adj_list, node) {
+  adj_list[[node]][1]
+}
+
+# assume edges are unique
+# assume edges are tail < head
+new_get_subnet_adj_list <- function(el, n_nodes) {
+  ordering <- order(el$tail, el$head)
+  low <- el$tail[ordering]
+  high <- el$head[ordering]
+
+  adj_list <- vector(mode = "list", length = n_nodes)
+  i <- 1
+  while (i <= nrow(el)) {
+    low_state <- get_state(adj_list, low[i])
+    high_state <- get_state(adj_list, high[i])
+
+    if (low_state == "pointer") {
+      low[i] <- follow_pointer(adj_list, low[i])
+      low_state <- "subnet"
+    }
+
+    if (high_state == "pointer") {
+      high[i] <- follow_pointer(adj_list, high[i])
+      high_state <- "subnet"
+    }
+
+    if (low_state == "empty" && high_state == "empty") {
+      adj_list[[low[i]]] <- high[i]
+      adj_list[[high[i]]] <- low[i]
+    } else if (low_state == "empty" && high_state == "subnet") {
+      high_sub <- adj_list[[high[i]]]
+      adj_list[[low[i]]] <- c(high[i], high_sub)
+      adj_list[[high[i]]] <- low[i]
+      adj_list[high_sub] <- low[i]
+    } else if (low_state == "subnet" && high_state == "empty") {
+      adj_list[[low[i]]] <- c(adj_list[[low[i]]], high[i])
+      adj_list[[high[i]]] <- low[i]
+    } else if (low_state == "subnet" && high_state == "subnet") {
+      low_sub <- adj_list[[low[i]]]
+      high_sub <- adj_list[[high[i]]]
+      adj_list[[low[i]]] <- c(high_sub, high[i], low_sub)
+      adj_list[[high[i]]] <- low[i]
+      adj_list[high_sub] <- low[i]
+    }
+
+    i <- i + 1
+  }
+
+  adj_list
+}
+
 
 #' Convert an object to a `cumulative_edgelist`
 #'
