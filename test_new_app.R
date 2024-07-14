@@ -10,8 +10,8 @@ source("./forward_reacheable_path.R")
 
 # el_cuml <- readRDS("el_cuml__school.rds")
 # el_cuml <- readRDS("el_cuml__home.rds")
-# el_cuml <- readRDS("el_cuml__non.rds")
-el_cuml <- readRDS("el_cuml__work.rds")
+el_cuml <- readRDS("el_cuml__non.rds")
+# el_cuml <- readRDS("el_cuml__work.rds")
 # el_cuml <- readRDS("./el_cuml_tom.rds")
 
 node_set <- unique(c(el_cuml$head, el_cuml$tail))
@@ -84,8 +84,7 @@ adj_list = get_adj_list(el_cuml, n_nodes)
 sub_list = get_subnet_adj_list(adj_list)
 new_sub = new_get_subnet_adj_list(el_cuml, n_nodes)
 
-
-for (i in 11555:length(new_sub)) {
+for (i in 1:length(new_sub)) {
   if (!setequal(sub_list[[i]], new_sub[[i]])) {
     print(sub_list[[i]])
     print(new_sub[[i]])
@@ -97,4 +96,27 @@ for (i in 11555:length(new_sub)) {
 ns2 <- get_subnet_adj_list(new_sub)
 for (i in seq_along(ns2)) {
   if (!setequal(sub_list[[i]], ns2[[i]])) print(i)
+}
+
+n_nodes <- 16
+el_cuml <- tibble(
+  tail = c(1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 10, 13, 13),
+  head = c(5, 6, 14, 7, 10, 7, 8, 11, 9, 12, 14, 15, 16)
+)
+el <- el_cuml
+
+adj_list = get_adj_list(el_cuml, n_nodes)
+sub_list = get_subnet_adj_list(adj_list)
+new_sub = new_get_subnet_adj_list(el_cuml, n_nodes)
+
+adj_list
+
+print(paste(low[i], high[i])); print(paste(low_state, high_state))
+p_list(adj_list)
+
+p_list(sub_list)
+
+p_list <- function(ll) {
+  for (j in seq_along(ll))
+    writeLines(paste0(j, ": ", paste0(ll[[j]], collapse = ", ")))
 }

@@ -151,15 +151,15 @@ get_forward_reachable <- function(el_cuml, from_step, to_step, nodes = NULL,
     el_cur <- dplyr::filter(el_cuml, start <= cur_step, stop >= cur_step)
     # nolint end
 
-    # if (dense_optim) {
-    #   adj_list <- new_get_subnet_adj_list(el_cur, length(orig_indexes))
-    # } else {
-    #   adj_list <- get_adj_list(el_cur, length(orig_indexes))
-    # }
+    if (dense_optim) {
+      adj_list <- new_get_subnet_adj_list(el_cur, length(orig_indexes))
+    } else {
+      adj_list <- get_adj_list(el_cur, length(orig_indexes))
+    }
 
-    adj_list <- get_adj_list(el_cur, length(orig_indexes))
-    if (dense_optim)
-      adj_list <- get_subnet_adj_list(adj_list)
+    # adj_list <- get_adj_list(el_cur, length(orig_indexes))
+    # if (dense_optim)
+    #   adj_list <- get_subnet_adj_list(adj_list)
 
     # at time T, the REACH(T) of a node is the subnet connected to the REACH(T-1)
     new_reached <- lapply(reach_cur, get_connected_nodes, adj_list = adj_list)
@@ -327,6 +327,15 @@ new_get_subnet_adj_list <- function(el, n_nodes) {
     if (high_state == "pointer") {
       high[i] <- follow_pointer(adj_list, high[i])
       high_state <- "subnet"
+    }
+
+    if (high[i] < low[i]) {
+      tmp <- high[i]
+      high[i] <- low[i]
+      low[i] <- tmp
+      tmp <- high_state
+      high_state <- low_state
+      low_state <- tmp
     }
 
     if (low_state == "empty" && high_state == "empty") {
