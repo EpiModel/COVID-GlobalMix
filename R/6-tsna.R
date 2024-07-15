@@ -4,6 +4,7 @@
 # est_apch = "sto_apoxy"/"mcmle"
 # layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, where "ALL" means all 4 layers
 # percent_target_pop = 0.1/0.4/1
+# nodes - a numeric vector of identifiers of nodes whose FRPs are calculated
 
 
 # Packages
@@ -58,7 +59,7 @@ progressr::with_progress(
   el_cuml, 
   from_step=1, 
   to_step=365,
-  nodes = NULL
+  nodes = nodes
   )
 )
 
