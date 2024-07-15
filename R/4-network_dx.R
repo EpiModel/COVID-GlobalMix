@@ -25,8 +25,7 @@ est  <-
 source("R/layers_dx.R")
 
 dx <- 
-layers_dx(est_nw = est, 
-          layer = layer
+layers_dx(est_nw = est
           )
 
 # Outputting netdx result of the single layer

@@ -1,8 +1,7 @@
 layers_dx <- 
-  function(est_nw, layer){
+  function(est_nw){
     
-    if(layer %in% c("Home", "School", "Work") # T-ERGM for home, school, work
-    ){
+     # T-ERGM for home, school, work, and nonhome
       dx <-
         netdx(est_nw,
               nsims =  30,
@@ -15,20 +14,6 @@ layers_dx <-
               dynamic = TRUE,
               skip.dissolution = FALSE
         )
-    }else{ # ERGM for nonhome
-      dx <- 
-        netdx(est_nw,
-              nsims =  1000,
-              ncores = 10,
-    
-              nwstats.formula = est_nw$formation,
-              set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
-              set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
-              dynamic = FALSE,
-              skip.dissolution = FALSE
-              #keep.tedgelist = TRUE
-        )
-    }
     
     dx
   }
