@@ -203,7 +203,13 @@ plot(dx_w_u)
 plot(dx_nh_u)
 
 ### Evaluate duration
-dissolution
+duration
+
+dx_h_r$coef.diss$duration
+dx_s_r$coef.diss$duration
+dx_w_r$coef.diss$duration
+dx_nh_r$coef.diss$duration
+
 dx_h_u$coef.diss$duration
 dx_s_u$coef.diss$duration
 dx_w_u$coef.diss$duration
