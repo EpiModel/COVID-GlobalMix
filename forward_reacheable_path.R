@@ -2,7 +2,9 @@
 #'
 #' @description
 #' These functions return the Forward or Backward Reachable Nodes of a set of
-#' nodes in a network over a time. It is much faster than iterating
+#' nodes in a network over a time. Warning, these functions ignore nodes without
+#' edges in the period of interest. See the `Number of Nodes` section for
+#' details It is much faster than iterating
 #' \code{tsna::tPath}. The distance between to each node can be back calculated
 #' using the length of the reachable set at each time step and the fact that the
 #' reachable sets are ordered by the time to arrival.
@@ -14,7 +16,7 @@
 #' @param nodes the subset of nodes to calculate the FRP for. (default = NULL,
 #'        all nodes)
 #' @param dense_optim a flag to turn on an optimization speeding up the
-#'        computation on denser networks. (default = FALSE)
+#'        computation on denser networks. (default = TRUE)
 #'
 #' @return
 #' A named list containing:
@@ -23,6 +25,16 @@
 #'      with the length of the reachable set at each step from `from_step - 1`
 #'      to `to_step`. The first column is always one as the set of reachables
 #'      at the beginning is just the node itself.
+#'
+#' @section Number of Nodes:
+#' To speed up the calculations and lower the memory usage, these functions
+#' only take into account nodes with edges in the cumulative edgelist over the
+#' period of interest. The nodes are identified in the `reached` and `lengths`
+#' sublists by names (e.g. `node_1093`). Nodes without any edges are therefore
+#' not calculated as the only node they reach is themselve (length of 1).
+#' Take this fact into account when exploring the distribution of Forward
+#' Reachable Paths for example. As the nodes with FRP == 1 are not in the
+#' output.
 #'
 #' @section Time and Memory Use:
 #' These functions may be used to efficiently calculate multiple sets of
@@ -40,15 +52,6 @@
 #' to display the progress bar. Or see the
 #' \href{https://progressr.futureverse.org/articles/progressr-intro.html}{progressr package}
 #' for more information and customization.
-#'
-#' @section Number of Nodes:
-#' As cumulative edgelists do not contain the total number of nodes in the
-#' network, if `nodes = NULL`, the total number of node on the network is
-#' assumed to be the highest ID recorded in an edge.
-#' We can therefore arrive to a situation where there is less elements in the
-#' output than node in the network if the last N nodes (by ID) are never
-#' connected. And therefore are not recorded in the cumulative edgelist.
-#' However, it means that these nodes have no reachable nodes appart themselves.
 #'
 #' @examples
 #' \dontrun{
@@ -96,7 +99,7 @@ NULL
 #' @rdname reachable-nodes
 #' @export
 get_forward_reachable <- function(el_cuml, from_step, to_step, nodes = NULL,
-                                  dense_optim = FALSE) {
+                                  dense_optim = 'no') {
   # Prepare the cumulative edgelist:
   # - set the `stop` time to `Inf` instead of NA
   # - remove the edges that don't exist in the analysis period
@@ -151,15 +154,12 @@ get_forward_reachable <- function(el_cuml, from_step, to_step, nodes = NULL,
     el_cur <- dplyr::filter(el_cuml, start <= cur_step, stop >= cur_step)
     # nolint end
 
-    if (dense_optim) {
-      adj_list <- new_get_subnet_adj_list(el_cur, length(orig_indexes))
-    } else {
-      adj_list <- get_adj_list(el_cur, length(orig_indexes))
+    adj_list <- get_adj_list(el_cur, length(orig_indexes))
+    if (dense_optim == "yes") {
+      adj_list <- get_subnet_adj_list(adj_list)
+    } else if (dense_optim == "auto" && nrow(el_cur) > length(orig_indexes)) {
+      adj_list <- get_subnet_adj_list(adj_list)
     }
-
-    # adj_list <- get_adj_list(el_cur, length(orig_indexes))
-    # if (dense_optim)
-    #   adj_list <- get_subnet_adj_list(adj_list)
 
     # at time T, the REACH(T) of a node is the subnet connected to the REACH(T-1)
     new_reached <- lapply(reach_cur, get_connected_nodes, adj_list = adj_list)
@@ -277,21 +277,6 @@ get_subnet_adj_list <- function(adj_list) {
   adj_list
 }
 
-el <- data.frame(
-  head = sample(15),
-  tail = sample(15)
-)
-el <- filter(el, head != tail)
-for (i in seq_len(nrow(el))) {
-  if (el$head[i] < el$tail[i]) {
-    tmp <- el$head[i]
-    el$head[i] <- el$tail[i]
-    el$tail[i] <- tmp
-  }
-}
-
-el <- el[1:10, ]
-
 get_state <- function(adj_list, node) {
   if (length(adj_list[[node]]) == 0) {
     return("empty")
@@ -309,9 +294,11 @@ follow_pointer <- function(adj_list, node) {
 # assume edges are unique
 # assume edges are tail < head
 new_get_subnet_adj_list <- function(el, n_nodes) {
-  ordering <- order(el$tail, el$head)
-  low <- el$tail[ordering]
-  high <- el$head[ordering]
+  # ordering <- order(el$tail, el$head)
+  # low <- el$tail[ordering]
+  # high <- el$head[ordering]
+  low <- el$tail
+  high <- el$head
 
   adj_list <- vector(mode = "list", length = n_nodes)
   i <- 1

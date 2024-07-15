@@ -1,16 +1,9 @@
 library(dplyr)
 source("./forward_reacheable_path.R")
 
-# el_lists <- list(
-#   home = readRDS("el_cuml__home.rds"),
-#   work = readRDS("el_cuml__work.rds"),
-#   school = readRDS("el_cuml__school.rds"),
-#   non_home = readRDS("el_cuml__non.rds")
-# )
-
 # el_cuml <- readRDS("el_cuml__school.rds")
-# el_cuml <- readRDS("el_cuml__home.rds")
-el_cuml <- readRDS("el_cuml__non.rds")
+el_cuml <- readRDS("el_cuml__home.rds")
+# el_cuml <- readRDS("el_cuml__non.rds")
 # el_cuml <- readRDS("el_cuml__work.rds")
 # el_cuml <- readRDS("./el_cuml_tom.rds")
 
@@ -22,12 +15,17 @@ nodes <- sample(node_set, 1e3)
 
 system.time({
   progressr::with_progress(
-    x <- get_forward_reachable(el_cuml, 1, 52, nodes, TRUE)
+    x <- get_forward_reachable(el_cuml, 1, 52, nodes, "yes")
   )
 })
 system.time({
   progressr::with_progress(
-    old <- get_forward_reachable(el_cuml, 1, 52, nodes)
+    old <- get_forward_reachable(el_cuml, 1, 52, nodes, "auto")
+  )
+})
+system.time({
+  progressr::with_progress(
+    old <- get_forward_reachable(el_cuml, 1, 52, nodes, "no")
   )
 })
 
@@ -66,12 +64,7 @@ profvis::profvis({
   )
 })
 
-microbenchmark::microbenchmark(
-  step = get_forward_reachable_steps(el_cuml, 1, 52, nodes),
-  reach = get_forward_reachable_steps(el_cuml, 1, 52, nodes),
-  times = 4
-)
-
+n_nodes <- max(c(el_cuml$head, el_cuml$tail))
 microbenchmark::microbenchmark(
   raw = get_adj_list(el_cuml, n_nodes),
   old = get_subnet_adj_list(get_adj_list(el_cuml, n_nodes)),
@@ -121,12 +114,12 @@ p_list <- function(ll) {
     writeLines(paste0(j, ": ", paste0(ll[[j]], collapse = ", ")))
 }
 
+n_nodes <- max(c(el_cuml$head, el_cuml$tail))
 for (t in 1:52) {
   el_cur <- dplyr::filter(el_cuml, start <= t, stop >= t)
-  adj_list <- get_adj_list(el_cur, length(orig_indexes)) |>
+  adj_list <- get_adj_list(el_cur, n_nodes) |>
     get_subnet_adj_list()
-  comp_list <- new_get_subnet_adj_list(el_cur, length(orig_indexes))
-
+  comp_list <- new_get_subnet_adj_list(el_cur, n_nodes)
   for (i in seq_along(adj_list)) {
     if (!setequal(adj_list[[i]], comp_list[[i]])) {
       print(paste0("step: ", t, " - node: ", i))
@@ -134,3 +127,28 @@ for (t in 1:52) {
     }
   }
 }
+
+# el_cuml <- readRDS("el_cuml__school.rds")
+el_cuml <- readRDS("el_cuml__home.rds")
+# el_cuml <- readRDS("el_cuml__non.rds")
+# el_cuml <- readRDS("el_cuml__work.rds")
+# el_cuml <- readRDS("./el_cuml_tom.rds")
+n_nodes <- max(c(el_cuml$head, el_cuml$tail))
+t <- 2
+el_cur <- dplyr::filter(el_cuml, start <= t, stop >= t)
+microbenchmark::microbenchmark(
+  raw = get_adj_list(el_cur, n_nodes),
+  old = get_subnet_adj_list(get_adj_list(el_cur, n_nodes)),
+  new = new_get_subnet_adj_list(el_cur, n_nodes),
+  times = 10
+)
+
+options("browser" = "firefox")
+profvis::profvis({
+  new_sub <- new_get_subnet_adj_list(el_cur, n_nodes)
+})
+new_sub <- new_get_subnet_adj_list(el_cur, n_nodes)
+vapply(new_sub, length, 0) |> table()
+
+new_sub <- get_subnet_adj_list(get_adj_list(el_cur, n_nodes))
+vapply(new_sub, length, 0) |> table()
