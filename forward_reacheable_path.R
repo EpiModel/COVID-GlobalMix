@@ -329,7 +329,10 @@ new_get_subnet_adj_list <- function(el, n_nodes) {
       high_state <- "subnet"
     }
 
-    if (high[i] < low[i]) {
+    if (high[i] == low[i]) {
+      i <- i + 1
+      next
+    } else if (high[i] < low[i]) {
       tmp <- high[i]
       high[i] <- low[i]
       low[i] <- tmp

@@ -113,10 +113,24 @@ adj_list
 
 print(paste(low[i], high[i])); print(paste(low_state, high_state))
 p_list(adj_list)
-
 p_list(sub_list)
+p_list(new_sub)
 
 p_list <- function(ll) {
   for (j in seq_along(ll))
     writeLines(paste0(j, ": ", paste0(ll[[j]], collapse = ", ")))
+}
+
+for (t in 1:52) {
+  el_cur <- dplyr::filter(el_cuml, start <= t, stop >= t)
+  adj_list <- get_adj_list(el_cur, length(orig_indexes)) |>
+    get_subnet_adj_list()
+  comp_list <- new_get_subnet_adj_list(el_cur, length(orig_indexes))
+
+  for (i in seq_along(adj_list)) {
+    if (!setequal(adj_list[[i]], comp_list[[i]])) {
+      print(paste0("step: ", t, " - node: ", i))
+      break
+    }
+  }
 }
