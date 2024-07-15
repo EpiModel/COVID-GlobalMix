@@ -22,7 +22,7 @@ wf <- add_workflow_step(
                 network="Urban",
                 est_apch="mcmle",
                 percent_target_pop="0.1",
-                nodes=1:100), # Calculate FRPs for the 1st 100 nodes
+                nodes=NULL), 
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
