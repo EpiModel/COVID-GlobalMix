@@ -33,10 +33,11 @@ file.name_u <- paste0(
   layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
 )
 
-# frp_length_all_r <- readRDS(file.name_r[1])
-# frp_length_s_r <- readRDS(file.name_r[3])
-# frp_length_w_r <- readRDS(file.name_r[4])
-# frp_length_nh_r <- readRDS(file.name_r[5])
+frp_length_all_r <- readRDS(file.name_r[1])
+frp_length_h_r <- readRDS(file.name_r[2])
+frp_length_s_r <- readRDS(file.name_r[3])
+frp_length_w_r <- readRDS(file.name_r[4])
+frp_length_nh_r <- readRDS(file.name_r[5])
 # 
 # frp_length_all_u <- readRDS("data/frp_outputs/frp_length_All__Urban__mcmle__0.1.Rds")
 frp_length_h_u <- readRDS(file.name_u[2])
@@ -45,22 +46,20 @@ frp_length_w_u <- readRDS(file.name_u[4])
 frp_length_nh_u <- readRDS(file.name_u[5])
 
 
-str(frp_length_s_u)
-
-
 
 ## Table for FRP on day 365
 frp_365 <- 
 list(
-# all_rural = all_rural,
-# school_rural = school_rural,
-# work_rural = work_rural,
-# nonhome_rural = nonhome_rural,
+  All_rural = as.numeric(frp_length_all_r$lengths[, 366]),
+  Home_rural = as.numeric(frp_length_h_r$lengths[, 366]),
+  School_rural = as.numeric(frp_length_s_r$lengths[,366]),
+  Work_rural = as.numeric(frp_length_w_r$lengths[,366]),
+  Nonhome_rural = as.numeric(frp_length_nh_r$lengths[,366]),
 
-Home_urban = frp_length_h_u,
-School_urban = frp_length_s_u,
-Work_urban = frp_length_w_u,
-Nonhome_urban = frp_length_nh_u
+Home_urban = as.numeric(frp_length_h_u$lengths[, 366]),
+School_urban = as.numeric(frp_length_s_u$lengths[,366]),
+Work_urban = as.numeric(frp_length_w_u$lengths[,366]),
+Nonhome_urban = as.numeric(frp_length_nh_u$lengths[,366])
 ) %>% 
   lapply(., summary)%>% 
   do.call(rbind, .) %>% 
@@ -88,41 +87,70 @@ library(wesanderson)
 # palv4 <- inferno(n = 5)
 # palv5 <- RColorBrewer::brewer.pal(8, "Set2")
 palv6 <- grDevices::gray.colors(5)
+
+## Rural FRP lengths
 par(mfrow = c(3, 2))
-matplot(t( frp_all_r_length), type = "l", 
-        # ylim = c(0, max(frp_all_r_365)
+matplot(t( frp_length_all_r$lengths), type = "l", 
+        # ylim = c(0, max(frp_length_all_r_365)
         #          ), 
-        xlab = "", ylab = "FRP", 
+        xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "All rural layers, India")
 
 abline(h = n_r, col = "blue")
 
-matplot(t( frp_nh_r_length), type = "l",
-        #ylim = c(0, max(frp_nh_r_365)),
-        xlab = "", ylab = "FRP", 
+matplot(t( frp_length_h_r$lengths), type = "l", 
+        #ylim = c(0, max(frp_length_s_r_365)), 
+        xlab = "", ylab = "FRP length", 
+        lty = 1, col = palv6, lwd = 0.5, main = "Rural home, India")
+
+matplot(t( frp_length_s_r$lengths), type = "l", 
+        #ylim = c(0, max(frp_length_s_r_365)), 
+        xlab = "", ylab = "FRP length", 
+        lty = 1, col = palv6, lwd = 0.5, main = "Rural school, India")
+
+
+matplot(t( frp_length_w_r$lengths), type = "l", 
+        #ylim = c(0, max(frp_w_r_365)), 
+        xlab = "", ylab = "FRP length", 
+        lty = 1, col = palv6, lwd = 0.5, main = "Rural work, India")
+
+
+matplot(t( frp_length_nh_r$lengths), type = "l",
+        #ylim = c(0, max(frp_length_nh_r_365)),
+        xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Rural nonhome, India")
 abline(h = n_r, col = "blue")
 
-matplot(t( frp_s_r_length), type = "l", 
-        #ylim = c(0, max(frp_s_r_365)), 
-        xlab = "", ylab = "FRP", 
-        lty = 1, col = palv6, lwd = 0.5, main = "Rural school, India")
-abline(h = n_r, col = "blue")
-matplot(t( frp_w_r_length), type = "l", 
-        #ylim = c(0, max(frp_w_r_365)), 
-        xlab = "", ylab = "FRP", 
-        lty = 1, col = palv6, lwd = 0.5, main = "Rural work, India")
-abline(h = n_r, col = "blue")
-matplot(t( frp_s_u_length), type = "l", 
-        ylim = c(0, 20000), 
-        xlab = "", ylab = "FRP", 
+
+
+## Urban FRP lengths
+par(mfrow = c(3, 2))
+
+matplot(t( frp_length_h_u$lengths), type = "l", 
+        #ylim = c(0, max(frp_length_s_u_365)), 
+        xlab = "", ylab = "FRP length", 
+        lty = 1, col = palv6, lwd = 0.5, main = "Urban home, India")
+abline(h = n_u, col = "blue")
+
+matplot(t( frp_length_s_u$lengths), type = "l", 
+        #ylim = c(0, max(frp_length_s_u_365)), 
+        xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban school, India")
 abline(h = n_u, col = "blue")
-matplot(t( frp_w_u_length), type = "l", 
-        ylim = c(0, 20000), 
-        xlab = "", ylab = "FRP", 
+
+matplot(t( frp_length_w_u$lengths), type = "l", 
+        #ylim = c(0, max(frp_w_u_365)), 
+        xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban work, India")
+
+
+matplot(t( frp_length_nh_u$lengths), type = "l",
+        #ylim = c(0, max(frp_length_nh_u_365)),
+        xlab = "", ylab = "FRP length", 
+        lty = 1, col = palv6, lwd = 0.5, main = "Urban nonhome, India")
 abline(h = n_u, col = "blue")
+
+
 
 
 
@@ -163,9 +191,7 @@ dx_nh_u <-
 # Plot netdx outputs
 library(EpiModel)
 ## Rural
-?plot.netdx
-EpiModel::plot
-plot(dx_h_r, stats = "edges")
+plot(dx_h_r)
 plot(dx_s_r)
 plot(dx_w_r)
 plot(dx_nh_r)

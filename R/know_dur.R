@@ -1,66 +1,19 @@
 know_dur <- function(india_mix.){
   
-  ###########  Method description ###########
-  # For duration at the home layer, we characterize it as the average age of participants/contacts (whichever is smaller) in each network. 
-  # Before using the following steps 1-4, we first duplicate each contact (edge) whose "fromdayone" == "Both days" into two contacts (edges) for the nonhome layer, following what was done for the formation statistics. 
-  # The durations of the school, work, and nonhome layers are characterized in the following way:
+  #  Introduction:  
+  # For duration at the home layer, we assume it to be non-dissolving so it would be a large number. 
+  # For duration at the nonhome layer, we assume it refreshes daily. 
+  # The duration of the school, work, and nonhome layer is characterized in the following way:
   # 1) We tabulate time of knowing a contact and contact frequency to retrieve the proportions of daily contact under each category of the duration of knowing the contact. 
   # 2) For a contact who is known less than ≤ 10 years, we took the mid point of each know contact category as the known duration. 
   # 3) For a contact who is known > 10 years, we characterize the known duration using "known_contact", participant's age, and contact's age. Details for the characterization of this category is documented in the "analysis_decision" file. 
   # 4) We multiply the proportion of daily contact (as weight) and the known duration to calculate the adjusted known duration. Then we sum over the margin of the categories as the duration.
-
-  ###########  Pre-processing ###########
-  # Inpute a continuous contact age by the median of age category
-  india_mix. <- 
-    india_mix. %>% 
-    # select necessary variables
-    select(rec_id, study_site, fromdayone, contact_location, participant_age, participant_ageyr,  contact_age, frequency_contact, known_contact) %>% 
-   
-    mutate(contact_age_num = case_when(contact_age == "0-9y" ~ 4.5, # impute by median age
-                                                 contact_age == "10-19y" ~ 14.5, # impute by median age
-                                                 contact_age == "20-29y" ~ 24.5, # impute by median age
-                                                 contact_age == "30-39y" ~ 34.5, # impute by median age
-                                                 contact_age == "40-59y" ~ 49.5, # impute by median age
-                                                 contact_age == "60+y" ~ 60 # given no characterized contact duration is > 60 yr, we impute the continuous age of this category as the lower bound.
-                                       )
-           ) 
-  
-  
-  
-  # Replicate the nonhome edges whose "fromdayone" == "Both days"
-  india_mix. <- 
-    india_mix. %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we treat it as two edges (i.e., two rows).
-    ) %>% 
-    rbind(., 
-          india_mix. %>% filter(
-            (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for other contacts/edges (than the above ones) and for those having missing value for fromdayone, we treat it as a single edge (i.e., one row).
-          ) 
-    ) %>% 
-    select(-fromdayone)
-  
-  ###########  Characterize duration for home ###########
-  known_duration_h <- 
-    india_mix. %>% 
-    filter(contact_location %in% c("Home"))  %>% # filter out contacts of the home layer
-    mutate(known_contact_duration_yr = pmin(participant_ageyr,contact_age_num)
-           ) %>% 
-    group_by(study_site) %>% 
-    summarize(know_contact_duration = mean(known_contact_duration_yr)*365
-    )
-  
-    
-  
-  ###########  Characterize duration for school, work, nonhome ###########
-  india_mix_s_w_nh <- 
-  india_mix. %>% 
-    filter(contact_location %in% c("School", "Work" ,
-                                   "Nonhome"
-                                   )) # filter out contacts of the school, work, and nonhome layer
+  # There are few contact whose participants' age is less than the reported know contact duration of > 10 yrs, rendering the characterized duration to be <0; we used the participant's age as the duration for these observations.
+  # Since the the following analysis is only applied to the school and work layer, there's no need to adjust for the replicated contacts as we consider them to be unique.  
   
   #  Characterize the known duration for known_contact >10 yrs at the individual level
-  ## Considering partitipant's age in characterizing contact duration
-  known_dur_gt_10yr <- india_mix_s_w_nh %>% 
-    filter(known_contact == ">10 yrs" 
+  known_dur_gt_10yr <- india_mix. %>% 
+    filter(known_contact == ">10 yrs" & contact_location %in% c( "School", "Work", "Nonhome" )
     ) %>%
     # for known_contact >10 yrs, the known duration is the middle point between 10 yrs and participants age.
     mutate(mid_point = (participant_ageyr - 10)/2 # half of the difference between the 10-yr bound and participants age.
@@ -69,23 +22,29 @@ know_dur <- function(india_mix.){
       known_duration = case_when(mid_point <= 0 ~ participant_ageyr,# for participants whose age is shorter than the known duration of 10 yrs, we consider the known duration the same as participant's age.
                                  mid_point > 0 ~ mid_point+10) # for participants whose age is longer than the known duration, we calculate the known duration by summing the 10-yr lower bound and "mid_point"
     ) %>% 
-    select(rec_id, study_site, contact_location, participant_age, participant_ageyr, contact_age_num, known_duration) # select variables which will be used below
+    select(rec_id, study_site, contact_location, participant_age, participant_ageyr, contact_age, known_duration) # select variables which will be used below
   
-  ## Considering contact's age in characterizing contact duration
+  # Considering contact age in characterizing contact duration
   known_dur_gt_10yr <- 
-    known_dur_gt_10yr %>% 
+    # Inpute a continuous contact age by the median of age category
+    known_dur_gt_10yr %>% mutate(contact_age_num = case_when(contact_age == "0-9y" ~ 4.5, # impute by median age
+                                                             contact_age == "10-19y" ~ 14.5, # impute by median age
+                                                             contact_age == "20-29y" ~ 24.5, # impute by median age
+                                                             contact_age == "30-39y" ~ 34.5, # impute by median age
+                                                             contact_age == "40-59y" ~ 49.5, # impute by median age
+                                                             contact_age == "60+y" ~ 60, # given no characterized contact duration is > 60 yr, we impute the continuous age of this category as the lower bound.
+    )
+    ) %>% 
     mutate(diff= contact_age_num-known_duration) %>% # calculate the difference between contact's age and know duration
     mutate(known_duration_adj = case_when(diff>=0 ~ known_duration, # If contact's age is larger than or equal to the known duration, we treat the known duration as-is
                                           diff<0 ~contact_age_num) # If contact's age is shorter than the known duration, we use the contact age as the duration
     ) %>% 
-    # After the above characterization, at school and work, we observe there are still 4 contacts of 458-1, 660-1, 664-1, and 666-1 whose known_duration_adj is < 10. 
-    # At nonhome, we have 40 contacts of "24-2",  "106-1", "203-1", "417-1", "498-1", "533-1", "551-1", "608-1", "633-1", "635-1", "542-2", 
-    # "177-1", "217-1", "327-1", "353-1", "368-1", "520-1", "547-1", "681-1", "726-1" whose known_duration_adj is < 10. 
-    # Since a characterize contact would be valid only if it's >= the 10 year lower bound, we consider them (those duration <10) as invalid and exclude them from analysis
+    # After the above characterization, we observe there are still 5 contacts of 458-1, 660-1, 664-1, and 666-1 whose known_duration_adj is < 10. 
+    # Since a reported contact would be valid only if its reported contact duration is larger than both the ages of its participant and contact. We consider them as invalid and exclude them from analysis
     filter(known_duration_adj > 10)
   
   
-  # Calculate avg. known duration of contact longer than 10 years (in days) by network and layer for the study population 
+  # Calculate avg. known duration of contact longer than 10 years (in days) by network and layer for sampled population 
   known_dur_gt_10yr <- 
     known_dur_gt_10yr %>% 
     group_by(study_site, contact_location) %>% 
@@ -93,9 +52,10 @@ know_dur <- function(india_mix.){
     ) %>% ungroup()
   
   # Characterize known duration of contact (in days) for all categories of durations
-  known_duration_s_w_nh <-
-    india_mix_s_w_nh %>% 
+  known_duration <-
+    india_mix. %>% 
     # characterize frequency of daily contact 
+    filter(contact_location %in% c("School", "Work", "Nonhome")) %>%  # school and work layers are those we want to characterize the duration
     droplevels() %>% 
     group_by(study_site, contact_location, frequency_contact, known_contact) %>%  
     tally() %>% # summarize frequency from tabulation of frequency_contact & known_contact, by network and layer
@@ -137,7 +97,6 @@ know_dur <- function(india_mix.){
                        known_contact==">10 yrs" & study_site == "Urban" & contact_location == "Nonhome" ~ 
                          known_dur_gt_10yr %>% filter( study_site == "Urban" & contact_location == "Nonhome") %>% 
                          pull(known_contact_avg)
-                       
              )
     ) %>% 
     group_by(study_site, contact_location) %>% 
@@ -150,16 +109,15 @@ know_dur <- function(india_mix.){
     summarize(know_contact_duration = sum(weighted_known_contact_d)
     ) %>% ungroup() 
   
-  # Combining characterized duration of the 4 layers
-  known_duration <- 
-  known_duration_h %>% mutate(contact_location = "Home") %>% select( study_site, contact_location, know_contact_duration) %>% 
+  # Combining characterized duration of the School, Work, and Nonhome layers with 1e6 of the Home layers
+  known_duration %>% 
     rbind(.,
-  known_duration_s_w_nh
-  ) %>% arrange(study_site) %>% 
-    mutate(contact_location = factor(contact_location,   levels = c("Home", "School", "Work", "Nonhome")
-                                     )
-           )
-  
-  known_duration
+  data.frame(
+    study_site = c("Rural", "Urban"),
+    contact_location = "Home",
+    know_contact_duration = 1e6)
+    ) %>% 
+    mutate(contact_location = factor(contact_location,   levels = c("Home", "School", "Work", "Nonhome"))) %>% 
+    arrange(study_site, contact_location)
   
 }

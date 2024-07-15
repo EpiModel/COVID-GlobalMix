@@ -18,9 +18,9 @@ layers_dx <-
     }else{ # ERGM for nonhome
       dx <- 
         netdx(est_nw,
-              nsims =  30,
+              nsims =  1000,
               ncores = 10,
-              nsteps = 1000,
+    
               nwstats.formula = est_nw$formation,
               set.control.ergm = control.simulate.formula(MCMC.burnin = 1e6),
               set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 3e5),
