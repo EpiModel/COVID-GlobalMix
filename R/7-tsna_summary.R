@@ -39,7 +39,7 @@ frp_length_s_r <- readRDS(file.name_r[3])
 frp_length_w_r <- readRDS(file.name_r[4])
 frp_length_nh_r <- readRDS(file.name_r[5])
 # 
-frp_length_all_u <- readRDS("data/frp_outputs/frp_length_All__Urban__mcmle__0.1.Rds")
+frp_length_all_u <- readRDS(file.name_u[1])
 frp_length_h_u <- readRDS(file.name_u[2])
 frp_length_s_u <- readRDS(file.name_u[3])
 frp_length_w_u <- readRDS(file.name_u[4])
@@ -69,12 +69,6 @@ Nonhome_urban = as.numeric(frp_length_nh_u$lengths[,366])
   tibble::rownames_to_column(var="scenario")
 
 frp_365
-
-## Histogram
-# par(mfrow = c(3, 2))
-# hist(all_rural); hist(nonhome_rural);
-# hist(school_rural); hist(work_rural);
-# hist(school_urban); hist(work_urban)
 
 
 # mat plot
@@ -148,8 +142,32 @@ matplot(t( frp_length_nh_u$lengths), type = "l",
         xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban nonhome, India")
 
+# FRP of nodes 1 to 100
+file.name_r_100 <- paste0(
+  "data/frp_outputs/nodes100/frp_length_",
+  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
+)
 
+file.name_u_100 <- paste0(
+  "data/frp_outputs/nodes100/frp_length_",
+  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
+)
 
+frp_length_all_r_100 <- readRDS(file.name_r_100[1])
+frp_length_h_r_100 <- readRDS(file.name_r_100[2])
+frp_length_s_r_100 <- readRDS(file.name_r_100[3])
+frp_length_w_r_100 <- readRDS(file.name_r_100[4])
+frp_length_nh_r_100 <- readRDS(file.name_r_100[5])
+
+frp_length_all_u_100 <- readRDS(file.name_u_100[1])
+frp_length_h_u_100 <- readRDS(file.name_u_100[2])
+frp_length_s_u_100 <- readRDS(file.name_u_100[3])
+frp_length_w_u_100 <- readRDS(file.name_u_100[4])
+frp_length_nh_u_100 <- readRDS(file.name_u_100[5])
+
+# output of names(x$lengths)
+names(frp_length_w_r_100$lengths); length(frp_length_w_r_100$reached)
+names(frp_length_w_u_100$lengths); length(frp_length_w_u_100$reached)
 
 
 
