@@ -5,7 +5,7 @@
 # layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, where "ALL" means all 4 layers
 # percent_target_pop = 0.1/0.4/1
 # nodes - a numeric vector of identifiers of nodes whose FRPs are calculated
-
+#
 
 # Packages
 suppressMessages(library(tsna))
