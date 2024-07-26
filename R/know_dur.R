@@ -115,7 +115,7 @@ know_dur <- function(india_mix.){
   data.frame(
     study_site = c("Rural", "Urban"),
     contact_location = "Home",
-    know_contact_duration = 1e6)
+    know_contact_duration = 1e9) # duration at the magnitude of a billion
     ) %>% 
     mutate(contact_location = factor(contact_location,   levels = c("Home", "School", "Work", "Nonhome"))) %>% 
     arrange(study_site, contact_location)
