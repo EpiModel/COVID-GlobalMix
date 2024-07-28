@@ -13,19 +13,19 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netest_dx_0.1_h_nh_u", override = TRUE)
+wf <- make_em_workflow("netest_dx_0.4_r", override = TRUE)
 
 # netest
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/3-network_est.R",
-    layer=c("Home",  "Nonhome"),
+    layer=c("Home", "School", "Work", "Nonhome"),
     MoreArgs = list(
                 hpc_context = TRUE,
-                network="Urban",
+                network="Rural",
                 est_apch="mcmle",
-                percent_target_pop="0.1"),
+                percent_target_pop="0.4"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
@@ -40,12 +40,12 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/4-network_dx.R",
-    layer=c("Home",  "Nonhome"),
+    layer=c("Home", "School", "Work", "Nonhome"),
     MoreArgs = list(
       hpc_context = TRUE,
-      network="Urban",
+      network="Rural",
       est_apch="mcmle",
-      percent_target_pop="0.1"),
+      percent_target_pop="0.4"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
