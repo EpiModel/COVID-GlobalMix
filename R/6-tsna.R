@@ -4,8 +4,8 @@
 # est_apch = "sto_apoxy"/"mcmle"
 # layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, where "ALL" means all 4 layers
 # percent_target_pop = 0.1/0.4/1
-# nodes - a numeric vector of identifiers of nodes whose FRPs are calculated
-#
+# nodes - the number of nodes with edges whose FRPs are calculated, the default setting is NULL, that FRPs for all nodes are calculated
+
 
 # Packages
 suppressMessages(library(tsna))
@@ -52,10 +52,18 @@ if (layer == "Home") {
 }
 
 
+# the identifiers of nodes whose FRPs would be calculated
+if (!is.null(nodes)
+    ) {
+node_set <- unique(c(el_cuml$head, el_cuml$tail))
+nodes <- sample(node_set, nodes)
+}
+
+
 # Calculating FRP length for each node and time step
 frp_lengths <- 
 progressr::with_progress(
-  get_forward_reachable(
+  EpiModel::get_forward_reachable(
   el_cuml, 
   from_step=1, 
   to_step=365,
