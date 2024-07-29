@@ -4,7 +4,7 @@ library(dplyr)
 network = c("Rural", "Urban")
 est_apch = "mcmle"#/"sto_apoxy"/
 layers = c("All","Home","School","Work","Nonhome")
-percent_target_pop = 0.1 #0.4/1/
+percent_target_pop =  0.4 #/1/0.1
 
 
 
@@ -114,45 +114,76 @@ matplot(t( frp_length_nh_u$lengths), type = "l",
 
 
 
-# FRP of nodes 1 to 100
-file.name_r_100 <- paste0(
-  "data/frp_outputs/nodes100/frp_length_",
-  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
-)
+# FRP interpretation
+frp_moments_layer <- function(frp_length_layer, layer){
+  
+# Define the function to calculate mode
+  calculate_mode <- function(numbers) {
+    freq_table <- table(numbers)
+    mode_value <- as.numeric(names(freq_table)[which.max(freq_table)])
+    mode_frequency <- as.numeric(max(freq_table))
+    return(c(value = mode_value, frequency = mode_frequency))
+  }
+  
+frp_moments <- function(numbers, scenario) {
+  # Calculate summary statistics
+  mean_value <- mean(numbers)
+  median_value <- median(numbers)
+  mode_result <- calculate_mode(as.numeric(numbers))
+  mode_value <- mode_result["value"]
+  mode_frequency <- mode_result["frequency"]
+  iqr_value <- IQR(numbers)
+  min_value <- min(numbers)
+  max_value <- max(numbers)
+  q1_value <- quantile(numbers, 0.25)
+  q3_value <- quantile(numbers, 0.75)
+  min_frequency <- sum(numbers == min_value)
+  
+  # Create a dataframe with the results
+  result <- data.frame(
+    `Minimum (n)` = paste0(min_value, " (", min_frequency, ")"), 
+    Mean = mean_value, 
+    Median = median_value, 
+    `Mode (n)` = paste0(mode_value, " (", mode_frequency, ")"),
+    Maximum = max_value, 
+    Q1 = q1_value, 
+    Q3 = q3_value,
+    IQR = iqr_value,
+    check.names = FALSE
+  )
+  rownames(result) <- scenario
 
-file.name_u_100 <- paste0(
-  "data/frp_outputs/nodes100/frp_length_",
-  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
-)
+  return(result)
+}
 
-frp_length_all_r_100 <- readRDS(file.name_r_100[1])
-frp_length_h_r_100 <- readRDS(file.name_r_100[2])
-frp_length_s_r_100 <- readRDS(file.name_r_100[3])
-frp_length_w_r_100 <- readRDS(file.name_r_100[4])
-frp_length_nh_r_100 <- readRDS(file.name_r_100[5])
-
-frp_length_all_u_100 <- readRDS(file.name_u_100[1])
-frp_length_h_u_100 <- readRDS(file.name_u_100[2])
-frp_length_s_u_100 <- readRDS(file.name_u_100[3])
-frp_length_w_u_100 <- readRDS(file.name_u_100[4])
-frp_length_nh_u_100 <- readRDS(file.name_u_100[5])
-
-
-# FRP diagnosis
-## Home layer (those changes of FRP length at time step >1 are problematic)
 ### Number of nodes with different FRP lengths at specific time points
-t <- seq(from =1, to =300, by=50)
-t_name <- paste0("step_", t)
+t <- c(0, seq(from =1, to =365, length.out=3))
+t_name <- paste0( "step_", t)
+scenario <- paste0(layer,"_", "step_", t)
 
-cbind(t_name,
 rbind(
-table(frp_length_h_r$lengths[,t_name[1]]),
-table(frp_length_h_r$lengths[,t_name[2]]),
-table(frp_length_h_r$lengths[,t_name[3]]),
-table(frp_length_h_r$lengths[,t_name[4]]),
-table(frp_length_h_r$lengths[,t_name[5]]),
-table(frp_length_h_r$lengths[,t_name[6]])
-))
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[1]],
+              scenario = scenario[1]),
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[2]],
+              scenario = scenario[2]),
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[3]],
+              scenario = scenario[3]),
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[4]],
+              scenario = scenario[4])
+)
+
+}
+
+
+rbind(
+  frp_moments_layer(frp_length_layer = frp_length_all_r, layer = layers[1]),
+  frp_moments_layer(frp_length_layer = frp_length_h_r, layer = layers[2]),
+  frp_moments_layer(frp_length_layer = frp_length_s_r, layer = layers[3]),
+  frp_moments_layer(frp_length_layer = frp_length_w_r, layer = layers[4]),
+  frp_moments_layer(frp_length_layer = frp_length_nh_r, layer = layers[5])
+)
+
+
 
 ## FRP shape of individuals at rural school
 frp_length_s_r_100$lengths %>% View()
