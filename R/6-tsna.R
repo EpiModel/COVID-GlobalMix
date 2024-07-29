@@ -63,7 +63,7 @@ nodes <- sample(node_set, nodes)
 # Calculating FRP length for each node and time step
 frp_lengths <- 
 progressr::with_progress(
-  EpiModel::get_forward_reachable(
+  get_forward_reachable(
   el_cuml, 
   from_step=1, 
   to_step=365,
