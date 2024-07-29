@@ -28,6 +28,11 @@ file.name_in <-
   paste0("data/netsim_outputs/el_cuml__", layers, "__", 
          network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
+# file name of the outputted files
+file.name_out <- paste0(
+  "data/frp_outputs/frp_length_",
+  layer, "__", network,"__", est_apch,"__", percent_target_pop, "__", paste0(as.character(nodes)), ".Rds"
+)
 
 # Loading edgelist
 if (layer == "Home") {
@@ -77,10 +82,5 @@ out_dir <- "data/frp_outputs"
 if (!dir_exists(out_dir)) dir_create(out_dir)
 
 # Outputting FRP result
-file.name <- paste0(
-  "data/frp_outputs/frp_length_",
-  layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
-)
-
-saveRDS(frp_lengths, file = file.name)
+saveRDS(frp_lengths, file = file.name_out)
 
