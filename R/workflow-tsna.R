@@ -9,7 +9,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("tsna_u_0.4", override = TRUE)
+wf <- make_em_workflow("tsna_r_0.4_1000nodes", override = TRUE)
 
 
 # FRP calculation
@@ -19,10 +19,10 @@ wf <- add_workflow_step(
     r_script = "R/6-tsna.R",
     layer=c("All", "Home","School","Work","Nonhome"),
     MoreArgs = list(hpc_context = TRUE,
-                network="Urban",
+                network="Rural",
                 est_apch="mcmle",
                 percent_target_pop="0.4",
-                nodes=NULL), 
+                nodes=1000), 
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
