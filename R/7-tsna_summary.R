@@ -1,4 +1,4 @@
-library(dplyr)
+library(dplyr); library(tidyr)
 # Note: the purpose of this script is to summarize result the FRP calculation. 
 # The following are the analytical scenarios
 network = c("Rural", "Urban")
@@ -22,23 +22,24 @@ n_r <- nrow(tar_stats$attr$rural)
 n_u <- nrow(tar_stats$attr$urban)
 
 
-# # Loading raw FRP result
+# Loading raw FRP result
 file.name_r <- paste0(
   "data/frp_outputs/frp_length_",
-  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
+  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, "__", ".Rds"
 )
 
 file.name_u <- paste0(
   "data/frp_outputs/frp_length_",
-  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, ".Rds"
+  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, "++", ".Rds"
 )
+
 
 frp_length_all_r <- readRDS(file.name_r[1])
 frp_length_h_r <- readRDS(file.name_r[2])
 frp_length_s_r <- readRDS(file.name_r[3])
 frp_length_w_r <- readRDS(file.name_r[4])
 frp_length_nh_r <- readRDS(file.name_r[5])
-# 
+ 
 frp_length_all_u <- readRDS(file.name_u[1])
 frp_length_h_u <- readRDS(file.name_u[2])
 frp_length_s_u <- readRDS(file.name_u[3])
@@ -53,10 +54,10 @@ library(viridis)
 library(wesanderson)
 palv6 <- grDevices::gray.colors(5)
 
-denom <- 1#n_r
+denom <-  1 #n_r
 ## Rural FRP lengths
 # par(mfrow = c(2, 5))
-par(mfrow = c(1, 5))
+par(mfrow = c(1, 4))
 matplot(t( frp_length_all_r$lengths)/denom, type = "l", 
         # ylim = c(0, max(frp_length_all_r_365)
         #          ), 
@@ -176,9 +177,9 @@ rbind(
 
 }
 
-
+denom=1
 rbind(
-  frp_moments_layer(frp_length_layer = frp_length_all_r, layer = layers[1]),
+  #frp_moments_layer(frp_length_layer = frp_length_all_r, layer = layers[1]),
   frp_moments_layer(frp_length_layer = frp_length_h_r, layer = layers[2]),
   frp_moments_layer(frp_length_layer = frp_length_s_r, layer = layers[3]),
   frp_moments_layer(frp_length_layer = frp_length_w_r, layer = layers[4]),
@@ -187,35 +188,69 @@ rbind(
 
 
 
-## FRP shape of individuals at rural school
-frp_length_s_r_100$lengths %>% View()
-#### Evaluate FRP of node 92
-##### FRP length 
-frp_length_node92 <- 
-frp_length_s_r_100$lengths %>% data.frame() %>% 
-  tibble::rownames_to_column(var="node_name") %>% filter(node_name == "node_92") %>% select(-node_name)
-
-par(mfrow = c(1, 1))
-matplot(t( frp_length_node92), type = "l", 
-        #ylim = c(0, max(frp_length_s_r_365)), 
-        xlab = "", ylab = "FRP length", 
-        lty = 1, col = palv6, lwd = 0.5, main = "Node 92 at rural school, India")
 
 
-# FRP at rural and urban work layers
-## Egocentric mean degree
-summary_stats$formation$formation_stats_rural$edge_node_factor_match_rural$edge %>% filter(contact_location == "Work")
-summary_stats$formation$formation_stats_urban$edge_node_factor_match_urban$edge %>% filter(contact_location == "Work")
+# Define a function to round character values within a data frame
+form_stats <- function(tar_stats, summary_stats){
+  
+round_df <- function(df) {
+  # Define a helper function to round character values
+  round_char_values <- function(value) {
+    if (grepl("\\(", value)) {
+      # Extract numbers from the value
+      numbers <- unlist(regmatches(value, gregexpr("[0-9.]+", value)))
+      # Round each number to 3 digits
+      rounded_numbers <- sapply(numbers, function(x) sprintf("%.3f", as.numeric(x)))
+      # Reconstruct the value with rounded numbers
+      rounded_value <- paste(rounded_numbers[1], "(", rounded_numbers[2], ")", sep = "")
+      return(rounded_value)
+    } else if (grepl("^[0-9.]+$", value)) {
+      return(sprintf("%.3f", as.numeric(value)))
+    } else {
+      return(value)
+    }
+  }
+  
+  # Apply the helper function to character columns in the data frame
+  df %>% mutate(across(where(is.character), ~sapply(.x, round_char_values)))
+}
+
 
 ## mean degree, converted from "edge" target statistics
-tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work %>% sum()/n_r
-tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work %>% sum()/n_u
 
-## x-layer effect
-summary_stats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day %>% filter(association == "w_by_s")
-summary_stats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day %>% filter(association == "w_by_s")
+summary_stat_tb <- 
+c(
+tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum()/n_r,
+paste0(tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% sum()/n_r, " (",
+       summary_stats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day %>% filter(association == "s_by_w")%>% pull(other_layer.1), ")"
+       ),
+paste0(
+tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work %>% sum()/n_r, " (",
+summary_stats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day %>% filter(association == "w_by_s") %>% pull(other_layer.1), ")"
+),
+tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome %>% sum()/n_r
+) %>% cbind(., 
+c(
+  tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Home %>% sum()/n_r,
+  paste0(tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School %>% sum()/n_r, " (",
+         summary_stats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day %>% filter(association == "s_by_w")%>% pull(other_layer.1), ")"
+  ),
+  paste0(
+    tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work %>% sum()/n_r, " (",
+    summary_stats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day %>% filter(association == "w_by_s") %>% pull(other_layer.1), ")"
+  ),
+  tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome %>% sum()/n_r
+),
+layers[-1]
+) %>% data.frame() %>% round_df(df=.) %>% select(3,1,2) %>% rename(layer=1, `rural`=2, `urban`=3)
+
+summary_stat_tb
+}
+
+form_stats(tar_stats, summary_stats)
+
 ## duration
-summary_stats$dissolution %>% filter(contact_location == "Work")
+summary_stats$dissolution %>% pivot_wider(names_from = study_site, values_from = know_contact_duration) 
 ### Interpretation - as expected, the mean degree of the layer in the rural work layer is lower than urban.
 ### The contact duration is longer (weaker dissolvability), which may contributes to the lower FRP.
 ### The mean deg at work, conditioned on school having contact, is much lower, at the rural layer - this is the primary
