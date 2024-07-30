@@ -53,35 +53,37 @@ library(viridis)
 library(wesanderson)
 palv6 <- grDevices::gray.colors(5)
 
+denom <- 1#n_r
 ## Rural FRP lengths
-par(mfrow = c(2, 5))
-matplot(t( frp_length_all_r$lengths), type = "l", 
+# par(mfrow = c(2, 5))
+par(mfrow = c(1, 5))
+matplot(t( frp_length_all_r$lengths)/denom, type = "l", 
         # ylim = c(0, max(frp_length_all_r_365)
         #          ), 
-        xlab = "", ylab = "FRP length", 
+        xlab = "", ylab = "FRP length/N", 
         lty = 1, col = palv6, lwd = 0.5, main = "All rural layers")
 
 
-matplot(t( frp_length_h_r$lengths), type = "l", 
+matplot(t( frp_length_h_r$lengths)/denom, type = "l", 
         #ylim = c(0, max(frp_length_s_r_365)), 
-        xlab = "", ylab = "FRP length", 
+        xlab = "", ylab = "FRP length/N", 
         lty = 1, col = palv6, lwd = 0.5, main = "Rural home")
 
-matplot(t( frp_length_s_r$lengths), type = "l", 
+matplot(t( frp_length_s_r$lengths)/denom, type = "l", 
         #ylim = c(0, max(frp_length_s_r_365)), 
-        xlab = "", ylab = "FRP length", 
+        xlab = "", ylab = "FRP length/N", 
         lty = 1, col = palv6, lwd = 0.5, main = "Rural school")
 
 
-matplot(t( frp_length_w_r$lengths), type = "l", 
+matplot(t( frp_length_w_r$lengths)/denom, type = "l", 
         #ylim = c(0, max(frp_w_r_365)), 
-        xlab = "", ylab = "FRP length", 
+        xlab = "", ylab = "FRP length/N", 
         lty = 1, col = palv6, lwd = 0.5, main = "Rural work")
 
 
-matplot(t( frp_length_nh_r$lengths), type = "l",
+matplot(t( frp_length_nh_r$lengths)/denom, type = "l",
         #ylim = c(0, max(frp_length_nh_r_365)),
-        xlab = "", ylab = "FRP length", 
+        xlab = "", ylab = "FRP length/N", 
         lty = 1, col = palv6, lwd = 0.5, main = "Rural nonhome")
 
 
@@ -127,17 +129,17 @@ frp_moments_layer <- function(frp_length_layer, layer){
   
 frp_moments <- function(numbers, scenario) {
   # Calculate summary statistics
-  mean_value <- mean(numbers)
-  median_value <- median(numbers)
-  mode_result <- calculate_mode(as.numeric(numbers))
-  mode_value <- mode_result["value"]
-  mode_frequency <- mode_result["frequency"]
-  iqr_value <- IQR(numbers)
-  min_value <- min(numbers)
-  max_value <- max(numbers)
-  q1_value <- quantile(numbers, 0.25)
-  q3_value <- quantile(numbers, 0.75)
-  min_frequency <- sum(numbers == min_value)
+  mean_value <- mean(numbers) %>% round(., 2)
+  median_value <- median(numbers) %>% round(., 2)
+  mode_result <- calculate_mode(as.numeric(numbers))%>% round(., 2)
+  mode_value <- mode_result["value"]%>% round(., 2)
+  mode_frequency <- mode_result["frequency"]%>% round(., 2)
+  iqr_value <- IQR(numbers)%>% round(., 2)
+  min_value <- min(numbers)%>% round(., 2)
+  max_value <- max(numbers)%>% round(., 2)
+  q1_value <- quantile(numbers, 0.25)%>% round(., 2)
+  q3_value <- quantile(numbers, 0.75)%>% round(., 2)
+  min_frequency <- sum(numbers == min_value)%>% round(., 2)
   
   # Create a dataframe with the results
   result <- data.frame(
@@ -162,14 +164,14 @@ t_name <- paste0( "step_", t)
 scenario <- paste0(layer,"_", "step_", t)
 
 rbind(
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[1]],
-              scenario = scenario[1]),
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[2]],
-              scenario = scenario[2]),
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[3]],
-              scenario = scenario[3]),
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[4]],
-              scenario = scenario[4])
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[1]]/denom,
+              scenario = scenario[1]),#t=0
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[2]]/denom,
+              scenario = scenario[2]),#t=1
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[3]]/denom,
+              scenario = scenario[3]),#t=183
+  frp_moments(numbers = frp_length_layer$lengths[,t_name[4]]/denom,
+              scenario = scenario[4])#t=365
 )
 
 }
