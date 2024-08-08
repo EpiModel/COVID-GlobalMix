@@ -1,4 +1,4 @@
-library(dplyr); library(tidyr)
+library(dplyr); library(tidyr); library(tibble)
 # Note: the purpose of this script is to summarize result the FRP calculation. 
 # The following are the analytical scenarios
 network = c("Rural", "Urban")
@@ -30,21 +30,73 @@ file.name_r <- paste0(
 
 file.name_u <- paste0(
   "data/frp_outputs/frp_length_",
-  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, "++", ".Rds"
+  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, "__", ".Rds"
 )
 
 
-frp_length_all_r <- readRDS(file.name_r[1])
-frp_length_h_r <- readRDS(file.name_r[2])
-frp_length_s_r <- readRDS(file.name_r[3])
-frp_length_w_r <- readRDS(file.name_r[4])
-frp_length_nh_r <- readRDS(file.name_r[5])
+frp_all_r <- readRDS(file.name_r[1])
+frp_h_r <- readRDS(file.name_r[2])
+frp_s_r <- readRDS(file.name_r[3])
+frp_w_r <- readRDS(file.name_r[4])
+frp_nh_r <- readRDS(file.name_r[5])
  
-frp_length_all_u <- readRDS(file.name_u[1])
-frp_length_h_u <- readRDS(file.name_u[2])
-frp_length_s_u <- readRDS(file.name_u[3])
-frp_length_w_u <- readRDS(file.name_u[4])
-frp_length_nh_u <- readRDS(file.name_u[5])
+# frp_all_u <- readRDS(file.name_u[1])
+# frp_h_u <- readRDS(file.name_u[2])
+# frp_s_u <- readRDS(file.name_u[3])
+# frp_w_u <- readRDS(file.name_u[4])
+# frp_nh_u <- readRDS(file.name_u[5])
+
+
+# Process nodal attribute
+tar_stats$attr$rural <- tar_stats$attr$rural %>% rownames_to_column(var = "node_id") %>% mutate(node_id = paste0("node_", node_id))
+tar_stats$attr$urban <- tar_stats$attr$urban %>% rownames_to_column(var = "node_id") %>% mutate(node_id = paste0("node_", node_id))
+
+# Defining functions
+frp_length_df_process <- 
+  function(attr, frp_length, denom){
+    attr %>% select(node_id, node.age.grp) %>% 
+      left_join(., 
+                frp_length %>% data.frame()%>% rownames_to_column(var = "node_id"),
+                by = "node_id"
+    ) %>% # the NA's in the data frame till here are of node doesn't have any edges, we recode those NA's to 1
+      mutate(across(everything(), ~ replace_na(., 1))) %>% 
+      mutate(across(where(is.numeric), ~ . / denom))
+  }
+
+
+
+# Process FRP data
+denom_r <-   n_r
+denom_u <- n_u
+
+frp_length_h_r <-
+  frp_length_df_process(
+    attr = tar_stats$attr$rural, 
+    frp_length = frp_h_r$lengths
+  )
+
+frp_length_s_r <-
+  frp_length_df_process(
+    attr = tar_stats$attr$rural, 
+    frp_length = frp_s_r$lengths,
+    denom = denom_r
+  )
+
+frp_length_w_r <-
+  frp_length_df_process(
+    attr = tar_stats$attr$rural, 
+    frp_length = frp_w_r$lengths,
+    denom = denom_r
+  )
+
+frp_length_nh_r <-
+  frp_length_df_process(
+    attr = tar_stats$attr$rural, 
+    frp_length = frp_nh_r$lengths,
+    denom = denom_r
+  )
+
+
 
 
 
@@ -52,66 +104,85 @@ frp_length_nh_u <- readRDS(file.name_u[5])
 ## Color options for plot
 library(viridis)
 library(wesanderson)
-palv6 <- grDevices::gray.colors(5)
+#palv6 <- grDevices::gray.colors(5)
+palv6 <- c("red", "blue", "green", "purple", "orange", "cyan")
+category_colors <- palv6[as.numeric(frp_length_s_r$node.age.grp)]
 
-denom <-  1 #n_r
+
 ## Rural FRP lengths
+
 # par(mfrow = c(2, 5))
-par(mfrow = c(1, 4))
-matplot(t( frp_length_all_r$lengths)/denom, type = "l", 
-        # ylim = c(0, max(frp_length_all_r_365)
-        #          ), 
-        xlab = "", ylab = "FRP length/N", 
-        lty = 1, col = palv6, lwd = 0.5, main = "All rural layers")
+par(mfrow = c(1, 3))
 
 
-matplot(t( frp_length_h_r$lengths)/denom, type = "l", 
-        #ylim = c(0, max(frp_length_s_r_365)), 
-        xlab = "", ylab = "FRP length/N", 
-        lty = 1, col = palv6, lwd = 0.5, main = "Rural home")
+### school
+matplot(t( frp_length_s_r %>% select(-c(1,2))), type = "l", 
+        xlab = "", ylab = "FRP length/N",  #ylim = c(0, 1),
+        lty = 1, col = category_colors, lwd = 0.5, main = "Rural school")
+legend("topright", legend = levels(frp_length_s_r$node.age.grp), col = palv6, lty = 1, cex = 0.8)
 
-matplot(t( frp_length_s_r$lengths)/denom, type = "l", 
-        #ylim = c(0, max(frp_length_s_r_365)), 
-        xlab = "", ylab = "FRP length/N", 
-        lty = 1, col = palv6, lwd = 0.5, main = "Rural school")
+### work
+matplot(t( frp_length_w_r %>% select(-c(1,2))), type = "l", 
+        xlab = "", ylab = "FRP length/N",  #ylim = c(0, 1),
+        lty = 1, col = category_colors, lwd = 0.5, main = "Rural work")
+legend("topright", legend = levels(frp_length_w_r$node.age.grp), col = palv6, lty = 1, cex = 0.8)
+
+### nonhome
+matplot(t( frp_length_nh_r %>% select(-c(1,2))), type = "l", 
+        xlab = "", ylab = "FRP length/N", # ylim = c(0, 1),
+        lty = 1, col = category_colors, lwd = 0.5, main = "Rural nonhome")
+legend("topright", legend = levels(frp_length_nh_r$node.age.grp), col = palv6, lty = 1, cex = 0.8)
 
 
-matplot(t( frp_length_w_r$lengths)/denom, type = "l", 
-        #ylim = c(0, max(frp_w_r_365)), 
-        xlab = "", ylab = "FRP length/N", 
-        lty = 1, col = palv6, lwd = 0.5, main = "Rural work")
+# see whether ggplot can do the same thing
+# Reshape the data from wide to long format
+frp_length_s_r_long <- frp_length_s_r %>% 
+  pivot_longer(cols = starts_with("step_"), names_to = "time", values_to = "frp_length")%>%
+  mutate(time = as.numeric(gsub("step_", "", time)))
+
+# Define the color palette
+palv6 <- c("red", "blue", "green", "purple", "orange", "cyan")
+
+# Map the categories to the corresponding colors
+color_mapping <- setNames(palv6, levels(frp_length_s_r_long$node.age.grp)
+                          )
+
+# Plot using ggplot2
+library(ggplot2)
+ggplot(frp_length_s_r_long, aes(x = time, y = frp_length, group = node_id, color = node.age.grp)) +
+  geom_line(size = 0.2, alpha = 0.6) +
+  scale_color_manual(values = color_mapping) +
+  labs(title = "Rural school", x = "", y = "FRP length/N") +
+  theme_classic() +
+  theme(legend.position = "right")
 
 
-matplot(t( frp_length_nh_r$lengths)/denom, type = "l",
-        #ylim = c(0, max(frp_length_nh_r_365)),
-        xlab = "", ylab = "FRP length/N", 
-        lty = 1, col = palv6, lwd = 0.5, main = "Rural nonhome")
 
 
 ## Urban FRP lengths
-matplot(t( frp_length_all_u$lengths), type = "l", 
-        # ylim = c(0, max(frp_length_all_r_365)
+matplot(t( frp_all_u$lengths)/denom_u, type = "l", 
+        # ylim = c(0, max(frp_all_r_365)
         #          ), 
         xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "All urban layers")
 
-matplot(t( frp_length_h_u$lengths), type = "l", 
-        #ylim = c(0, max(frp_length_s_u_365)), 
+matplot(t( frp_h_u$lengths)/denom_u, type = "l", 
+        #ylim = c(0, max(frp_s_u_365)), 
         xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban home")
 
-matplot(t( frp_length_s_u$lengths), type = "l", 
-        #ylim = c(0, max(frp_length_s_u_365)), 
+matplot(t( frp_s_u$lengths)/denom_u, type = "l", 
+        #ylim = c(0, max(frp_s_u_365)), 
         xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban school")
 
-matplot(t( frp_length_w_u$lengths), type = "l", 
+matplot(t( frp_w_u$lengths)/denom_u, type = "l", 
         #ylim = c(0, max(frp_w_u_365)), 
         xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban work")
 
-matplot(t( frp_length_nh_u$lengths), type = "l",
-        #ylim = c(0, max(frp_length_nh_u_365)),
+matplot(t( frp_nh_u$lengths)/denom_u, type = "l",
+        #ylim = c(0, max(frp_nh_u_365)),
         xlab = "", ylab = "FRP length", 
         lty = 1, col = palv6, lwd = 0.5, main = "Urban nonhome")
 
@@ -165,13 +236,13 @@ t_name <- paste0( "step_", t)
 scenario <- paste0(layer,"_", "step_", t)
 
 rbind(
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[1]]/denom,
+  frp_moments(numbers = frp_length_layer[,t_name[1]]/denom,
               scenario = scenario[1]),#t=0
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[2]]/denom,
+  frp_moments(numbers = frp_length_layer[,t_name[2]]/denom,
               scenario = scenario[2]),#t=1
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[3]]/denom,
+  frp_moments(numbers = frp_length_layer[,t_name[3]]/denom,
               scenario = scenario[3]),#t=183
-  frp_moments(numbers = frp_length_layer$lengths[,t_name[4]]/denom,
+  frp_moments(numbers = frp_length_layer[,t_name[4]]/denom,
               scenario = scenario[4])#t=365
 )
 
@@ -180,10 +251,12 @@ rbind(
 denom=1
 rbind(
   #frp_moments_layer(frp_length_layer = frp_length_all_r, layer = layers[1]),
-  frp_moments_layer(frp_length_layer = frp_length_h_r, layer = layers[2]),
-  frp_moments_layer(frp_length_layer = frp_length_s_r, layer = layers[3]),
-  frp_moments_layer(frp_length_layer = frp_length_w_r, layer = layers[4]),
-  frp_moments_layer(frp_length_layer = frp_length_nh_r, layer = layers[5])
+  frp_moments_layer(frp_length_layer = frp_length_h_r, layer = "rural_home"),
+  frp_moments_layer(frp_length_layer = frp_length_s_r, layer = "rural_school"),
+  frp_moments_layer(frp_length_layer = frp_length_w_r, layer = "rural_work"),
+  frp_moments_layer(frp_length_layer = frp_length_nh_r, layer = "rural_nonhome"),
+  frp_moments_layer(frp_length_layer = frp_length_s_u, layer = "urban_school"),
+  frp_moments_layer(frp_length_layer = frp_length_w_u, layer = "urban_work")
 )
 
 

@@ -17,7 +17,7 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/6-tsna.R",
-    layer=c("All", "Home","School","Work","Nonhome"),
+    layer=c("Nonhome"),
     MoreArgs = list(hpc_context = TRUE,
                 network="Urban",
                 est_apch="mcmle",
@@ -27,7 +27,7 @@ wf <- add_workflow_step(
   ),
   sbatch_opts = list(
     "cpus-per-task" = est_cores,
-    "time" = "24:00:00",
+    "time" = "48:00:00",
     "mem" = "0"
   )
 )
