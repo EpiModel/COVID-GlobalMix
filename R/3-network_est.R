@@ -11,6 +11,9 @@ suppressMessages(library(EpiModel))
 suppressMessages(library(tibble))
 suppressMessages(library(fs))
 
+# helper functions
+source("R/netest_helper_functions.R")
+
 # Inputs - note: this shold be unmuted when running the script through sbatch. Currently, we use slurmworkflow to submit jobs of this script to the HPC.
 # layer <- Sys.getenv("layer")
 # network <- Sys.getenv("network")
@@ -38,7 +41,6 @@ node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_ma
 
 
 ############## Define items which will be read by netest  ##############
-source("R/model_inputs.R")
 model_input_items <- 
 model_inputs(attri_tarstats = node_attribute_target_stats, dissolution = netstats$dissolution)
 
@@ -69,8 +71,6 @@ control.args <-
   )
 
 # Sourcing function to estimate model
-source("R/est_nws.R")
-
 est <- est_nws(
   control.arg = control.args[[est_apch]],
   layer = layer,

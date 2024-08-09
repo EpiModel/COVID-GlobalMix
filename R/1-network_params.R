@@ -31,7 +31,7 @@
 # For the urban network, we exclude the contacts in the ≥40 age groups at School and in the ≤9 age group at Work. 
 
 
-# Load libraries and data  ------------------------------------------------
+# Load libraries, helper functions, and data  ------------------------------------------------
 library("dplyr")
 library("tidyr")
 library("tibble")
@@ -39,6 +39,7 @@ library("sjlabelled")
 library("stringr")
 library("GGally")
 
+source("R/network_params_helper_functions.R")
 
 ## participant data
 india_participant <- 
@@ -181,7 +182,6 @@ table(
 # Function characterizing 1) number of contact at the individual-level (outputted in "contact_count"), 2)
 # the status of if a participant and contact belonged to a specific mixing pattern of age group (outputted in "age.grp_mix_status"), and 
 # 3) the status of whether participant and contact belonged to the same age group (outputted in "sameage.grp.count") for the contact data over the two-day period.
-source("R/contact_freq_site.R")
 contact_count_rural <- # rural mixing
   contact_freq_site(india_mix. = india_mix, 
                     india_participant. = india_participant, 
@@ -204,7 +204,6 @@ contact_count_urban  <- # urban mixing
 # function calculates two-day proportions of mixing between age groups of participant and contact 
 # Note: 1)given both the numerator (i.e., number of edges matched to a patterm) and denominator (i.e., total number od edges in a layer) are divided by 2 for converting two- to one-day scale, 
 #the two-day proportion is the same as the single-day propotion. 2) We characterize the proportion using both the glm and summary methods for cross-validation.
-source("R/mix_prop.R")
 # Characterizing mixing proportions by layer
 ## Note: the following use the mix_prop function to characterize the mixing proportion for all contact layers
 ## define function settings
@@ -244,7 +243,6 @@ mix_prop_urban_layers
 
 
 # Function characterizing egocentric network statistics of age effect for edge, nodefactor, and nodematch
-source("R/edge_node_factor_match.R")
 edge_node_factor_match_rural <- edge_node_factor_match(contact_count_site = contact_count_rural)
 edge_node_factor_match_urban <- edge_node_factor_match(contact_count_site = contact_count_urban)
 
@@ -252,7 +250,6 @@ edge_node_factor_match_urban <- edge_node_factor_match(contact_count_site = cont
 # Correlation between layers
 ## Characterization of regression coefficients
 ## Function assessing associations of degree between layers using Poisson regression, with dichotomized degree as independent variable. 
-source("R/assoc_btw_layers.R")
 layer_assoc_rural <- assoc_btw_layers(contact_count_long=contact_count_rural$contact_degree)
 layer_assoc_urban <- assoc_btw_layers(contact_count_long=contact_count_urban$contact_degree) 
 
@@ -274,7 +271,6 @@ layer_assoc_urban$coefficient_summary
 
 
 ########################## Characterizing dissolution statistics of contact duration at school and work ##########################
-source("R/know_dur.R")
 known_dur_8_layers <- know_dur(india_mix. = india_mix)
 
 
