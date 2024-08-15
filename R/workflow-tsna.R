@@ -27,7 +27,7 @@ wf <- add_workflow_step(
   ),
   sbatch_opts = list(
     "cpus-per-task" = est_cores,
-    "time" = "48:00:00",
+    "time" = "72:00:00",
     "mem" = "0"
   )
 )
