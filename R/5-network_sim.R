@@ -38,7 +38,7 @@ nw_sim <- sim_network(est = ests, nsteps = 365)
 out_dir <- "data/netsim_outputs"
 if (!dir_exists(out_dir)) dir_create(out_dir)
 
-# Create file names to be saved
+# Create file names to be saved for cumulative edgelist
 file.name <- 
   paste0("data/netsim_outputs/el_cuml__", layers, "__", 
          network,"__", est_apch,"__", percent_target_pop, ".Rds")
@@ -46,11 +46,17 @@ file.name <-
 # Load "as_cumulative_edgelist" function
 source("R/reachable.R")
 
-# Transforming "networkdynamic" into a "cumulative edgelist" and save
+# Transforming "networkDynamic" into a "cumulative edgelist" and save
 saveRDS(as_cumulative_edgelist(nw_sim$Home), file.name[1])
 saveRDS(as_cumulative_edgelist(nw_sim$School), file.name[2])
 saveRDS(as_cumulative_edgelist(nw_sim$Work), file.name[3])
 saveRDS(as_cumulative_edgelist(nw_sim$Nonhome), file.name[4])
+
+# Saving "networkDynamic" for diagnosis
+saveRDS(nw_sim, 
+        paste0("data/netsim_outputs/networkdynamic__", 
+               network,"__", est_apch,"__", percent_target_pop, ".Rds")
+        )
 
 
 
