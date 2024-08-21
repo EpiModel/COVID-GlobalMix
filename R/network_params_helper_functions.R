@@ -111,7 +111,9 @@ participant_contact_merge <- function(india_participant, india_contact){
       )
     )
   
-  india_mix
+  india_participant <<- india_participant # assign the participant dataset with 6-category age groups to the global environment
+  india_contact <<- india_contact
+  return(india_mix) # output the process data
 }
 
 
@@ -127,7 +129,7 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
     # In Urban, this includes 2 participants with no contacts and 0 participants whose all contacts ≤ 15 mins and w/o contacts > 15 mins 
     india_participant. %>%
     filter(!(rec_id %in% india_mix.$rec_id)) %>%
-    filter(study_site == study_site.)  
+    filter(study_site == study_site.)  %>% select(rec_id)
   
   
   locations <- levels(india_mix.site$contact_location) # retrieve the full levels of contact locations
