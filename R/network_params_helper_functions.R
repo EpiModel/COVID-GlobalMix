@@ -1,13 +1,133 @@
+participant_contact_merge <- function(india_participant, india_contact){
+  ## participant data
+  india_participant <- 
+    india_participant %>%
+    ### Reclassifying participant's and contact's age groups into 0-9 years old, 10-19 years old, while treating other age groups as is.
+    mutate(
+      participant_age = case_when(
+        participant_age %in% c("<6mo", "6-11mo",   "1-4y",   "5-9y") ~ "0-9y",
+        participant_age %in% c("10-14y", "15-19y") ~ "10-19y",
+        .default =  participant_age
+      )
+    )%>% 
+    mutate(participant_age= factor(participant_age, levels=c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y",   "60+y")
+    )
+    ) %>% mutate(participant_ageyr = floor(participant_ageyr)
+    )
+  
+  ## contact data
+  india_contact <- 
+    india_contact %>%     
+    mutate(
+      contact_age = case_when(
+        contact_age %in% c("<6mo", "6-11mo",   "1-4y",   "5-9y") ~ "0-9y",
+        contact_age %in% c("10-14y", "15-19y") ~ "10-19y",
+        .default =  contact_age
+      )
+    )%>% 
+    mutate(contact_age= factor(contact_age, levels=c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y",   "60+y")
+    )
+    )
+  
+  ## merge participants and contact datasets and basic data processing ------------------------------------------------
+  india_mix <- india_participant %>%
+    dplyr::select(rec_id,participant_age, participant_ageyr) %>%
+    right_join(india_contact,
+               by = "rec_id") %>% 
+    ### characterization of primary contact status, outputted categories are: Home, School, Work, and Nonhome
+    mutate(contact_location = 
+             # Home
+             case_when(location_contact___0 == 1  ~ "Home", # 0 - "My home"
+                       # School
+                       location_contact___2 == 1 & location_contact___0 == 0 ~ "School", # "School" but not "my home" 
+                       # Work
+                       location_contact___3 == 1 & (location_contact___0 == 0  | location_contact___2 ==0)~ "Work", # "work" but not "my home" / "school"
+                       # Nonhome
+                       (
+                         location_contact___1 == 1 | location_contact___4 == 1 | # "Other home",  "Transport/Hub"
+                           location_contact___5 == 1 | location_contact___6 == 1 | # "Market/Shop", "Street"
+                           location_contact___7 == 1 | location_contact___8 == 1 | # "Playground", "Well"
+                           location_contact___9 == 1 | location_contact___10 == 1 | # "Agricultural Field", "Market/Shop"
+                           location_contact___11 == 1 | location_contact___12 == 1 | # "Restaurant", "Religious centre"
+                           location_contact___13 == 1 | location_contact___14 == 1 | # "Govt offices", "Health center"
+                           location_contact___15 == 1 | location_contact___16 == 1 | # "Bank", "Movie theatre"
+                           location_contact___17 == 1 | location_contact___18 == 1 | location_contact___19 == 1 #"Exhibition", "Social hall", "Other"
+                       ) &
+                         !(location_contact___3 == 1 | location_contact___2 == 1 | location_contact___0 == 1) # Excluding work/school/home
+                       ~ "Nonhome") # "Nonhome" but not "home", "school", "work"
+    )  %>% 
+    ### Weighing in household membership in determining contact location - tabulating contact_location and hh_membership, 
+    ### we found there are 58,1,3 household members had contacts in the nonhome, school, and work layers. We reclassify these as home contacts. 
+    ### We also found 2176 "Non-members" at the home layer, and we reclassify them into non-home (other than school, work) contacts given the presumed turnover rate for this group is short. 
+    mutate(
+      contact_location = case_when(hh_membership == "Member" & contact_location %in% c("Nonhome", "School", "Work") ~ "Home",
+                                   hh_membership == "Non-member" & contact_location %in% c("Home") ~ "Nonhome",
+                                   T ~ contact_location
+      )
+      
+    ) %>%
+    mutate(contact_location = factor(contact_location, # leveling this variable
+                                     levels = c("Home", "School", "Work", "Nonhome")
+    )
+    ) %>% 
+    filter(!(duration_contact %in% c("<5 mins", "5-15 mins"))) %>% # filter out contact with duration ≤ 15 mins
+    mutate(
+      duration_contact = factor(duration_contact,
+                                levels = c( "16-30 mins",  "31 mins-1 hr", "1-4 hrs", ">4 hrs", "Unknown")
+      )
+    )  %>% filter(!is.na(contact_location) # complete-case analysis - exclude contacts didn't have a contact location from analysis, Moses confirmed this is okay
+    ) %>% 
+    
+    ### Distribution of indoor/outdoor status
+    #### The variable "where_contact" indicating in- and out-door status. In the original data, there is a "Both" category indicates a participant contacted a contact both in- and out-doors. 
+    #### Since the "Both" category could have a higher transmission potential similar to the "Indoors" category, we merge the "Both" and the "Indoors" categories. 
+    #### We will adjust for this status when building the transmission model, in which we will assign lower risk for the "Outdoors" category during simulation.
+    mutate(where_contact =case_when(where_contact %in% c("Indoors", "Both") ~ "Indoors_or_both",
+                                    .default = where_contact)
+    )
+  
+  
+  ## Zeroing out contacts in age groups with very low mean degree and degree for urban and rural networks
+  india_mix <- 
+    india_mix %>% filter(
+      ### Contacts to be zeroed out in the rural network, 1 contact at school of participant_age 40-59y to be excluded, 3 contacts at work of participant_age 10-19y (2 contacts) and 0-9y (1 contact) to be excluded
+      ! (
+        (study_site == "Rural")  &
+          (
+            (contact_location == "School" & participant_age %in% c("40-59y", "60+y"))|
+              (contact_location == "Work" & participant_age %in% c("0-9y", "10-19y"))
+          )
+      )
+      
+    ) %>% 
+    filter(
+      ### Contacts to be zeroed out in the urban network, contacts in the ≥40 age groups at School and 4 contacts of participant_age = 0-9y at work to be excluded
+      ! (
+        (study_site == "Urban")  &
+          (
+            (contact_location == "School" & participant_age %in% c("40-59y", "60+y"))|
+              (contact_location == "Work" & participant_age %in% c("0-9y"))
+          )
+      )
+    )
+  
+  india_mix
+}
+
+
 contact_freq_site <- function(india_mix., india_participant., india_contact., study_site.){
   india_mix.site <- 
     india_mix.  %>% 
     filter(study_site == study_site.) # here we split the dataset into urban or rural samples
   
   
-  id_no_contact.site <- # participants with 0 contacts by study site in India
+  id_no_contact_ls15min.site <-
+    # participants aren't in the merged india_mix data - 
+    # In Rural, this includes 4 participants with no contacts and 16 participants whose all contacts ≤ 15 mins and w/o contacts > 15 mins 
+    # In Urban, this includes 2 participants with no contacts and 0 participants whose all contacts ≤ 15 mins and w/o contacts > 15 mins 
     india_participant. %>%
-    filter(!(rec_id %in% india_contact.$rec_id)) %>%
-    filter(study_site == study_site.) 
+    filter(!(rec_id %in% india_mix.$rec_id)) %>%
+    filter(study_site == study_site.)  
   
   
   locations <- levels(india_mix.site$contact_location) # retrieve the full levels of contact locations
@@ -31,11 +151,11 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
     # add the participants w/o contact to the data
     rbind(., 
           data.frame(
-            rec_id = rep(as.character(id_no_contact.site$rec_id), each = length(locations)),
+            rec_id = rep(as.character(id_no_contact_ls15min.site$rec_id), each = length(locations)),
             contact_location= rep(locations, 
-                                  nrow(id_no_contact.site)
+                                  nrow(id_no_contact_ls15min.site)
             ),
-            n_contacts=rep(0,  nrow(id_no_contact.site)*length(locations))
+            n_contacts=rep(0,  nrow(id_no_contact_ls15min.site)*length(locations))
           )
     ) %>% 
     # joining w/ participant's age
