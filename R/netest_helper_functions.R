@@ -76,7 +76,7 @@ nmix_tar_lex <-
 ### site - 1 of the 2 sites: "Rural", "Urban"
 ### form_model - 1 of the following 2 formation models of interest 
 #### 1) nmix_saturate:  ~edges+ nodemix("age.grp", levels2 = -1)
-#### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("deg.work", levels =-1)
+#### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("nmix_saturate_xlayer", levels =-1)
 formula_tarstats <- 
   function(layer, 
            form_model,
