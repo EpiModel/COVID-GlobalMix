@@ -1,37 +1,10 @@
 
+# Function running all steps
 node_attrib_target_pop <- 
   function(netstats, pct_target_pop){
     
-    # Total number of rural and urban target populations
-    tar_pop_size_rural = 117808
-    tar_pop_size_urban = 257977
-    
-    # Define the total number of nodes of modeled population to be a percentage of the target population 
-    n_node_rural=round(tar_pop_size_rural*pct_target_pop); n_node_urban=round(tar_pop_size_urban*pct_target_pop) 
-
-    # Categories of age and layer variabes
-    target_age_grp <- netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
-    layers <-  netstats$formation$formation_stats_rural$edge_node_factor_match_rural$edge$contact_location %>% unique()
-    
-    # Target population numbers in urban & rural networks 
-    target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
-                                       dss_pop_age_grp=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural area from DSS
-                                                         c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)  # number of population in the urban area from DSS
-                                       ),
-                                       total_pop = rep(c(n_node_rural, n_node_urban), each = length(target_age_grp)),   # Total population in the rural and urban area
-                                       network=rep(c("rural", "urban"), each = length(target_age_grp))  
-    ) %>% 
-      group_by(network) %>% # proportion (relative frequency) of target population in each age group by network
-      mutate(
-        dss_pop = sum(dss_pop_age_grp), # total number of nodes in that network
-        prop=dss_pop_age_grp/dss_pop) %>% ungroup() %>% # prop is the relative frequency of age group from the DSS data
-      mutate(
-        tar_pop = round(total_pop*prop) # we round the target population to integer to as the "n" argument, "number of observation", in runif/rbinom is integer 
-      ) %>%  # number of node at each age group of the modeled population
-      select(target_age_grp, network, tar_pop ) # variable needed for below analysis
-    
-    ################# Generating nodal attributes of age and layer-specific contact status #################
-    ## Define function generating age and age group for each node based on distribution of target population
+    # Define nested functions
+    # Define function generating age and age group for each node based on distribution of target population
     node.age.grp <- 
       function(target_age_dist_site # number of target population by age group of a network (urban/rual)
       ){
@@ -66,15 +39,6 @@ node_attrib_target_pop <-
         data.frame(age.grp.num, age) %>% 
           left_join(age.grp.df %>% select(age.grp.num, target_age_grp), by = "age.grp.num") # merging the categorical age group with the corresponding numerically coded age group
       }
-    ## Generating age and age group for each node based on distribution of target population
-    node.age.grp.rural <- 
-      node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
-                   
-      ) # rural network
-    node.age.grp.urban <- 
-      node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "urban") %>% select(target_age_grp, tar_pop)
-                   
-      ) # urban network
     
     ## Define function generating nodal attribute of contact status at each layer
     node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist){
@@ -139,33 +103,7 @@ node_attrib_target_pop <-
       layer_attribute_layers
       
     }
-    ## Generating nodal attribute of contact status at each layer, with proportion of contact specific to each age group
-    node.contact.layer.rural <- 
-      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days, 
-                         target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop)
-      ) # rural network
-    node.contact.layer.urban <- 
-      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
-                         target_age_dist = target_age_distribut %>% filter( network == "urban") %>% select(target_age_grp, tar_pop)
-      ) # urban network
     
-    ## Merging nodal status of age and layer-specific contact
-    node.attr.rural <- 
-      cbind(node.age.grp.rural %>% select(-age.grp.num), # we can safely use cbind here as the two attributes are generated from the same number of observations.
-            node.contact.layer.rural %>% select(-target_age_grp)
-      ) %>% 
-      rename(node.age = age, node.age.grp = target_age_grp)
-    
-    node.attr.urban <- 
-      cbind(node.age.grp.urban %>% select(-age.grp.num),
-            node.contact.layer.urban %>% select(-target_age_grp)
-      ) %>% 
-      rename(node.age = age, node.age.grp = target_age_grp)
-    
-    
-    
-    
-    ############## Target statistics (age.grp) ##############
     # function to calculate formation target stats related to age
     target_stats_age <- 
       function(form_stat, # individual-level summary statistics 
@@ -366,22 +304,6 @@ node_attrib_target_pop <-
         form_stat[[1]] # output the edge-count matrices with the target statistics for nodefactor and edge
       }
     
-    
-    # Characterizing target stats of the rural network
-    targetstats_age.grp <- list()
-    targetstats_age.grp$formation_stats_rural <- 
-      target_stats_age(form_stat = netstats$formation$formation_stats_rural, 
-                       target_age_dist = target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
-      )
-    
-    # Characterizing target stats of the urban network
-    targetstats_age.grp$formation_stats_urban <- 
-      target_stats_age(form_stat = netstats$formation$formation_stats_urban, 
-                       target_age_dist = target_age_distribut %>% filter(network == "urban")%>% select(target_age_grp, tar_pop)
-      ) 
-    
-    
-    ############## Target statistics (cross-layer effects) ##############
     # Function characterizing target statistics for the cross-layer effect
     target_stats_x_layer <- 
       function(
@@ -446,6 +368,103 @@ node_attrib_target_pop <-
         
       }
     
+    
+    
+    # Total number of rural and urban target populations
+    tar_pop_size_rural = 117808
+    tar_pop_size_urban = 257977
+    
+    # Define the total number of nodes of modeled population to be a percentage of the target population 
+    n_node_rural=round(tar_pop_size_rural*pct_target_pop); n_node_urban=round(tar_pop_size_urban*pct_target_pop) 
+
+    # Categories of age and layer variabes
+    target_age_grp <- netstats$formation$formation_stats_rural$edge_node_factor_match_rural$nf.age.grp$participant_age %>% unique()%>% factor() # the six age group
+    layers <-  netstats$formation$formation_stats_rural$edge_node_factor_match_rural$edge$contact_location %>% unique()
+    
+    # Target population numbers in urban & rural networks 
+    target_age_distribut <- data.frame(target_age_grp=rep(target_age_grp,2),
+                                       dss_pop_age_grp=c(c(199+750+933,1017+958,1196+1195,1309+1272,1215+1088+1067+876,777+626+499+321+437), # number of population in the rural area from DSS
+                                                         c(309+1144+1458,1474+1814,1805+1731,1740+1669,1471+1395+1206+975,891+572+412+236+245)  # number of population in the urban area from DSS
+                                       ),
+                                       total_pop = rep(c(n_node_rural, n_node_urban), each = length(target_age_grp)),   # Total population in the rural and urban area
+                                       network=rep(c("rural", "urban"), each = length(target_age_grp))  
+    ) %>% 
+      group_by(network) %>% # proportion (relative frequency) of target population in each age group by network
+      mutate(
+        dss_pop = sum(dss_pop_age_grp), # total number of nodes in that network
+        prop=dss_pop_age_grp/dss_pop) %>% ungroup() %>% # prop is the relative frequency of age group from the DSS data
+      mutate(
+        tar_pop = round(total_pop*prop) # we round the target population to integer to as the "n" argument, "number of observation", in runif/rbinom is integer 
+      ) %>%  # number of node at each age group of the modeled population
+      select(target_age_grp, network, tar_pop ) # variable needed for below analysis
+    
+    
+    ################# Generating nodal attributes of age and layer-specific contact status #################
+    # Generating age and age group for each node based on distribution of target population
+    node.age.grp.rural <- 
+      node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
+                   
+      ) # rural network
+    node.age.grp.urban <- 
+      node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "urban") %>% select(target_age_grp, tar_pop)
+                   
+      ) # urban network
+    
+    ## Generating nodal attribute of contact status at each layer, with proportion of contact specific to each age group
+    node.contact.layer.rural <- 
+      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days, 
+                         target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop)
+      ) # rural network
+    node.contact.layer.urban <- 
+      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
+                         target_age_dist = target_age_distribut %>% filter( network == "urban") %>% select(target_age_grp, tar_pop)
+      ) # urban network
+    
+    ## Merging nodal status of age and layer-specific contact
+    node.attr.rural <- 
+      cbind(node.age.grp.rural %>% select(-age.grp.num), # we can safely use cbind here as the two attributes are generated from the same number of observations.
+            node.contact.layer.rural %>% select(-target_age_grp)
+      ) %>% 
+      rename(node.age = age, node.age.grp = target_age_grp)
+    
+    node.attr.urban <- 
+      cbind(node.age.grp.urban %>% select(-age.grp.num),
+            node.contact.layer.urban %>% select(-target_age_grp)
+      ) %>% 
+      rename(node.age = age, node.age.grp = target_age_grp)
+    
+    
+    ################# Generating nodal attributes of household identifier for home #################
+    ## assumption: considering the mean degree of the target population is 2.72 and 3.09 in rural and urban areas, respectively, we assume the each household as 4 nodes
+    ## Hence, the total number of housholds can be defined as follows
+    n_hh_rural = round(n_node_rural/4)
+    ## We generate a list of houshold ID and sample with replacement (TRUE)
+    nb_rural <- sample(1:n_hh_rural, n_node_rural, TRUE) # this script allows the mean household size to be 4, but the max hoeusehold size could be 13
+    
+    ## repeating the above for the urban network
+    n_hh_urban = round(n_node_urban/4)
+    nb_urban <- sample(1:n_hh_urban, n_node_urban, TRUE)
+    
+    ## assign the the houshold ID to nodal attribute
+    node.attr.rural$household_id <- nb_rural; node.attr.urban$household_id <- nb_urban
+    
+
+    ############## Target statistics (age.grp) ##############
+    # Characterizing target stats of the rural network
+    targetstats_age.grp <- list()
+    targetstats_age.grp$formation_stats_rural <- 
+      target_stats_age(form_stat = netstats$formation$formation_stats_rural, 
+                       target_age_dist = target_age_distribut %>% filter(network == "rural") %>% select(target_age_grp, tar_pop)
+      )
+    
+    # Characterizing target stats of the urban network
+    targetstats_age.grp$formation_stats_urban <- 
+      target_stats_age(form_stat = netstats$formation$formation_stats_urban, 
+                       target_age_dist = target_age_distribut %>% filter(network == "urban")%>% select(target_age_grp, tar_pop)
+      ) 
+    
+    
+    ############## Target statistics (cross-layer effects) ##############
     nf.x.layer <- list()
     nf.x.layer$rural <- 
       target_stats_x_layer(x_layer_items = 

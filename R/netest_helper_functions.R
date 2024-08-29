@@ -14,26 +14,33 @@ initiate_nw <-
     
     # Adding age attribute to the nodes
     ## Age group
-    output$nw <- set_vertex_attribute(nw, attrname = "age.grp",
+    nw <- set_vertex_attribute(nw, attrname = "age.grp",
                                       value= as.character(attri_tarstats$attr[[network]]$node.age.grp )
     )
     
     ## Continuous age
-    output$nw <- set_vertex_attribute(output$nw, attrname = "age",
+    nw <- set_vertex_attribute(nw, attrname = "age",
                                       value= attri_tarstats$attr[[network]]$node.age
     )
     
+    # Adding household id to the home layer
+    output$nw_h <- set_vertex_attribute(nw, attrname = "hh_id", 
+                                        value = attri_tarstats$attr[[network]]$household_id)
+
     
     # Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
     ## For school as the conditioned layer
-    output$nw_s <- set_vertex_attribute(output$nw, attrname = "deg.x_layer", 
+    output$nw_s <- set_vertex_attribute(nw, attrname = "deg.x_layer", 
                                         value = attri_tarstats$attr[[network]]$contact_attribute_Work
     )
     
     ## For work as the conditioned layer
-    output$nw_w <- set_vertex_attribute(output$nw, attrname = "deg.x_layer",
+    output$nw_w <- set_vertex_attribute(nw, attrname = "deg.x_layer",
                                         value = attri_tarstats$attr[[network]]$contact_attribute_School
     )
+    
+    # The non-home layer only contains the age attributes
+    output$nw_nh <- nw
     
     output
     
@@ -74,9 +81,10 @@ nmix_tar_lex <-
 ## Note the function reads the list of target statistics from the environment. The following explains the meaning of each argument 
 ### layer - 1 of the 4 layers: "Home", "School", "Work", "Nonhome"
 ### site - 1 of the 2 sites: "Rural", "Urban"
-### form_model - 1 of the following 2 formation models of interest 
-#### 1) nmix_saturate:  ~edges+ nodemix("age.grp", levels2 = -1)
-#### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -1)+nodefactor("nmix_saturate_xlayer", levels =-1)
+### form_model - 1 of the following 3 formation models of interest. Note: fst_gt0_edge is the 1st lexicographic location whose target statistic isn't 0
+#### 1) nmix_saturate_nmatch_hh_id: ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge)+ nodematch("hh_id")
+#### 2) nmix_saturate:  ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge)
+#### 3) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge)+nodefactor("nmix_saturate_xlayer", levels =-1)
 formula_tarstats <- 
   function(layer, 
            form_model,
@@ -102,7 +110,23 @@ formula_tarstats <-
     fst_gt0_edge <- which(target_nmix_vec_layer$target_nmix_vec != 0)[1]
     
     ## Define the formula of formation model
-    if (form_model == "nmix_saturate"){
+    if (form_model == "nmix_saturate_nmatch_hh_id"){
+      ### Fully saturate model for age mixing without x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
+      frmn_fm <- 
+        paste0(
+          "~edges +",
+          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")",
+          "+ nodematch(\"hh_id\")"
+        )
+      frmn_fm <- as.formula(frmn_fm)
+      
+      ### Target statistics correspond to the formation model
+      tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
+                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
+                 target_nmix_vec_layer$target_nmix_vec %>% sum() # total edge (i.e., 100% of edges are in the assortative mixing for hh_id)
+      )
+      
+    } else if (form_model == "nmix_saturate"){
       ### Fully saturate model for age mixing without x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
       frmn_fm <- 
         paste0(
@@ -177,7 +201,7 @@ model_inputs <- function(attri_tarstats, dissolution){
   
   ## Argument specifications for each layer 
   layers <- c("Home", "School", "Work", "Nonhome") 
-  form_model_types <- c("nmix_saturate", "nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate")
+  form_model_types <- c("nmix_saturate_nmatch_hh_id", "nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate")
   
   for (i in 1:4) {
     formula_tarstats_rural[[i]] <- 
@@ -226,9 +250,9 @@ est_nws <-
     
     # define nodal attribute for the model
     if(
-      layer %in% c("Home", "Nonhome")
+      layer == "Home"
     ){
-      nw_attributes_layer = nw_attributes$nw
+      nw_attributes_layer = nw_attributes$nw_h
     } else if (
       layer == "School"
     ){
@@ -237,7 +261,11 @@ est_nws <-
       layer == "Work"
     ){
       nw_attributes_layer = nw_attributes$nw_w
-    } else {}
+    } else if (
+      layer == "Nonhome"
+    ){
+      nw_attributes_layer = nw_attributes$nw_nh
+    }else {}
     
     # model fitting for each layer
     est_layer <- 

@@ -7,9 +7,9 @@ library("sna")
 nss <- function(net, layer, at) {
   
   if (net == "r") {
-    r <- readRDS("data/networkdynamic__Rural__mcmle__0.1.Rds")
+    r <- readRDS("data/netsim_outputs/networkdynamic__Rural__mcmle__0.1.Rds")
   } else {
-    r <- readRDS("data/networkdynamic__Urban__mcmle__0.1.Rds")
+    r <- readRDS("data/netsim_outputs/networkdynamic__Urban__mcmle__0.1.Rds")
   }
 
   rh <- r[[layer]]
@@ -39,7 +39,7 @@ nss("u", "School", at = 1)
 nss("u", "Work", at = 1)
 nss("u", "Nonhome", at = 1)
 
-r <- readRDS("data/networkdynamic__Rural__mcmle__0.1.Rds")
+r <- readRDS("data/netsim_outputs/networkdynamic__Rural__mcmle__0.1.Rds")
 rh1 <- network.collapse(r$Home, at = 1)
 summary(rh1 ~ meandeg)
 
@@ -47,7 +47,7 @@ rw1 <- network.collapse(r$Work, at = 1)
 summary(rw1 ~ meandeg)
 
 nw <- network_initialize(1000)
-g <- ergm(nw ~ edges, target.stats = 1395)
+g <- ergm(nw ~ edges, target.stats = 1395) #number of edges
 g <- simulate(g)
 plot(g)
 mean(get_degree(g))
@@ -57,6 +57,7 @@ components(g, connected = "weak")
 
 table(component.dist(g, connected = "weak")$membership)
 
+# simulate  household id of 1 to 100, and assign each node an houshold id
 nb <- sample(1:100, 1000, TRUE)
 nw <- set_vertex_attribute(nw, "nb", nb)
 

@@ -3,7 +3,7 @@
 ## This script should not be run directly. But `sourced` the from scripts that
 ## interact with the HPC (usually the `workflow-***.R` ones)
 
-current_git_branch <- "main"
+current_git_branch <- "degree_distribution_model"
 mail_user <- "dehao.chen@emory.edu"
 est_cores <- 10
 
