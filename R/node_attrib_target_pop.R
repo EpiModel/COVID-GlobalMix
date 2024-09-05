@@ -61,7 +61,7 @@ node_attrib_target_pop <-
         for (j in 1:length(target_age_grp)) {
           deg.prop_single_layer_age_grp <-  deg.layer.prop %>% filter(layer == layers[i] & age.grp == target_age_grp[j]) %>% pull(gt_0_prop) # retrieving the proportion of having any contact in a age group of a layer in a network
           
-          n_pop_single <- target_age_dist %>% filter(target_age_grp == target_age_grp[j]) %>% pull(tar_pop) # number of nodes to generate 
+          n_pop_single <- target_age_dist %>% filter(target_age_grp == target_age_grp[j]) %>% pull(tar_pop) # number of nodes to generate - number of people at this at group in the modeled population
           
           contact_attribute <- # attribute of contact in a single age group and layer
             rbinom(n =  n_pop_single, 
