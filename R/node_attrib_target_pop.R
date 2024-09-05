@@ -479,6 +479,10 @@ node_attrib_target_pop <-
     ## Note - we adjust for the cross-layer effect between school and work and vice versa
     
     
+    ############## Target statistics (degree distribution) ##############
+    
+    
+    
     # Gathering things for output
     output <- list()
     
@@ -490,24 +494,17 @@ node_attrib_target_pop <-
     # Target stats - we only export the edge counts for nodemix and the x-layer effects, as only them will be used for building the model
     ## selecting variable in edge needing output
     targetstats_age.grp$formation_stats_rural$edge <- NULL
-    # targetstats_age.grp$formation_stats_rural$edge %>% 
-    # select(contact_location, edges.artnet, edges)
+
     
     targetstats_age.grp$formation_stats_urban$edge <- NULL
-    # targetstats_age.grp$formation_stats_urban$edge %>% 
-    # select(contact_location, edges.artnet, edges)
     
     
-    ## selecting variable in nodefactor(age.grp) needing output 
+    ## selecting variable in nodefactor(age.grp) dosn't needing output 
     targetstats_age.grp$formation_stats_rural$nf.age.grp <- NULL
-    # targetstats_age.grp$formation_stats_rural$nf.age.grp %>% 
-    # select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
-    # rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
+    
     
     targetstats_age.grp$formation_stats_urban$nf.age.grp <- NULL
-    # targetstats_age.grp$formation_stats_urban$nf.age.grp %>% 
-    # select(participant_age, contact_location, nf.ag.ego, nf.ag) %>% 
-    # rename(age.grp=participant_age) # renaming this variable as the output is for the population to be modeled
+
     
     
     ## nodemix(age.grp)

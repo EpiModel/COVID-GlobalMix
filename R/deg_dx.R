@@ -241,9 +241,9 @@ contact_count_urban  <- # urban mixing
 
 # reweighting degree distribution
 post_stratification <- 
-  function(participant_dta,
-           modeled_pop_dta,
-           degree){
+  function(participant_dta,# age of each study participant
+           modeled_pop_dta,# age of modeled population
+           degree_2d){
 outputs <- degree_proportion <-  list()
     
 # Compare age distribution of study and modeled populations
@@ -270,12 +270,12 @@ outputs$w_ai <- wi
 
 ## Apply weight to each study participant's degre
 weighted_degree <- 
-degree %>%  # degree of individual i of the study population
+degree_2d %>%  # degree of individual i of the study population
   # joining weight to the degree dataframe
    left_join(., wi, by = "participant_age") %>% 
    mutate(
-     n_contacts_1d= n_contacts/2,
-     weighted_deg = round(n_contacts_1d*weight) # we consider the single-day degree as half of two-day degree
+     n_contacts_1d= n_contacts/2,# we consider the single-day degree as half of two-day degree - n_contacts is the 2-day degree
+     weighted_deg = round(n_contacts_1d*weight) 
           ) 
 
 ## preparing dataframe for visualization
@@ -355,14 +355,9 @@ weighted_degree <- weighted_degree %>%
     TRUE ~ "20+y"
   ))
 ## unweighted degree
-ct_un_w_age <- table(weighted_degree$contact_location, round(weighted_degree$n_contacts_1d), weighted_degree$participant_age_bi) # degree count of each degree type
+outputs$ct_age$ct_un_w_age <- table(weighted_degree$contact_location, round(weighted_degree$n_contacts_1d), weighted_degree$participant_age_bi) # degree count of each degree type
 ## weighted degree
-ct_w_age <-  table(weighted_degree$contact_location, weighted_degree$weighted_deg, weighted_degree$participant_age_bi) # degree count of each degree type, by contact location
-
-
-
-
-
+outputs$ct_age$ct_w_age <-  table(weighted_degree$contact_location, weighted_degree$weighted_deg, weighted_degree$participant_age_bi) # degree count of each degree type, by contact location
 
 
 outputs$adjusted_prop <- prop_w
@@ -377,7 +372,7 @@ dists_r_1d <-
   post_stratification(
     participant_dta=india_participant %>% filter(study_site == "Rural")%>% select(study_site, participant_age),
     modeled_pop_dta = node_attribute_target_stats$attr$rural %>% select(node.age.grp),
-    degree=contact_count_rural$contact_degree %>% data.frame()%>% mutate(n_contacts=round(n_contacts/2)) #contact counts at 2-day scale
+    degree_2d=contact_count_rural$contact_degree %>% data.frame() #contact counts at 2-day scale
   )
 
 
@@ -385,26 +380,18 @@ dists_r_1d <-
 dists_r_1d$age_distribution
 dists_r_1d$w_ai
 dists_r_1d$deg_distribution_all
+dists_r_1d$ct_age$ct_un_w_age
+dists_r_1d$ct_age$ct_w_age
+dists_r_1d$adjusted_prop$School %>% sum
 
-###### compare the tabulations of the weighted and unweighted degree vs. group
-
-# ggarrange(dists_r_2d$deg_distribution_weighted,
-#           dists_r_1d$deg_distribution_weighted # this should be the case
-#           )
 
 ### urban
 dists_u_1d <- 
   post_stratification(
     participant_dta=india_participant %>% filter(study_site == "Urban")%>% select(study_site, participant_age),
     modeled_pop_dta = node_attribute_target_stats$attr$urban %>% select(node.age.grp),
-    degree=contact_count_urban$contact_degree %>% data.frame()%>% mutate(n_contacts=round(n_contacts/2)) #contact counts at 2-day scale
+    degree_2d=contact_count_urban$contact_degree %>% data.frame() #contact counts at 2-day scale
   )
-
-# ggarrange(dists_u_2d$deg_distribution_weighted,
-#           dists_u_1d$deg_distribution_weighted # should be the case
-# )
-
-
 
 
 # weight distribution, 1-day, 2 networks
@@ -449,120 +436,128 @@ nrow=2
 
 # target stat calculation and simulating nodal attribute
 ## function to calculate target statistics
-deg_attribute_target_stats <- function(N_nodes, deg_dist)
+deg_target_stats <- function(N_nodes, deg_dist)
   {
-  output$target_stats <- output$degree_attribute <-output <- list()
-  
-  # nodal attribute
-  ## function to generate degree nodal attribute based on the degree distribution (deg_dist)
-  nodal_deg <- 
-  function(deg_dist, layer){
-  
-  # find the last row in deg_dist having >0 probability
-  rows_gt0_prob <-  which(c(deg_dist[[layer]] !=0)==T)
-  
-  # max_k is the deg_type whose subsequent larger degree types all have probability of 0 (max_k itself is the last degree type having >0 probability)
-  max_k <- 
-  deg_dist[
-    rows_gt0_prob %>% max,
-  ] %>% 
-    pull(deg_type) %>% 
-    droplevels() %>% as.character%>% as.numeric()
-  
-  # full degree distribution, adding unobserved degree in the empirical
-  ful_deg <- 
-  data.frame(deg_type=c(1:max_k)) %>% 
-    left_join(deg_dist %>%
-                select(deg_type,{{layer}}) %>% 
-                mutate(deg_type= as.numeric(as.character(deg_type)))
-              ) %>%  rename(prob = 2) %>% 
-    mutate(prob = if_else(is.na(prob), 0, prob))
-  
-  # For each node, randomly assign a degree type, based on the full degree distribution
-  nodal_degrees <- sample(x=ful_deg %>% pull(deg_type),
-                          size = N_nodes, 
-                          replace = TRUE, 
-                          prob = ful_deg %>% pull(prob)
-                          )
-  
-  nodal_degrees
-  }
-  
-  output$degree_attribute$Home <- nodal_deg(deg_dist = deg_dist, layer = "Home")
-  output$degree_attribute$School <- nodal_deg(deg_dist = deg_dist, layer = "School")
-  output$degree_attribute$Work <- nodal_deg(deg_dist = deg_dist, layer = "Work")
-  output$degree_attribute$Nonhome <- nodal_deg(deg_dist = deg_dist, layer = "Nonhome")
+  output <- list()
   
   # target statistics
   ## create range categories
   deg_dist <- 
   deg_dist %>% mutate(deg_type = as.numeric(as.character(deg_type))
-                      ) %>% mutate(deg_range_6cat = case_when(deg_type >=4 & deg_type <= 20 ~ "4-20", # for the parameterization of - degree(0:3)+ degrange(from=4, to=20) + derange(from=21)
-                                                         deg_type >=21  ~ ">=21",
-                                                         T ~ as.character(deg_type)),
+                      ) %>% mutate( # create categories for the the following model: degree(0:3)+ degrange(from=4).
                                    deg_range_5cat = case_when(
                                                               deg_type >=4  ~ ">=4",
                                                               T ~ as.character(deg_type))
-                                   )
+                                   ) %>% 
+    group_by(deg_range_5cat) %>% 
+    summarise(prop_h=sum(Home), 
+              prop_s=sum(School),
+              prop_w=sum(Work),
+              prop_nh=sum(Nonhome)
+              )
+  
+  prop_df <- deg_dist %>% select(deg_range_5cat, prop_s) %>% rename(prop=2)
+  
+  allocate_people <- function(N_nodes, prop_df) {
+ 
+    
+    # Calculate the expected allocation by multiplying the total number of people by the proportions
+    prop_df$expected_allocation <- prop_df$prop * N_nodes
+    
+    # Round the expected allocation to the nearest integer
+    prop_df$N_nodes_age <- round(prop_df$expected_allocation)
+    
+    # Check the difference between the sum of N_nodes_age and the total number of people
+    difference <- N_nodes - sum(prop_df$N_nodes_age)
+    
+    # Adjust the allocation to ensure the sum equals the total number of people
+    if (difference != 0) {
+      # Sort the data frame by the decimal part of expected allocation to adjust rounding
+      prop_df$decimal_part <- prop_df$expected_allocation - floor(prop_df$expected_allocation)
+      
+      # Adjust the allocation by distributing the difference
+      if (difference > 0) {
+        # Increase the N_nodes_age for the groups with the largest decimal parts
+        prop_df <- prop_df[order(-prop_df$decimal_part), ]
+        prop_df$N_nodes_age[1:difference] <- prop_df$N_nodes_age[1:difference] + 1
+      } else {
+        # Reduce the N_nodes_age for the groups with the smallest decimal parts
+        prop_df <- prop_df[order(prop_df$decimal_part), ]
+        prop_df$N_nodes_age[1:abs(difference)] <- prop_df$N_nodes_age[1:abs(difference)] - 1
+      }
+      
+      prop_df$decimal_part <- NULL
+    }
+    
+    # Drop the decimal_part column and arrange rows
+    prop_df <- 
+      prop_df %>% 
+      mutate(deg_range_5cat= factor(deg_range_5cat, levels = c("0", "1", "2", "3", ">=4")
+                                    )
+             ) %>% 
+      arrange(desc(deg_range_5cat))
+    
+    # Return the final allocation
+    prop_df
+  }
   
   ## calculate total proportion for each range category
   ### home
-  output$target_stats$deg_range_h <-
-    deg_dist %>% select(deg_range_5cat, Home) %>% 
-    group_by(deg_range_5cat) %>% 
-    summarise(prop=sum(Home)) %>% 
-    mutate(N_nodes_age= round(prop*N_nodes)) %>% 
-    data.frame()
+  output$deg_range_h <-
+    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_h) %>% rename(prop=2))
   
   ### School
-  output$target_stats$deg_range_s <-
-    deg_dist %>% select(deg_range_5cat, School) %>% 
-    group_by(deg_range_5cat) %>% 
-    summarise(prop=sum(School)) %>% 
-    mutate(N_nodes_age= round(prop*N_nodes)) %>% 
-    data.frame()
+  output$deg_range_s <-
+    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_s) %>% rename(prop=2))
   
   ### Work
-  output$target_stats$deg_range_w <-
-    deg_dist %>% select(deg_range_5cat, Work) %>% 
-    group_by(deg_range_5cat) %>% 
-    summarise(prop=sum(Work)) %>% 
-    mutate(N_nodes_age= round(prop*N_nodes)) %>% 
-    data.frame()
+  output$deg_range_w <-
+    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_w) %>% rename(prop=2))
+  
   
   ### Nonhome
-  output$target_stats$deg_range_nh <-
-    deg_dist %>% select(deg_range_5cat, Nonhome) %>% 
-    group_by(deg_range_5cat) %>% 
-    summarise(prop=sum(Nonhome)) %>% 
-    mutate(N_nodes_age= round(prop*N_nodes)) %>% 
-    data.frame()
+  output$deg_range_nh <-
+    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_nh) %>% rename(prop=2))
     
   output
   
   }
 
 ## rural
-tstat_r <- 
-  deg_attribute_target_stats(
+deg_tstat_r <- 
+  deg_target_stats(
   N_nodes = N_r,
   deg_dist = dists_r_1d$adjusted_prop)
 
-##
-tstat_r$target_stats
+deg_tstat_r$deg_range_h$N_nodes_age %>% sum
+deg_tstat_r$deg_range_s$N_nodes_age %>% sum
+deg_tstat_r$deg_range_w$N_nodes_age %>% sum
+deg_tstat_r$deg_range_nh$N_nodes_age %>% sum
+
+## urban
+deg_tstat_u <- 
+  deg_target_stats(
+    N_nodes = N_u,
+    deg_dist = dists_u_1d$adjusted_prop)
+
+
+deg_tstat_u$deg_range_h$N_nodes_age %>% sum
+deg_tstat_u$deg_range_s$N_nodes_age %>% sum
+deg_tstat_u$deg_range_w$N_nodes_age %>% sum
+deg_tstat_u$deg_range_nh$N_nodes_age %>% sum
 
 ### experiment for home layer
-deg_attr_h <- 
-tstat_r$degree_attribute$Home %>% table() %>% data.frame() %>% rename(deg=1) %>% mutate(deg= as.numeric(as.character(deg)))
-
-deg_attr_h $Freq %>% sum() # equal to the modeled population size
-
-deg_attr_h %>% ggbarplot(x="deg", y = "Freq") # sample distribution as the weight distribution
-
-tstat_r$degree_attribute$Home %>% sum # total degree, calculated from nodal attribute constraint
-
-#### total degree from the age-mixing matrix for nodemix
-node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum # 16026< 37027 mean the total degree constraint is violated
+# deg_attr_h <- 
+# tstat_r$degree_attribute$Home %>% table() %>% data.frame() %>% rename(deg=1) %>% mutate(deg= as.numeric(as.character(deg)))
+# 
+# deg_attr_h $Freq %>% sum() # equal to the modeled population size
+# 
+# deg_attr_h %>% ggbarplot(x="deg", y = "Freq") # sample distribution as the weight distribution
+# 
+# tstat_r$degree_attribute$Home %>% sum # total degree, calculated from nodal attribute constraint
+# 
+# #### total degree from the age-mixing matrix for nodemix
+# node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum # 16026< 37027 mean the total degree constraint is violated
 
 
 
