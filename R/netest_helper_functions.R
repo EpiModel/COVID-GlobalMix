@@ -116,7 +116,7 @@ formula_tarstats <-
         paste0(
           "~edges +",
           "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")",
-          "+ nodematch(\"hh_id\") + degree(0:3)"
+          "+ nodematch(\"hh_id\") + degree(0:2) + degrange(from=4)"
         )
       frmn_fm <- as.formula(frmn_fm)
       
@@ -124,7 +124,7 @@ formula_tarstats <-
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
                  target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge (i.e., 100% of edges are in the assortative mixing for hh_id)
-                 c(degrange$N_nodes_age)[-5] # number of nodes in each age group
+                 c(degrange$N_nodes_age)[-4] # number of nodes in each age group
       )
       
     } else if (form_model == "nmix_saturate"){
@@ -132,14 +132,14 @@ formula_tarstats <-
       frmn_fm <- 
         paste0(
           "~edges +",
-          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ") + degree(0:3)"
+          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ") + degree(0:2) + degrange(from=4)"
         )
       frmn_fm <- as.formula(frmn_fm)
       
       ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
-                 c(degrange$N_nodes_age)[-5] # number of nodes in each age group
+                 c(degrange$N_nodes_age)[-4] # number of nodes in each age group
                  )
       
     } else if (form_model == "nmix_saturate_xlayer"){
@@ -148,7 +148,7 @@ formula_tarstats <-
         paste0(
           "~edges +",
           "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")+",
-          "nodefactor(\"deg.x_layer\", levels =-1) + degree(0:3)"
+          "nodefactor(\"deg.x_layer\", levels =-1) + degree(0:2) + degrange(from=4)"
         )
       frmn_fm <- as.formula(frmn_fm)
       
@@ -156,7 +156,7 @@ formula_tarstats <-
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
                  x_layer %>% pull(nf_other_layer_1), # x-layer effect
-                 c(degrange$N_nodes_age)[-5] # number of nodes in each age group
+                 c(degrange$N_nodes_age)[-4] # number of nodes in each age group
       )
     } 
     
