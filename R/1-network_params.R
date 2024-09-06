@@ -56,7 +56,7 @@ table(india_contact$hh_membership, india_contact$study_site )
 # Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact
 
 # Merging participant and contact data and processing them
-india_mix <- participant_contact_merge(india_participant = india_participant, india_contact = india_contact)
+india_mix <- participant_contact_merge(india_participant = india_participant, india_contact = india_contact) # the age group in india_participant is also been updated
 
 
 ## Check implementation of the cross-checking between household membership and contact location
@@ -85,8 +85,12 @@ contact_count_urban  <- # urban mixing
                     india_contact. = india_contact,
                     study_site. ="Urban") 
 
+# Age distribution of the study population
+prop_parti_rural <- 
+india_participant %>% filter(study_site == "Rural") %>% pull(participant_age) %>% table %>% prop.table  
 
-
+prop_parti_urban <- 
+  india_participant %>% filter(study_site == "Urban") %>% pull(participant_age) %>% table %>% prop.table  
 
 
 # function calculates two-day proportions of mixing between age groups of participant and contact 
@@ -175,11 +179,14 @@ formation_stats_urban$edge_node_factor_match_urban <- edge_node_factor_match_urb
 formation_stats_urban$mix_prop_urban_layers <- mix_prop_urban_layers
 formation_stats_urban$layer_assoc_urban <- layer_assoc_urban
 
-
+### individual-level raw 2-day degree, age distribution of participants
+formation_stats_rural$degree_related$contact_count_2d <- contact_count_rural$contact_degree; formation_stats_rural$degree_related$prop_parti <- prop_parti_rural # rural
+formation_stats_urban$degree_related$contact_count_2d <- contact_count_urban$contact_degree; formation_stats_urban$degree_related$prop_parti <- prop_parti_urban # urban
 
 
 network_stats$formation <- list(formation_stats_rural=formation_stats_rural, formation_stats_urban=formation_stats_urban)
 
+## Dissoluation stats
 network_stats$dissolution <- known_dur_8_layers 
 
 saveRDS(network_stats, file = "data/network_stats_attributes/network_params.Rds")

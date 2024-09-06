@@ -88,9 +88,10 @@ nmix_tar_lex <-
 formula_tarstats <- 
   function(layer, 
            form_model,
-           target_nmix_vec,
+           target_nmix_vec_layer,
            x_layer,
-           dissolution
+           degrange,
+           dissolution_value
   ){
     
     if (layer == "School"){ # if the main layer of interest is school
@@ -103,8 +104,7 @@ formula_tarstats <-
     
     
     # Formation model and its target statistics
-    ## Extract the lexicographically ordered edge count of a layer from the list  
-    target_nmix_vec_layer <-  target_nmix_vec[[layer]]
+
     
     ## Specify the lexicographic location of the first non-zero edge
     fst_gt0_edge <- which(target_nmix_vec_layer$target_nmix_vec != 0)[1]
@@ -116,14 +116,15 @@ formula_tarstats <-
         paste0(
           "~edges +",
           "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")",
-          "+ nodematch(\"hh_id\")"
+          "+ nodematch(\"hh_id\") + degree(0:3)"
         )
       frmn_fm <- as.formula(frmn_fm)
       
       ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
-                 target_nmix_vec_layer$target_nmix_vec %>% sum() # total edge (i.e., 100% of edges are in the assortative mixing for hh_id)
+                 target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge (i.e., 100% of edges are in the assortative mixing for hh_id)
+                 c(degrange$N_nodes_age)[-5] # number of nodes in each age group
       )
       
     } else if (form_model == "nmix_saturate"){
@@ -131,14 +132,15 @@ formula_tarstats <-
       frmn_fm <- 
         paste0(
           "~edges +",
-          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")"
+          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ") + degree(0:3)"
         )
       frmn_fm <- as.formula(frmn_fm)
       
       ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
-                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge]  #  edges counts from nodemix, excluding the first non-zero edge
-      )
+                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
+                 c(degrange$N_nodes_age)[-5] # number of nodes in each age group
+                 )
       
     } else if (form_model == "nmix_saturate_xlayer"){
       ### Fully saturate model for age mixing with x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
@@ -146,21 +148,22 @@ formula_tarstats <-
         paste0(
           "~edges +",
           "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")+",
-          "nodefactor(\"deg.x_layer\", levels =-1)"
+          "nodefactor(\"deg.x_layer\", levels =-1) + degree(0:3)"
         )
       frmn_fm <- as.formula(frmn_fm)
       
       ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
-                 x_layer %>% pull(nf_other_layer_1) # x-layer effect
+                 x_layer %>% pull(nf_other_layer_1), # x-layer effect
+                 c(degrange$N_nodes_age)[-5] # number of nodes in each age group
       )
     } 
     
     # layer-based dissolution model statistics
     diss <- 
       dissolution_coefs(dissolution = ~offset(edges), 
-                        duration = dissolution %>% filter(contact_location == layer) %>% pull(know_contact_duration)
+                        duration = dissolution_value 
       )
     
     output <- list() # use a list to store things
@@ -208,18 +211,20 @@ model_inputs <- function(attri_tarstats, dissolution){
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
-        target_nmix_vec=target_nmix_vec_rural,
+        target_nmix_vec_layer=target_nmix_vec_rural[[layers[i]]],
         x_layer = attri_tarstats$targetstats_x.layer$rural,
-        dissolution = dissolution  %>% filter(study_site =="Rural")
+        degrange = attri_tarstats$degrange$rural[[layers[i]]],
+        dissolution_value = dissolution  %>% filter(study_site =="Rural") %>% filter(contact_location == layers[i]) %>% pull(know_contact_duration)
       )
     
     formula_tarstats_urban[[i]] <- 
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
-        target_nmix_vec = target_nmix_vec_urban,
+        target_nmix_vec_layer = target_nmix_vec_urban[[layers[i]]],
         x_layer = attri_tarstats$targetstats_x.layer$urban,
-        dissolution = dissolution  %>% filter(study_site =="Urban")
+        degrange = attri_tarstats$degrange$urban[[layers[i]]],
+        dissolution_value = dissolution  %>% filter(study_site =="Urban") %>% filter(contact_location == layers[i]) %>% pull(know_contact_duration)
       )
     
   }

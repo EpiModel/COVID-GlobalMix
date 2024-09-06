@@ -1,9 +1,9 @@
 library(EpiModel); library(dplyr);library(tibble);library(ggplot2); library(ggpubr)
 
 # setting up the environment
-layers = c("Home", "School", "Work", "Nonhome"); layer=layers[1]
+layers = c("Home", "School", "Work", "Nonhome"); layer=layers[2]
 networks = c("Rural", "Urban"); network=networks[1]
-est_apch = "Stochastic-Approximation" # "mcmle"
+est_apch =  "mcmle" # "sto_apoxy" #
 percent_target_pop = 0.1
 
 # reading files

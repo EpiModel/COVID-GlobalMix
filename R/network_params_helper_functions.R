@@ -15,6 +15,7 @@ participant_contact_merge <- function(india_participant, india_contact){
     ) %>% mutate(participant_ageyr = floor(participant_ageyr)
     )
   
+
   ## contact data
   india_contact <- 
     india_contact %>%     
@@ -111,9 +112,14 @@ participant_contact_merge <- function(india_participant, india_contact){
       )
     )
   
+  
+  
   india_participant <<- india_participant # assign the participant dataset with 6-category age groups to the global environment
+  
+  
   india_contact <<- india_contact
   return(india_mix) # output the process data
+  
 }
 
 
