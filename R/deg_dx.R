@@ -559,7 +559,11 @@ deg_tstat_u$deg_range_nh$N_nodes_age %>% sum
 # #### total degree from the age-mixing matrix for nodemix
 # node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum # 16026< 37027 mean the total degree constraint is violated
 
+# check item put into netest
+model_input_items$formula_tarstats$Rural$School
 
-
+node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School
+node_attribute_target_stats$targetstats_x.layer$rural
+node_attribute_target_stats$degrange$rural$School
 
 

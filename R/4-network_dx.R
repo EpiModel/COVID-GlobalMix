@@ -12,17 +12,6 @@ suppressMessages(library(EpiModel))
 suppressMessages(library(fs))
 
 
-# Load network stats to retrieve the number of node at each network
-## Target stats
-tar_stats <- 
-  readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats__", percent_target_pop, ".Rds"))
-## Individual-level summary stats
-summary_stats <- 
-  readRDS("data/network_stats_attributes/network_params.Rds")
-
-
-
-n_r <- nrow(tar_stats$attr$rural)
 
 # Loading data
 file.name_in <- 
