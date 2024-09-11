@@ -12,7 +12,7 @@ layers_dx <-
                                                                MCMC.interval = 50000), # 2) bumping up from 25000
               set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
                                                                  ),
-              dynamic = T,  # 2) turned from F
+              dynamic = F,
               skip.dissolution = FALSE
         )
     

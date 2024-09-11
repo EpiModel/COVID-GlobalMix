@@ -1,3 +1,4 @@
+# Evaluate fitting of degree statistics
 library(EpiModel); library(dplyr);library(tibble)
 
 # setting up the environment for rural school layer 
@@ -10,11 +11,6 @@ percent_target_pop = 0.1
 # helper functions
 source("R/netest_helper_functions.R")
 
-# Inputs - note: this shold be unmuted when running the script through sbatch. Currently, we use slurmworkflow to submit jobs of this script to the HPC.
-# layer <- Sys.getenv("layer")
-# network <- Sys.getenv("network")
-# est_apch <- Sys.getenv("est_apch")
-# percent_target_pop <- Sys.getenv("percent_target_pop")
 
 # Loading data
 ## target statistics
@@ -40,6 +36,7 @@ node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_ma
 model_input_items <- 
   model_inputs(attri_tarstats = node_attribute_target_stats, dissolution = netstats$dissolution)
 
+model_input_items$formula_tarstats$Rural$School # this are the items which are passed into netest
 
 ############## Model estimation  ##############
 # Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
@@ -49,10 +46,10 @@ control.args <-
       control.ergm(
         # The following setting is copied from - https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
         main.method = "Stochastic-Approximation", 
-        MCMLE.maxit = 500,
+        MCMLE.maxit = 500, # tried 5000 here but the bias didn't go away
         SAN.maxit = 3,
         SAN.nsteps.times = 4,
-        MCMC.samplesize = 1e4,
+        MCMC.samplesize = 1e4, # tried 1e6 here (along with MCMLE.maxit = 5000) but the bias didn't go away
         MCMC.interval = 5e3,
         parallel = 1
       ),
@@ -75,7 +72,7 @@ est <- est_nws(
 )
 
 ############## Model diagnostic  ##############
-# Diagnosing layers 
+# diagnosis using netdx
 source("R/layers_dx.R")
 
 dx <- 
@@ -84,12 +81,20 @@ dx <-
 
 plot(dx)
 
-# check item put into netest
-model_input_items$formula_tarstats$Rural$School
+# diagnosis using MCMC.diagnostics
+fit<- est$fit
 
-node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School
-node_attribute_target_stats$targetstats_x.layer$rural
 
-node_attribute_target_stats$degrange$rural$School %>% data.frame()
+mcmc.diagnostics(object =  fit, which = c("plots"))
+
+
+gof(fit) # this is followed by the prompt from mcmc.diagnostics, but it appears R tends to crush when running this.
+
+
+
+
+
+
+
 
 

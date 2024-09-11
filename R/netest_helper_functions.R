@@ -122,7 +122,7 @@ formula_tarstats <-
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
                  target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge (i.e., 100% of edges are in the assortative mixing for hh_id)
-                 c(degrange$N_nodes_age[1])  # number of nodes w/ degree of 0
+                 c(degrange$N_nodes_age[1])  # number of nodes w/ weighted degree of 0
       )
       
     } else if (form_model == "nmix_saturate"){
@@ -137,7 +137,7 @@ formula_tarstats <-
       ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
-                 c(degrange$N_nodes_age[1]) # number of nodes w/ degree of 0
+                 c(degrange$N_nodes_age[1]) # number of nodes w/ weighted degree of 0
                  )
       
     } else if (form_model == "nmix_saturate_xlayer"){
@@ -155,7 +155,7 @@ formula_tarstats <-
         c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
           target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
           x_layer %>% pull(nf_other_layer_1), # x-layer effect
-          c(degrange$N_nodes_age[1]) # number of nodes w/ degree of 0 - model-predicted number of populations; mode-predicted (w/o fitting to the degree statistics) degree =8247
+          c(degrange$N_nodes_age[1]) # number of nodes w/ weighted degree of 0 - model-predicted number of populations; mode-predicted (w/o fitting to the degree statistics) degree =8247
         )
     } 
     
