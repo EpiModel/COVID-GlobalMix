@@ -32,21 +32,15 @@
     },
     "EpiModel": {
       "Package": "EpiModel",
-      "Version": "2.5.0",
-      "Source": "GitHub",
-      "RemoteType": "github",
-      "RemoteHost": "api.github.com",
-      "RemoteUsername": "Epimodel",
-      "RemoteRepo": "Epimodel",
-      "RemoteRef": "main",
-      "RemoteSha": "5340bf31d8bcd8eb3f311ab873f7bf84d8a86d32",
+      "Version": "2.4.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "RColorBrewer",
         "Rcpp",
         "ape",
         "coda",
-        "collections",
         "deSolve",
         "doParallel",
         "dplyr",
@@ -69,7 +63,7 @@
         "tibble",
         "utils"
       ],
-      "Hash": "89ae5bf3c5e25377963e0e7694e6b209"
+      "Hash": "e47ac0ce91cdd676db6a8aa860260604"
     },
     "EpiModelHPC": {
       "Package": "EpiModelHPC",
@@ -519,13 +513,6 @@
         "R"
       ],
       "Hash": "61e097f35917d342622f21cdc79c256e"
-    },
-    "collections": {
-      "Package": "collections",
-      "Version": "0.3.7",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "90a0eda114ab0bef170ddbf5ef0cd93f"
     },
     "colorspace": {
       "Package": "colorspace",
@@ -2023,19 +2010,6 @@
         "yaml"
       ],
       "Hash": "2b4349b5242f1a516cfa152b94df4a3a"
-    },
-    "sna": {
-      "Package": "sna",
-      "Version": "2.7-2",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "network",
-        "statnet.common",
-        "utils"
-      ],
-      "Hash": "050b4098cef7fa1827c5c199559fde1f"
     },
     "srvyr": {
       "Package": "srvyr",
