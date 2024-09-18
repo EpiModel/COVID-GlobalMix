@@ -37,6 +37,7 @@ model_input_items <-
   model_inputs(attri_tarstats = node_attribute_target_stats, dissolution = netstats$dissolution)
 
 model_input_items$formula_tarstats$Rural$School # this are the items which are passed into netest, and last tstat is the statistics for degree(0)
+model_input_items$formula_tarstats$Rural$Nonhome
 
 ############## Model estimation  ##############
 # Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE

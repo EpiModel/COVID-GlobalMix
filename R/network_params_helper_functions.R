@@ -557,7 +557,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
   contact_count_wide  <- 
     contact_count_long %>% data.frame()%>% 
     tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
-    ) %>%  # 608 rows for rural and 624 rows for urban, each row for a participant in a layer
+    ) %>%  # 624 rows for rural and 624 rows for urban, each row for a participant in a layer
     as.data.frame()
   
   

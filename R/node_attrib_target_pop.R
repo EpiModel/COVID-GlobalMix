@@ -1,4 +1,4 @@
-# Define function generating age and age group for each node based on distribution of target population
+# function generating age and age group for each node based on distribution of target population
 node.age.grp <- 
   function(target_age_dist_site # number of target population by age group of a network (urban/rual)
   ){
@@ -34,7 +34,8 @@ node.age.grp <-
       left_join(age.grp.df %>% select(age.grp.num, target_age_grp), by = "age.grp.num") # merging the categorical age group with the corresponding numerically coded age group
   }
 
-## Define function generating nodal attribute of contact status at each layer
+
+# function generating nodal attribute of contact status at each layer
 node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist){
   
   ## Extracting proportion of having any contact
@@ -298,71 +299,8 @@ target_stats_age <-
     form_stat[[1]] # output the edge-count matrices with the target statistics for nodefactor and edge
   }
 
-# function characterizing target statistics for the cross-layer effect
-target_stats_x_layer <- 
-  function(
-    x_layer_items,
-    N # number of population a whole network
-  ){
-    
-    # Load things needed for characterizing the cross-layer target statistics
-    prop_contact <- x_layer_items$deg.layer.dist_2days # proportion of having any contact at a 2-day scale
-    cond_mean_deg <- x_layer_items$mean_deg_1day # conditioned single-day degree
-    coefficient <- # Regression result for the cross-layer effects
-      x_layer_items$coefficient_summary_2days %>% data.frame() %>% 
-      tibble::rownames_to_column(var="association") %>% rename(coefficient=2, p_value =5) %>% 
-      select(association, coefficient, p_value)
-    
-    
-    # Characterize number of node w/o and w/ contact at each layer
-    ## Home
-    N_h_0=N*prop_contact %>% filter(layer=="Home") %>% pull(prop_0) # number of nodes in the Home layer as conditioning layer w/o contact
-    N_h_1=N*prop_contact %>% filter(layer=="Home") %>% pull(prop_1) # number of nodes in the Home layer as conditioning layer w/o contact
-    
-    ## School
-    N_s_0=N*prop_contact %>% filter(layer=="School") %>% pull(prop_0) # number of nodes in the School layer as conditioning layer w/o contact
-    N_s_1=N*prop_contact %>% filter(layer=="School") %>% pull(prop_1) # number of nodes in the School layer as conditioning layer w/o contact
-    
-    ## Work
-    N_w_0=N*prop_contact %>% filter(layer=="Work") %>% pull(prop_0) # number of nodes in the Work layer as conditioning layer w/o contact
-    N_w_1=N*prop_contact %>% filter(layer=="Work") %>% pull(prop_1) # number of nodes in the Work layer as conditioning layer w/o contact
-    
-    ## Nonhome
-    N_nh_0=N*prop_contact %>% filter(layer=="Nonhome") %>% pull(prop_0) # number of nodes in the Nonhome layer as conditioning layer w/o contact
-    N_nh_1=N*prop_contact %>% filter(layer=="Nonhome") %>% pull(prop_1) # number of nodes in the Nonhome layer as conditioning layer w/o contact
-    
-    # Characterize conditioned node-level edge count
-    cond_mean_deg <- 
-      cond_mean_deg %>% 
-      mutate(
-        nf_other_layer_0 = # target stats for without contact at the conditioning layer
-          case_when(
-            association %in% c("s_by_h", "w_by_h", "nh_by_h") ~ other_layer.0*N_h_0, # Home as the conditioning layer
-            association %in% c("h_by_s", "w_by_s", "nh_by_s") ~ other_layer.0*N_s_0, # School as the conditioning layer
-            association %in% c("h_by_w", "s_by_w", "nh_by_w") ~ other_layer.0*N_w_0, # Work as the conditioning layer
-            association %in% c("h_by_nh", "s_by_nh", "w_by_nh") ~ other_layer.0*N_nh_0, # Nonhome as the conditioning layer
-          ),
-        nf_other_layer_1 = # target stats for having contact at the conditioning layer
-          case_when(
-            association %in% c("s_by_h", "w_by_h", "nh_by_h") ~ other_layer.1*N_h_1, # Home as the conditioning layer
-            association %in% c("h_by_s", "w_by_s", "nh_by_s") ~ other_layer.1*N_s_1, # School as the conditioning layer
-            association %in% c("h_by_w", "s_by_w", "nh_by_w") ~ other_layer.1*N_w_1, # Work as the conditioning layer
-            association %in% c("h_by_nh", "s_by_nh", "w_by_nh") ~ other_layer.1*N_nh_1, # Nonhome as the conditioning layer
-          )
-      ) %>% 
-      select(association, nf_other_layer_0, nf_other_layer_1, other_layer.0, other_layer.1)
-    
-    # Merge the conditioned node-level edge count w/ corresponding P values of the regressions 
-    cond_mean_deg %>% 
-      mutate(
-        coeffi = coefficient %>% pull(coefficient),
-        p_value = coefficient %>% pull(p_value)
-      ) %>% 
-      rename(md_other_layer_0 =other_layer.0, md_other_layer_1 = other_layer.1 ) # renaming to names that are more understandable
-    
-  }
 
-# function re-weighting degree distribution, the output is the weight proportion of each degree type (k)
+# function re-weighting degree distribution, the outputs are the post-stratification weight - "wi", weighted degree of each study participant,  weight proportion of each degree type (k) - "adjusted_prop"
 post_stratification <- 
   function(prop_parti,# age of each study participant
            modeled_pop_dta,# age of modeled population
@@ -377,19 +315,21 @@ post_stratification <-
     
     # Age distribution reweighting
     ## post-stratification weight - higher weight assigned to the undersampled older population, lower weight assigned to the oversampled younger population
-    wi <- (prop_node/prop_parti) %>% as.data.frame() %>% rename(participant_age=1,weight=2)
+    wai <- (prop_node/prop_parti) %>% as.data.frame() %>% rename(participant_age=1,weight=2)
     
-    outputs$w_ai <- wi
+    outputs$w_ai <- wai
     
     ## Apply weight to each study participant's degre
     weighted_degree <- 
       degree_2d %>%  # degree of individual i of the study population
       # joining weight to the degree dataframe
-      left_join(., wi, by = "participant_age") %>% 
+      left_join(., wai, by = "participant_age") %>% 
       mutate(
         n_contacts_1d= n_contacts/2,# we consider the single-day degree as half of two-day degree - n_contacts is the 2-day degree
         weighted_deg = round(n_contacts_1d*weight) 
       ) 
+    
+    outputs$weighted_degree <- weighted_degree
     
     ## preparing dataframe for visualization
     ### weighted degree
@@ -417,7 +357,332 @@ post_stratification <-
     outputs
   }
 
-## function to calculate target statistics for degree and degrange terms
+
+# function characterizing individual-level summary statistics for the cross layer effect, using post-stratification weighted degree 
+assoc_btw_layers <- function(contact_count_long){
+  
+  # Note: things that are outputted from the function - single-day regression coefficients of the associations (coefficient_summary_1day), single-day predicted mean degrees conditioning on the other layer (mean_deg_1day),
+  # single-day proportions of having contacts (deg.layer.dist_1day), and the raw data in wide-format (data_wide) for the regressions 
+  
+  ## Getting individual-level contact count at different locations by row through converting long format data to wide format 
+  contact_count_wide  <- # single-day contact count in wide format
+    contact_count_long %>% data.frame()%>% 
+    tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
+    ) %>%  # 624 rows for rural and 624 rows for urban, each row for a participant and the degrees at different layers
+    as.data.frame()
+  
+  
+  output_model <- output <-   list()
+  
+  # Create dichotomous degree category for each layer
+  contact_count_wide <- 
+    contact_count_wide %>% mutate(
+      
+      Home_cat = case_when(Home==0 ~ 0,
+                           Home >0 ~ 1),
+      Home_cat = factor( Home_cat),
+      
+      School_cat = case_when(School==0 ~ 0,
+                             School >0 ~ 1),
+      School_cat = factor( School_cat),
+      
+      Work_cat = case_when(Work==0 ~ 0,
+                           Work >0 ~ 1),
+      Work_cat = factor( Work_cat),
+      
+      Nonhome_cat = case_when(Nonhome==0 ~ 0,
+                              Nonhome >0 ~ 1),
+      Nonhome_cat = factor( Nonhome_cat)
+    )
+  
+  ############### Characterizing single-day coefficients of the effect of other layers ###############
+  # Effects of other layers on home 
+  
+  output_model$h_s <- 
+    contact_count_wide %>% 
+    glm(Home~ School_cat, data=., family = poisson(link=log))
+  
+  output_model$h_w <- 
+    contact_count_wide %>% 
+    glm(Home~ Work_cat, data=., family = poisson(link=log))
+  
+  output_model$h_nh <- 
+    contact_count_wide %>% 
+    glm(Home~ Nonhome_cat, data=., family = poisson(link=log)) 
+  
+  # Effects of other layers on School
+  output_model$s_h <- 
+    contact_count_wide %>% 
+    glm(School~ Home_cat, data=., family = poisson(link=log))
+  
+  output_model$s_w <- 
+    contact_count_wide %>% 
+    glm(School~ Work_cat , data=., family = poisson(link=log))
+  
+  output_model$s_nh <- 
+    contact_count_wide %>% 
+    glm(School~ Nonhome_cat , data=., family = poisson(link=log))
+  
+  # Effects of other layers on work 
+  output_model$w_h <- 
+    contact_count_wide %>% 
+    glm(Work~ Home_cat, data=., family = poisson(link=log))
+  
+  output_model$w_s <- 
+    contact_count_wide %>% 
+    glm(Work~ School_cat , data=., family = poisson(link=log))
+  
+  output_model$w_nh <- 
+    contact_count_wide %>% 
+    glm(Work~ Nonhome_cat , data=., family = poisson(link=log))
+  
+  
+  # Effects of other layers on Nonhome
+  output_model$nh_h <- 
+    contact_count_wide %>% 
+    glm(Nonhome~ Home_cat, data=., family = poisson(link=log))
+  
+  output_model$nh_s <- 
+    contact_count_wide %>% 
+    glm(Nonhome~ School_cat , data=., family = poisson(link=log))
+  
+  output_model$nh_w <- 
+    contact_count_wide %>% 
+    glm(Nonhome~ Work_cat , data=., family = poisson(link=log))
+  
+  
+  ############### Summarizing the two-day coefficients on a table ###############
+  tb_slope <- 
+    rbind(
+      summary(output_model$h_s)$coefficients, summary(output_model$h_w)$coefficients,  summary(output_model$h_nh)$coefficients, 
+      summary(output_model$s_h)$coefficients,  summary(output_model$s_w)$coefficients, summary(output_model$s_nh)$coefficients,  
+      summary(output_model$w_h)$coefficients  ,  summary(output_model$w_s)$coefficients  ,  summary(output_model$w_nh)$coefficients,
+      summary(output_model$nh_h)$coefficients  ,  summary(output_model$nh_s)$coefficients  , summary(output_model$nh_w)$coefficients 
+    )[ c(c(1:12)*2), ] # outputting the slope coefficients located at the even rows
+  
+  
+  rownames(tb_slope) <- 
+    paste0(
+      rep(
+        c("h_", "s_", "w_", "nh_"),
+        each=3
+      ), 
+      rownames(tb_slope)
+    )
+  
+  
+  ############### Characterizing single-day predicted degree of the modeled layer by other layers ###############
+  # function to characterize the network statistics based on coefficients of Poisson regression
+  effect_oth_layers <- 
+    function(
+    layer_assoc
+    ){
+      
+      out <- 
+        c(# single-day mean degree of the outcome (conditioned) layer when the predictive (conditioning) layer didn't have contact (labeled as "other_layer.0")
+          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*0), 
+          # single-day mean degree of the outcome layer when the predictive layer have any contact (labeled as "other_layer.1")
+          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*1) 
+        )
+      
+      names(out) <- paste0( "other_layer", c("=0", "=1")) 
+      
+      out
+      
+      
+    }
+  
+  
+  # Network statistics of the other layers at single-day scale 
+  nf.deg.oth_layers <- 
+    rbind(
+      
+      ### mean degrees of other layers on home ###
+      effect_oth_layers(
+        layer_assoc = output_model$h_s # school
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$h_w # work 
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$h_nh # nonhome
+      ),
+      
+      ### mean degrees of other layers on school ###
+      effect_oth_layers(
+        layer_assoc = output_model$s_h # home
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$s_w # work 
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$s_nh # nonhome
+      ),
+      
+      ### mean degrees of other layers on work ###
+      effect_oth_layers(
+        layer_assoc = output_model$w_h # home
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$w_s # school 
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$w_nh # nonhome
+      ),
+      
+      ### mean degrees of other layers on nonhome ###
+      effect_oth_layers(
+        layer_assoc = output_model$nh_h # home
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$nh_s # school 
+      ),
+      effect_oth_layers(
+        layer_assoc = output_model$nh_w # work 
+      )
+      
+    ) %>% data.frame()%>% 
+    mutate(
+      association = c(
+        paste0("h", "_by_", c("s", "w", "nh")),
+        paste0("s", "_by_", c("h", "w", "nh")),
+        paste0("w", "_by_", c("h", "s", "nh")),
+        paste0("nh", "_by_", c("h", "s", "w"))
+      )
+      
+    )%>% 
+    
+    # Comparing the predicted mean degs with the unadjusted mean degs of the modeled layer at the single-day scale
+    cbind(
+      raw_md_modeled_layer = 
+        rep(
+          apply(contact_count_wide %>% select(Home, School, Work, Nonhome), MARGIN = 2, mean) %>% as.numeric(), 
+          each=3
+          
+        )
+    )
+  
+  
+  ############### Characterizing the proportion of having and not having contact for each layer, and the raw mean degree ###############
+  # Overall proportion, w/o stratifying for age
+  deg.layer.dist_1day <- 
+    rbind( # proportion
+      prop.table(table(contact_count_wide$Home_cat)),
+      prop.table(table(contact_count_wide$School_cat)),
+      prop.table(table(contact_count_wide$Work_cat)),
+      prop.table(table(contact_count_wide$Nonhome_cat))
+    ) %>% data.frame() %>% 
+    rename(prop_0=1, prop_1=2) %>% 
+    mutate(layer = c("Home", "School", "Work", "Nonhome"))
+  
+  # age-stratified proportion, for generating nodal attribute
+  deg.age.layer.dist_1day <- 
+    rbind(
+      # Home
+      prop.table(
+        table(contact_count_wide$participant_age, contact_count_wide$Home_cat) %>% t(), # transposing to age by column and contact status by row
+        margin = 2 # calculating marginal proportion by column
+      ),
+      # School
+      prop.table(
+        table(contact_count_wide$participant_age, contact_count_wide$School_cat) %>% t(), # transposing to age by column and contact status by row
+        margin = 2 # calculating marginal proportion by column
+      ), 
+      # Work
+      prop.table(
+        table(contact_count_wide$participant_age, contact_count_wide$Work_cat) %>% t(), # transposing to age by column and contact status by row
+        margin = 2 # calculating marginal proportion by column
+      ), 
+      # Nonhome
+      prop.table(
+        table(contact_count_wide$participant_age, contact_count_wide$Nonhome_cat) %>% t(), # transposing to age by column and contact status by row
+        margin = 2 # calculating marginal proportion by column
+      ) 
+    ) %>% as.data.frame() %>% 
+    mutate(
+      contact_status = rep(c(0,1), 4),
+      layer = rep(c("Home", "School", "Work", "Nonhome"), each =2)
+    ); row.names(deg.age.layer.dist_1day) <- NULL
+  
+  ############### Outputting ###############
+  output$coefficient_summary_1day <- tb_slope; output$mean_deg_1day <-  nf.deg.oth_layers;
+  output$deg.layer.dist_1day <- deg.layer.dist_1day; output$deg.age.layer.dist_1day <- deg.age.layer.dist_1day
+  output$data_wide <- contact_count_wide
+  
+  output
+  
+} 
+
+
+# function characterizing target statistics for the cross-layer effect
+target_stats_x_layer <- 
+  function(
+    x_layer_items,
+    N # number of population a whole network
+  ){
+    
+    # Load things needed for characterizing the cross-layer target statistics
+    prop_contact <- x_layer_items$deg.layer.dist_1day # proportion of having any contact at a 1-day scale
+    cond_mean_deg <- x_layer_items$mean_deg_1day # conditioned mean single-day degree
+    coefficient <- # Poisson regression coefficient for the cross-layer effects
+      x_layer_items$coefficient_summary_1day %>% data.frame() %>% 
+      tibble::rownames_to_column(var="association") %>% rename(coefficient=2, p_value =5) %>% 
+      select(association, coefficient, p_value)
+    
+    
+    # Characterize number of node w/o (_0) and w/ (_1) contact at each layer
+    ## Home
+    N_h_0=N*prop_contact %>% filter(layer=="Home") %>% pull(prop_0) # number of nodes in the Home layer as conditioning layer w/o contact
+    N_h_1=N*prop_contact %>% filter(layer=="Home") %>% pull(prop_1) # number of nodes in the Home layer as conditioning layer w contact
+    
+    ## School
+    N_s_0=N*prop_contact %>% filter(layer=="School") %>% pull(prop_0) # number of nodes in the School layer as conditioning layer w/o contact
+    N_s_1=N*prop_contact %>% filter(layer=="School") %>% pull(prop_1) # number of nodes in the School layer as conditioning layer w contact
+    
+    ## Work
+    N_w_0=N*prop_contact %>% filter(layer=="Work") %>% pull(prop_0) # number of nodes in the Work layer as conditioning layer w/o contact
+    N_w_1=N*prop_contact %>% filter(layer=="Work") %>% pull(prop_1) # number of nodes in the Work layer as conditioning layer w contact
+    
+    ## Nonhome
+    N_nh_0=N*prop_contact %>% filter(layer=="Nonhome") %>% pull(prop_0) # number of nodes in the Nonhome layer as conditioning layer w/o contact
+    N_nh_1=N*prop_contact %>% filter(layer=="Nonhome") %>% pull(prop_1) # number of nodes in the Nonhome layer as conditioning layer w contact
+    
+    # Characterize conditioned node-level edge count - total number of edges of nodes of a layer, conditioned by the other layer 
+    cond_mean_deg <- 
+      cond_mean_deg %>% 
+      mutate(
+        nf_other_layer_0 = # target stats for without contact at the conditioning layer (the "other_layer")
+          case_when(
+            association %in% c("s_by_h", "w_by_h", "nh_by_h") ~ other_layer.0*N_h_0, # Home as the conditioning layer
+            association %in% c("h_by_s", "w_by_s", "nh_by_s") ~ other_layer.0*N_s_0, # School as the conditioning layer
+            association %in% c("h_by_w", "s_by_w", "nh_by_w") ~ other_layer.0*N_w_0, # Work as the conditioning layer
+            association %in% c("h_by_nh", "s_by_nh", "w_by_nh") ~ other_layer.0*N_nh_0, # Nonhome as the conditioning layer
+          ),
+        nf_other_layer_1 = # target stats for having contact at the conditioning layer
+          case_when(
+            association %in% c("s_by_h", "w_by_h", "nh_by_h") ~ other_layer.1*N_h_1, # Home as the conditioning layer
+            association %in% c("h_by_s", "w_by_s", "nh_by_s") ~ other_layer.1*N_s_1, # School as the conditioning layer
+            association %in% c("h_by_w", "s_by_w", "nh_by_w") ~ other_layer.1*N_w_1, # Work as the conditioning layer
+            association %in% c("h_by_nh", "s_by_nh", "w_by_nh") ~ other_layer.1*N_nh_1, # Nonhome as the conditioning layer
+          )
+      ) %>% 
+      select(association, nf_other_layer_0, nf_other_layer_1, other_layer.0, other_layer.1)
+    
+    # Merge the conditioned node-level edge count w/ corresponding P values of the regressions 
+    output <- 
+    cond_mean_deg %>% 
+      mutate(
+        coeffi = coefficient %>% pull(coefficient),
+        p_value = coefficient %>% pull(p_value)
+      ) %>% 
+      rename(md_other_layer_0 =other_layer.0, md_other_layer_1 = other_layer.1 ) # renaming to names that are more understandable
+    
+    output
+    
+  }
+
+
+# function to calculate target statistics for degree and degrange terms
 deg_target_stats <- function(N_nodes, deg_dist)
 {
   output <- list()
@@ -506,7 +771,7 @@ deg_target_stats <- function(N_nodes, deg_dist)
 }
 
 
-# Function running all steps
+# function running all steps
 node_attrib_target_pop <- 
   function(netstats, pct_target_pop){
     
@@ -600,21 +865,6 @@ node_attrib_target_pop <-
       ) 
     
     
-    ############## Target statistics (cross-layer effects) ##############
-    nf.x.layer <- list()
-    nf.x.layer$rural <- 
-      target_stats_x_layer(x_layer_items = 
-                             netstats$formation$formation_stats_rural$layer_assoc_rural, 
-                           N = n_node_rural
-      ) 
-    nf.x.layer$urban <- 
-      target_stats_x_layer(x_layer_items = 
-                             netstats$formation$formation_stats_urban$layer_assoc_urban, 
-                           N = n_node_urban
-      ) 
-    ## Note - we adjust for the cross-layer effect between school and work and vice versa
-    
-    
     ############## Target statistics (degree distribution) ##############
     # Calculate post-stratification proportion for each degree type
     ## rural
@@ -625,7 +875,6 @@ node_attrib_target_pop <-
         degree_2d= netstats$formation$formation_stats_rural$degree_related$contact_count_2d %>% data.frame() #contact counts at 2-day scale , better to be from last script
       )
    
-    
     
     ## urban
     dists_u_1d <- 
@@ -649,6 +898,40 @@ node_attrib_target_pop <-
         N_nodes = n_node_urban,
         deg_dist = dists_u_1d$adjusted_prop)
     
+    
+    ############## Target statistics (cross-layer effects) ##############
+    nf.x.layer <- list()
+    
+    # individual-level effect
+    ## rural
+    x_layer_indiv_stat_rural <- 
+      assoc_btw_layers(contact_count_long = 
+                         dists_r_1d$weighted_degree %>% 
+                         select(rec_id, contact_location, participant_age, weighted_deg) %>% 
+                         rename(n_contacts= weighted_deg) 
+      )
+    ## urban
+    x_layer_indiv_stat_urban <- 
+      assoc_btw_layers(contact_count_long = 
+                         dists_u_1d$weighted_degree %>% 
+                         select(rec_id, contact_location, participant_age, weighted_deg) %>% 
+                         rename(n_contacts= weighted_deg) 
+      )
+    
+    # target statistics
+    ## Note - we adjust for the cross-layer effect between school and work and vice versa for the modeling but all effects are outputted here
+    ## rural
+    nf.x.layer$rural <- 
+      target_stats_x_layer(
+        x_layer_items = x_layer_indiv_stat_rural,
+        N=n_node_rural
+      )
+    ## urban
+    nf.x.layer$urban <- 
+      target_stats_x_layer(
+        x_layer_items = x_layer_indiv_stat_urban,
+        N=n_node_urban
+      )
     
     
     # Gathering things for output
