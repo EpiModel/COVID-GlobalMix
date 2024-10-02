@@ -1,4 +1,4 @@
-# Note: the purpose of this script is to calculate target statistics
+# Note: the purpose of this script is to calculate target statistics and generate nodal attributes
 
 # Characterization of nodal attributes and target statistics 
 library(dplyr)
