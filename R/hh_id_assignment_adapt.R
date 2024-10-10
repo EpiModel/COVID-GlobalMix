@@ -21,86 +21,43 @@ hh_age <-
   select(rec_id, study_day,participant_age,contact_age) %>% 
   mutate(participant_age = case_when(participant_age %in% c("0-9y", "10-19y") ~ "0-19y",
                                      participant_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
-                                     participant_age %in% c("60+y"  ) ~ "60+y",
+                                     participant_age %in% c("60+y"  ) ~ "60-100y",
                                      T ~ participant_age
   ),
   contact_age = case_when(contact_age %in% c("0-9y", "10-19y") ~ "0-19y",
                           contact_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
-                          contact_age %in% c("60+y"  ) ~ "60+y",
+                          contact_age %in% c("60+y"  ) ~ "60-100y",
                           T ~ contact_age
   )
   )
 
 
+
+
 # Characterize the proportion of household members in each age group
-## Step 1: Create the hh_member_age dataframe for each rec_id by study_day
+## Step 1: Create the hh_member_age dataframe for each rec_id 
 hh_member_age <- hh_age %>%
-  group_by(rec_id, study_day) %>%
-  summarise(hh_member_age = list(c(contact_age, unique(participant_age))), .groups = "drop")  # the hh_member_age variable list the age group of contacts/participant, each age group is considered to be of a household member
+  group_by(rec_id) %>%
+  summarise(hh_member_age = list(c(contact_age, unique(participant_age))), .groups = "drop")  # the hh_member_age variable list the age group of contacts/participant over all observed study days, each age group is considered to be of a household member
 
 
 ## Step 2: Calculate the relative proportion of hh_member_age by study day
-hh_member_proportion <- hh_member_age %>%
-  unnest(hh_member_age) %>%
-  group_by(rec_id, study_day, hh_member_age) %>% 
-  # The age distribution of a household can be approximated by the frequency of the age of the participant and his/her contacts on a single day (study day == "1"/"2")
-  summarize(count = n(), .groups = "drop") %>% # summarize frequencies by the 3 variables in group_by, and drop grouping in dplyr
-  group_by(rec_id, study_day) %>%
-  mutate(proportion = count / sum(count)) %>% # proportion of hh_member_age by day and household
-  select(-count)%>%
-  ungroup()
-
-## Step 3: Calculate the average proportions at the household level over the two days, yielding single-day proportions
-average_proportion_2days <- hh_member_proportion %>%
-  # complete() is to ensure that all age groups are represented, filling in unobserved age groups of a household with a proportion of 0.
-  # However, for a household, if the data for a study_day is not available (i.e., only having data for day 1 or day 2), we use the proportion of the available study day as-is
-  complete(rec_id, hh_member_age, fill = list(proportion = 0)) %>% 
-  group_by(rec_id, hh_member_age) %>%
-  # We observe for a small amount of households, the sum of average proportions across the hh_member_age categories is >1. 
-  # These households are those the contacts of contact age group of a study day which was unobserved. E.g., 129-1, 630-1 in the rural population
-  summarize(avg_proportion_2days = mean(proportion), .groups = "drop") # calculate the average proportion over two study days
-
-## Step 4: Calculate the average proportions of each age category across all households
-average_proportion <- average_proportion_2days %>% 
-  group_by(hh_member_age) %>% 
-  summarize(average_proportion = mean(avg_proportion_2days)
+hh_member_age <- hh_member_age %>%
+  mutate(
+    child = map_lgl(hh_member_age, ~ any(grepl("0-19y", .))),
+    adult = map_lgl(hh_member_age, ~ any(grepl("20-59y", .))),
+    elderly = map_lgl(hh_member_age, ~ any(grepl("60-100y", .))),
+    child_only = map_lgl(hh_member_age, ~ all(. == "0-19y"))
   )
 
-# # Characterize the proportion of household having both children and non-elderly adults
-# ## Step 1: Determine if hh_member_age contains both "0-19y" and "20-59y" on a day
-# hh_member_age <- hh_member_age %>%
-#   # we use map_lgl() from "purrr" to used to iterate over each element in the list in the hh_member_age variable by row.
-#   # all(c("0-19y", "20-59y") %in% .) in map_lgl ("lgl" stands for logic) checks if both "0-19y" and "20-59y" are present in each hh_member_age vector.
-#   mutate(child_n_adult = map_lgl(hh_member_age, ~ all(c("0-19y", "20-59y") %in% .)))
-# 
-# ## Step 2: Calculate the proportion of TRUE (having both child and adult)  in child_n_adult by study_day
-# proportion_child_n_adult <- hh_member_age %>%
-#   group_by(study_day) %>%
-#   summarise(proportion_true = mean(child_n_adult), .groups = "drop")
-# 
-# ## Step 3: Average the proportions over 2 days
-# average_proportion <- 
-#   average_proportion %>% rbind(c("0-19y_and_20-59y", proportion_child_n_adult %>% pull(proportion_true) %>% mean )
-#   ) %>% 
-#   mutate(average_proportion = as.numeric(average_proportion))
+proportions <- hh_member_age %>%
+  summarize(
+    prop_child = mean(child), 
+    prop_adult = mean(adult),
+    prop_elderly = mean(elderly),
+    prop_child_only = mean(child_only), 
+    .groups = "drop")
 
-## given the meaning of (1-prop.children.with.adult), it may be more straightforward to calculate the proportion of households only with children than proportion_child_n_adult
-
-hh_member_age <- 
-hh_member_age %>%
-  mutate(child_only = map_lgl(hh_member_age, ~ all(. == "0-19y")))
-
-proportion_child_only <- hh_member_age %>%
-  group_by(study_day) %>%
-  summarise(proportion_true = mean(child_only), .groups = "drop")
-
-## Step 3: Average the proportions over 2 days
-average_proportion <-
-  average_proportion %>% rbind(c("0-19y_only", proportion_child_only %>% pull(proportion_true) %>% mean )
-  ) %>%
-  mutate(average_proportion = as.numeric(average_proportion))
-
-average_proportion
 
 # age distribution of target population
 dss_pop_age_grp =
@@ -109,11 +66,11 @@ dss_pop_age_grp =
   c(# rural
                  c(199+750+933+ 1017+958, # children (0-19)
                     1196+1195+1309+1272+1215+1088+1067+876, # adult (20-59)
-                    777+626+499+321+437), #  eldery (60+)
+                    777+626+499+321+437), #  elderly (60+)
                   # urban
                   c(309+1144+1458+1474+1814, # children (0-19)
                     1805+1731+1740+1669+1471+1395+1206+975,# adult (20-59)
-                    891+572+412+236+245)  #  eldery (60+)
+                    891+572+412+236+245)  #  elderly (60+)
 ),
 age.grp = rep(c("child", "adult", "elderly"), times= 2),
 network = rep(c("rural", "urban"), each = 3)
@@ -156,11 +113,11 @@ persons.by.hh <- data.frame(ids = ids, age.grp = age.grp, hh = NA)
 # prop.children.with.adult <- average_proportion %>% filter(hh_member_age == "0-19y_and_20-59y") %>% pull(average_proportion)
 # prop.children.only <- average_proportion %>% filter(hh_member_age == "0-19y_only") %>% pull(average_proportion)
 
-prop.hh.with.child <- 0.292
-prop.hh.with.adult <- 0.314
-prop.hh.with.elderly <- 0.791
+prop.hh.with.child <- 0.84
+prop.hh.with.adult <- 0.98
+prop.hh.with.elderly <- 0.45
 #prop.children.with.adult <- average_proportion %>% filter(hh_member_age == "0-19y_and_20-59y") %>% pull(average_proportion)
-prop.children.only <- 0.00182
+prop.children.only <- 0.0018
 
 # Household Assignment ----------------------------------------------------
 
