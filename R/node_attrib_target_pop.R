@@ -36,11 +36,11 @@ node.age.grp <-
 
 
 # function generating nodal attribute of contact status at each layer
-node.layer.contact <- function(deg.age.layer.dist_2days, target_age_dist){
+node.layer.contact <- function(deg.age.layer.dist_1day, target_age_dist){
   
   ## Extracting proportion of having any contact
   deg.layer.prop <- # deg.layer.prop stores the proportion w/ any contact at each age group
-    deg.age.layer.dist_2days %>% 
+    deg.age.layer.dist_1day %>% 
     filter(contact_status == 1 # filter out the proportion of having any contact
     ) %>% select(-contact_status) %>% pivot_longer(!layer, names_to = "age.grp", values_to = "gt_0_prop") # converting to long format to facilitate data manipulation
   
@@ -355,6 +355,28 @@ post_stratification <-
     
     
     outputs
+  }
+
+
+# Function to calculate proportion of having contact by age group and layer using the signle-day weighted degree
+contact_prop_age_layer <- 
+  function(weighted_degree){
+    # Summarizing the data to calculate proportion of having any contact by contact_location and participant_age
+    contact_summary <- weighted_degree %>%
+      mutate(contact_status = ifelse(weighted_deg > 0, 1, 0)) %>%
+      group_by(contact_location, participant_age, contact_status) %>%
+      summarize(count = n()) %>% ungroup %>% 
+      group_by(contact_location, participant_age) %>%
+      mutate(proportion = count / sum(count)) %>%
+      ungroup()
+    
+    
+    wt_deg.age.layer.dist_1days <- contact_summary %>% select(-count) %>% 
+      pivot_wider(names_from = c(participant_age), values_from = proportion) %>% 
+      select(`0-9y`, `10-19y`, `20-29y`, `30-39y`, `40-59y`,  `60+y`, contact_status, contact_location) %>%
+      mutate(across(everything(), ~ replace_na(., 0))) %>% as.data.frame() %>% rename(layer = contact_location )
+    
+    wt_deg.age.layer.dist_1days 
   }
 
 
@@ -800,6 +822,8 @@ node_attrib_target_pop <-
       select(target_age_grp, network, tar_pop ) # variable needed for below analysis
     
     
+
+    
     ################# Generating nodal attributes of age and layer-specific contact status #################
     # Generating age and age group for each node based on distribution of target population
     node.age.grp.rural <- 
@@ -810,16 +834,7 @@ node_attrib_target_pop <-
       node.age.grp(target_age_dist_site=target_age_distribut %>% filter(network == "urban") %>% select(target_age_grp, tar_pop)
                    
       ) # urban network
-    
-    ## Generating nodal attribute of contact status at each layer, with proportion of contact specific to each age group
-    node.contact.layer.rural <- 
-      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_rural$layer_assoc_rural$deg.age.layer.dist_2days, 
-                         target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop)
-      ) # rural network
-    node.contact.layer.urban <- 
-      node.layer.contact(deg.age.layer.dist_2days = netstats$formation$formation_stats_urban$layer_assoc_urban$deg.age.layer.dist_2days, 
-                         target_age_dist = target_age_distribut %>% filter( network == "urban") %>% select(target_age_grp, tar_pop)
-      ) # urban network
+  
     
     ## Merging nodal status of age and layer-specific contact
     node.attr.rural <- 
@@ -834,6 +849,46 @@ node_attrib_target_pop <-
       ) %>% 
       rename(node.age = age, node.age.grp = target_age_grp)
     
+    # Calculate post-stratification proportion for each degree type
+    ## rural
+    dists_r_1d <- 
+      post_stratification(
+        prop_parti=netstats$formation$formation_stats_rural$degree_related$prop_parti, 
+        modeled_pop_dta = node.attr.rural %>% select(node.age.grp), # from this script
+        degree_2d= netstats$formation$formation_stats_rural$degree_related$contact_count_2d %>% data.frame() #contact counts at 2-day scale , better to be from last script
+      )
+    
+    
+    ## urban
+    dists_u_1d <- 
+      post_stratification(
+        prop_parti=netstats$formation$formation_stats_urban$degree_related$prop_parti,
+        modeled_pop_dta = node.attr.urban %>% select(node.age.grp), # from this script
+        degree_2d= netstats$formation$formation_stats_urban$degree_related$contact_count_2d %>% data.frame() #contact counts at 2-day scale 
+      )
+    
+    # Generating nodal attribute of contact status at each layer, with proportion of contact specific to each age group
+    ## Calculate the proportion
+    ### rural
+    contact_prop_age_layer_rural <- 
+    contact_prop_age_layer(
+      weighted_degree = dists_r_1d$weighted_degree %>% select(rec_id, contact_location, participant_age, weighted_deg)
+    ) 
+    ### urban
+    contact_prop_age_layer_urban <- 
+      contact_prop_age_layer(
+        weighted_degree = dists_u_1d$weighted_degree %>% select(rec_id, contact_location, participant_age, weighted_deg)
+      ) 
+    
+    ## generate nodal attribute
+    node.contact.layer.rural <- 
+      node.layer.contact(deg.age.layer.dist_1day = contact_prop_age_layer_rural, 
+                         target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop)
+      ) # rural network
+    node.contact.layer.urban <- 
+      node.layer.contact(deg.age.layer.dist_1day = contact_prop_age_layer_urban, 
+                         target_age_dist = target_age_distribut %>% filter( network == "urban") %>% select(target_age_grp, tar_pop)
+      ) # urban network
     
     ################# Generating nodal attributes of household identifier for home #################
     ## assumption: considering the mean degree of the target population is 2.72 and 3.09 in rural and urban areas, respectively, we assume the each household as 4 nodes
@@ -866,23 +921,7 @@ node_attrib_target_pop <-
     
     
     ############## Target statistics (degree distribution) ##############
-    # Calculate post-stratification proportion for each degree type
-    ## rural
-    dists_r_1d <- 
-      post_stratification(
-        prop_parti=netstats$formation$formation_stats_rural$degree_related$prop_parti, 
-        modeled_pop_dta = node.attr.rural %>% select(node.age.grp), # from this script
-        degree_2d= netstats$formation$formation_stats_rural$degree_related$contact_count_2d %>% data.frame() #contact counts at 2-day scale , better to be from last script
-      )
-   
-    
-    ## urban
-    dists_u_1d <- 
-      post_stratification(
-        prop_parti=netstats$formation$formation_stats_urban$degree_related$prop_parti,
-        modeled_pop_dta = node.attr.urban %>% select(node.age.grp), # from this script
-        degree_2d= netstats$formation$formation_stats_urban$degree_related$contact_count_2d %>% data.frame() #contact counts at 2-day scale 
-      )
+
     
     
     # target statistics for degree and degrange
@@ -897,6 +936,8 @@ node_attrib_target_pop <-
       deg_target_stats(
         N_nodes = n_node_urban,
         deg_dist = dists_u_1d$adjusted_prop)
+    
+    # proportion of having and not having contact calculated from the post-stratified degree
     
     
     ############## Target statistics (cross-layer effects) ##############

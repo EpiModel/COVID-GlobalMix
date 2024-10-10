@@ -4,18 +4,19 @@ library(dplyr); library(tidyr); library(tibble); library(ggplot2); library(ggpub
 network = c("Rural", "Urban")
 est_apch = "mcmle"#/"sto_apoxy"/
 layers = c("All","Home","School","Work","Nonhome")
-percent_target_pop =  0.4 #/1/0.1
+percent_target_pop =  0.1 #/1/0.1
 
 
 
 # Load network stats to retrieve the number of node at each network
 ## Target stats
 tar_stats <- 
-readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats__", percent_target_pop, ".Rds"))
+readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats__", percent_target_pop, "_unwt_xlayer.Rds"))
+
+
 ## Individual-level summary stats
 summary_stats <- 
 readRDS("data/network_stats_attributes/network_params.Rds")
-
 
 
 n_r <- nrow(tar_stats$attr$rural)
@@ -25,12 +26,12 @@ n_u <- nrow(tar_stats$attr$urban)
 # Loading raw FRP result
 file.name_r <- paste0(
   "data/frp_outputs/frp_length_",
-  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, "__", ".Rds"
+  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
 )
 
 file.name_u <- paste0(
   "data/frp_outputs/frp_length_",
-  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop, "__", ".Rds"
+  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop,  ".Rds"
 )
 
 
@@ -40,11 +41,11 @@ frp_s_r <- readRDS(file.name_r[3])
 frp_w_r <- readRDS(file.name_r[4])
 frp_nh_r <- readRDS(file.name_r[5])
  
-# frp_all_u <- readRDS(file.name_u[1])
-# frp_h_u <- readRDS(file.name_u[2])
+frp_all_u <- readRDS(file.name_u[1])
+frp_h_u <- readRDS(file.name_u[2])
 frp_s_u <- readRDS(file.name_u[3])
 frp_w_u <- readRDS(file.name_u[4])
-# frp_nh_u <- readRDS(file.name_u[5])
+frp_nh_u <- readRDS(file.name_u[5])
 
 
 # Process identifiers of nodal attribute in target statistics
@@ -54,14 +55,14 @@ tar_stats$attr$urban <- tar_stats$attr$urban %>% rownames_to_column(var = "node_
 
 source("./R/result_helper_functions.R")
 
-
+## note - the result for the 40% pop has been erased with 2-node results
 # Process FRP data
-# frp_length_h_r <-
-#   frp_length_df_process(
-#     attr = tar_stats$attr$rural, 
-#     frp_length = frp_h_r$lengths,
-#     denom = n_r
-#   )
+frp_length_h_r <-
+  frp_length_df_process(
+    attr = tar_stats$attr$rural,
+    frp_length = frp_h_r$lengths,
+    denom = n_r
+  )
 
 frp_length_s_r <-
   frp_length_df_process(
@@ -108,6 +109,7 @@ rm(list=
    )
 
 # Visualize FRP length
+frp_length_plot(frp_length =frp_length_h_r, title = "Home, rural")
 ggarrange(
   frp_length_plot(frp_length =frp_length_s_r, title = "School, rural"),
   frp_length_plot(frp_length =frp_length_w_r, title = "Work, rural"),
@@ -153,7 +155,11 @@ cbind(
   add_header_above(c(" " = 1, "School, urban" = 3, "Work, urban" = 3))
 
 
-# network statistics
+
+
+
+# Summary statistics
+## note: the reason that the target statistics on 7/30 is different from the later is because several kids are missed in the calculation of the ego mean deg that time, which was resolved later
 cbind(
 ## formation
 form_stats(tar_stats, summary_stats),
