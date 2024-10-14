@@ -929,3 +929,101 @@ know_dur <- function(india_mix.){
     arrange(study_site, contact_location)
   
 }
+
+
+# Function calculate proportions of household members of each age group
+proportion_hh_members <- function(hh_age){
+  
+  ## merging age categories into 3 and retrieving contacts with household members
+  hh_age <- 
+    hh_age   %>% 
+    mutate(participant_age = case_when(participant_age %in% c("0-9y", "10-19y") ~ "0-19y",
+                                       participant_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                                       participant_age %in% c("60+y"  ) ~ "60-100y",
+                                       T ~ participant_age
+    ),
+    contact_age = case_when(contact_age %in% c("0-9y", "10-19y") ~ "0-19y",
+                            contact_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                            contact_age %in% c("60+y"  ) ~ "60-100y",
+                            T ~ contact_age
+    )
+    )  
+  
+  # Characterize the proportion of household members in each age group
+  ## Step 1: Create the hh_member_age dataframe for each rec_id 
+  hh_member_age <- hh_age %>%
+    group_by(rec_id) %>%
+    summarise(hh_member_age = list(c(contact_age, unique(participant_age))), .groups = "drop")  # the hh_member_age variable list the age group of contacts/participant over all observed study days, each age group is considered to be of a household member
+  
+  
+  ## Step 2: Calculate the relative proportion of hh_member_age by study day
+  ### prop.hh.with.child, prop.hh.with.adult, prop.hh.with.elderly are the proportions of households with children, adults, and elderlies, respectively. 
+  ### E.g., prop.hh.with.child is calculated as (the number of households with ≥1 children)/(the total number of households).
+  
+  hh_member_age <- hh_member_age %>%
+    mutate(
+      child = map_lgl(hh_member_age, ~ any(grepl("0-19y", .))),
+      adult = map_lgl(hh_member_age, ~ any(grepl("20-59y", .))),
+      elderly = map_lgl(hh_member_age, ~ any(grepl("60-100y", .)))
+    )
+  
+  proportions <- hh_member_age %>%
+    summarize(
+      prop_hh_w_child = mean(child), 
+      prop_hh_w_adult = mean(adult),
+      prop_hh_w_elderly = mean(elderly),
+      .groups = "drop") %>% t() %>% 
+    as.data.frame()  %>% rename(proportion=1) %>% 
+    rownames_to_column(., "prop_type")
+  
+  # Define the function to calculate the proportion of children with an adult (20-59y) in the household
+  calculate_prop_children_with_adult <- function(df) {
+    
+    # Define a function to check if a household has an adult (20-59y)
+    has_adult <- function(age_list) {
+      return("20-59y" %in% age_list)
+    }
+    
+    # Count the total number of children (0-19y) in the household
+    count_children <- function(age_list) {
+      return(sum(age_list == "0-19y"))
+    }
+    
+    # Add columns to count children and check for adults in each household
+    df$has_adult <- sapply(df$hh_member_age, has_adult)
+    df$children_count <- sapply(df$hh_member_age, count_children)
+    
+    # Filter only households with an adult (20-59y) and calculat the total number of children in these households
+    children_with_adult <- sum(df$children_count[df$has_adult])
+    
+    # Total number of children in all households
+    total_children <- sum(df$children_count)
+    
+    # Calculate the proportion of children with an adult in their household
+    prop_children_with_adult <- children_with_adult / total_children
+    
+    # Return the proportion
+    return(prop_children_with_adult)
+  }
+  
+  prop_child_with_adult <- 
+    calculate_prop_children_with_adult(df = hh_member_age %>% select(rec_id, hh_member_age)
+    )
+  
+  proportions <- proportions %>% rbind(., c("prop_child_w_adult", prop_child_with_adult)) %>% mutate(proportion = as.numeric(proportion))
+  
+  # the number of household only with children in the observed data
+  freq_hh_only_w_child <- 
+    hh_member_age %>%
+    mutate(
+      child_only = map_lgl(hh_member_age, ~ all(. == "0-19y"))
+    ) %>% pull(child_only ) %>% as.numeric() %>% sum()
+  
+  output <- list()
+  output$proportions <- proportions
+  output$freq_hh_only_w_child <- freq_hh_only_w_child
+  
+  return(output)
+}
+
+

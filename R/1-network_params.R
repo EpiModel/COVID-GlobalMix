@@ -1,4 +1,4 @@
-# Note: the purpose of this script is to calculate summary statistics
+# Note: the purpose of this script is to calculate individual-level summary statistics
 
 ####### Characterization of network statistics for GlobalMix India Data #######
 
@@ -38,14 +38,14 @@ library("tibble")
 library("sjlabelled")
 library("stringr")
 library("GGally")
+library("gbp")
+library("purrr")
 
 source("R/network_params_helper_functions.R")
 
 ## participant data
 india_participant <- 
   readRDS("data/raw_data/india_participant_data_aim1.RDS")
-
-
 
 ## contact data 
 india_contact <- 
@@ -167,6 +167,28 @@ known_dur_8_layers <- know_dur(india_mix. = india_mix)
 
 
 
+########################## Characterizing proportions of household members at each age group  ##########################
+hh_age_rural <- 
+  india_mix %>% 
+  filter(study_site == "Rural")%>% 
+  filter(hh_membership == "Member") %>% # Considering each contact is with household members (hh_membership=="Member"), no matter the contact is unique/repeat. 
+  select(rec_id, study_day,participant_age,contact_age)
+
+hh_age_urban <- 
+  india_mix %>% 
+  filter(study_site == "Urban")%>% 
+  filter(hh_membership == "Member") %>% # Considering each contact is with household members (hh_membership=="Member"), no matter the contact is unique/repeat. 
+  select(rec_id, study_day,participant_age,contact_age)
+
+
+# note: the output of function "proportion_hh_members" contains the proportions needed for generating the household ID attribute and the frequency of households having only children ("0-19y")
+prop_hh_members_rural <- 
+  proportion_hh_members(hh_age = hh_age_rural) 
+
+prop_hh_members_urban <- 
+  proportion_hh_members(hh_age = hh_age_urban)
+
+
 # Outputting network statistics
 ## formation stats
 formation_stats_rural <- formation_stats_urban <- network_stats <- list()
@@ -188,5 +210,8 @@ network_stats$formation <- list(formation_stats_rural=formation_stats_rural, for
 
 ## Dissoluation stats
 network_stats$dissolution <- known_dur_8_layers 
+
+## Proportion of household memeber of each age group
+network_stats$prop_hh_members <- list(prop_hh_members_rural =prop_hh_members_rural, prop_hh_members_urban=prop_hh_members_urban)
 
 saveRDS(network_stats, file = "data/network_stats_attributes/network_params.Rds")
