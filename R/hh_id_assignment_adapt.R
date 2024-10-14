@@ -1,39 +1,48 @@
 # Load packages
-library("dplyr")
-library("tidyr")
-library("gbp")
-library("purrr")
+library(dplyr)
+library(tidyr)
+library(gbp)
+library(purrr)
+library(tibble)
 
-# total number of nodes
-n <- 10000
+hh_age <- 
+  readRDS("./R/old_scripts/india_mix_oct2024.Rds")
+
 # mean degree
-mean.deg <- 2.72 # rural network
+mean.deg <- 2.72/2 # rural network
 
-india_mix <- 
-readRDS("./R/old_scripts/india_mix_oct2024.Rds")%>% 
-  filter(study_site == "Rural")
+hh_age_rural <- 
+hh_age %>% 
+  filter(study_site == "Rural")%>% 
+  filter(hh_membership == "Member") %>% # Considering each contact is with household members (hh_membership=="Member"), no matter the contact is unique/repeat. 
+  select(rec_id, study_day,participant_age,contact_age)
+
+hh_age_urban <- 
+  hh_age %>% 
+  filter(study_site == "Urban")%>% 
+  filter(hh_membership == "Member") %>% # Considering each contact is with household members (hh_membership=="Member"), no matter the contact is unique/repeat. 
+  select(rec_id, study_day,participant_age,contact_age)
 
 # Calculate proportions of age groups
+## Calculate the required proportions for running the script
+### define function for calculating the proportions
+proportion_hh_members <- function(hh_age){
+  
 ## merging age categories into 3 and retrieving contacts with household members
 hh_age <- 
-  india_mix  %>% 
-  filter(hh_membership == "Member") %>% # Considering each contact is with household members (hh_membership=="Member"), no matter the contact is unique/repeat. 
-  select(rec_id, study_day,participant_age,contact_age) %>% 
+  hh_age   %>% 
   mutate(participant_age = case_when(participant_age %in% c("0-9y", "10-19y") ~ "0-19y",
-                                     participant_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
-                                     participant_age %in% c("60+y"  ) ~ "60-100y",
-                                     T ~ participant_age
+                                       participant_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                                       participant_age %in% c("60+y"  ) ~ "60-100y",
+                                       T ~ participant_age
   ),
   contact_age = case_when(contact_age %in% c("0-9y", "10-19y") ~ "0-19y",
-                          contact_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
-                          contact_age %in% c("60+y"  ) ~ "60-100y",
-                          T ~ contact_age
+                            contact_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                            contact_age %in% c("60+y"  ) ~ "60-100y",
+                            T ~ contact_age
   )
-  )
-
-
-
-
+  )  
+  
 # Characterize the proportion of household members in each age group
 ## Step 1: Create the hh_member_age dataframe for each rec_id 
 hh_member_age <- hh_age %>%
@@ -42,84 +51,118 @@ hh_member_age <- hh_age %>%
 
 
 ## Step 2: Calculate the relative proportion of hh_member_age by study day
+### prop.hh.with.child, prop.hh.with.adult, prop.hh.with.elderly are the proportions of households with children, adults, and elderlies, respectively. 
+### E.g., prop.hh.with.child is calculated as (the number of households with ≥1 children)/(the total number of households).
+
 hh_member_age <- hh_member_age %>%
   mutate(
     child = map_lgl(hh_member_age, ~ any(grepl("0-19y", .))),
     adult = map_lgl(hh_member_age, ~ any(grepl("20-59y", .))),
-    elderly = map_lgl(hh_member_age, ~ any(grepl("60-100y", .))),
-    child_only = map_lgl(hh_member_age, ~ all(. == "0-19y"))
+    elderly = map_lgl(hh_member_age, ~ any(grepl("60-100y", .)))
   )
 
 proportions <- hh_member_age %>%
   summarize(
-    prop_child = mean(child), 
-    prop_adult = mean(adult),
-    prop_elderly = mean(elderly),
-    prop_child_only = mean(child_only), 
-    .groups = "drop")
+    prop_hh_w_child = mean(child), 
+    prop_hh_w_adult = mean(adult),
+    prop_hh_w_elderly = mean(elderly),
+    .groups = "drop") %>% t() %>% 
+  as.data.frame()  %>% rename(proportion=1) %>% 
+  rownames_to_column(., "prop_type")
 
+# Define the function to calculate the proportion of children with an adult (20-59y) in the household
+calculate_prop_children_with_adult <- function(df) {
+  
+  # Define a function to check if a household has an adult (20-59y)
+  has_adult <- function(age_list) {
+    return("20-59y" %in% age_list)
+  }
+  
+  # Count the total number of children (0-19y) in the household
+  count_children <- function(age_list) {
+    return(sum(age_list == "0-19y"))
+  }
+  
+  # Add columns to count children and check for adults in each household
+  df$has_adult <- sapply(df$hh_member_age, has_adult)
+  df$children_count <- sapply(df$hh_member_age, count_children)
+  
+  # Filter only households with an adult (20-59y) and calculat the total number of children in these households
+  children_with_adult <- sum(df$children_count[df$has_adult])
+  
+  # Total number of children in all households
+  total_children <- sum(df$children_count)
+  
+  # Calculate the proportion of children with an adult in their household
+  prop_children_with_adult <- children_with_adult / total_children
+  
+  # Return the proportion
+  return(prop_children_with_adult)
+}
 
-# age distribution of target population
-dss_pop_age_grp =
-  data.frame(
-    tar_pop_size=
-  c(# rural
-                 c(199+750+933+ 1017+958, # children (0-19)
-                    1196+1195+1309+1272+1215+1088+1067+876, # adult (20-59)
-                    777+626+499+321+437), #  elderly (60+)
-                  # urban
-                  c(309+1144+1458+1474+1814, # children (0-19)
-                    1805+1731+1740+1669+1471+1395+1206+975,# adult (20-59)
-                    891+572+412+236+245)  #  elderly (60+)
-),
-age.grp = rep(c("child", "adult", "elderly"), times= 2),
-network = rep(c("rural", "urban"), each = 3)
-) %>% group_by(network) %>%
-  mutate(prop = tar_pop_size / sum(tar_pop_size)
-         ) %>%
-  ungroup()
-## The household-level distribution of age appears to be similar to the target population
+prop_child_with_adult <- 
+calculate_prop_children_with_adult(df = hh_member_age %>% select(rec_id, hh_member_age)
+                                   )
 
+proportions <- proportions %>% rbind(., c("prop_child_w_adult", prop_child_with_adult)) %>% mutate(proportion = as.numeric(proportion))
 
+# the number of household only with children in the observed data
+freq_hh_only_w_child <- 
+hh_member_age %>%
+  mutate(
+    child_only = map_lgl(hh_member_age, ~ all(. == "0-19y"))
+  ) %>% pull(child_only ) %>% as.numeric() %>% sum()
 
-# Generate age groups
-set.seed(20240930) # For reproducibility
-age.grp <- sample(c("0-19y", "20-59y", "60+y"), # corresponds to 3 age group, children (0-19), adult (20-59), elderly (60+)
-                  size = n,
-                  replace = TRUE,
-                  prob = dss_pop_age_grp %>% filter(network == "rural") %>% pull(prop)
-                  )
-#age.grp <- sample(c("0-19y", "20-59y", "60+y"), size = n, replace = TRUE, prob = c(0.25, 0.55, 0.20))
+output <- list()
+output$proportions <- proportions
+output$freq_hh_only_w_child <- freq_hh_only_w_child
 
+return(output)
+}
 
-# Setup -------------------------------------------------------------------
+### run the function
+prop_hh_members_rural <- 
+proportion_hh_members(hh_age = hh_age_rural) # contains the proportions and the household members' age groups over all study days by household
+
+prop_hh_members_urban <- 
+  proportion_hh_members(hh_age = hh_age_urban)
+
+## define function
+node_hh_assign <- 
+  function(
+    #observed proportions of households with children, adults, and elderly, respectively. 
+    prop.hh.with.child,
+    prop.hh.with.adult,
+    prop.hh.with.elderly,
+    #observed proportions of children with adults. 
+    prop.children.with.adult, 
+    #observed frequency if household only with children 
+    freq.hh.child.only,
+    # mean degree calculated from the age mixing matrix of edge count
+    mean.deg,
+    # age group of each node in the modeled population
+    age.grp # 3-category age groups consist of "0-19y", 20-59y", and "60-100y"
+    ){
+    
+# note the age category of "60-100y" is also labeled as "60p" in the following script
+        
+# total number of nodes
+n = length(age.grp)
+    
 # Set number of households based on household size
+## household size
 hh.size <- mean.deg +1 
-#hh.size <- 2.7
+## number of households
 n.hh <- round(n / hh.size) 
+## node's ID
 ids <- 1:n 
+## household ID
 hh.ids <- 1:n.hh
 
 # Create empty data frames to track hh assignment, the mem.u19, mem.20t59, and mem.60p are logic variables indicating whether there is >=1 hh member belong to that age group in a household
 hh.by.age <- data.frame(hh.ids = hh.ids, mem.u19 = NA, mem.20t59 = NA, mem.60p = NA)
 # Create data frame of nodal attribute, hh is to record the houshold id a node is assigned
 persons.by.hh <- data.frame(ids = ids, age.grp = age.grp, hh = NA) 
-
-
-# Set proportions of household-level age groups
-# prop.hh.with.child <- average_proportion %>% filter(hh_member_age == "0-19y") %>% pull(average_proportion)
-# prop.hh.with.adult <- average_proportion %>% filter(hh_member_age == "20-59y") %>% pull(average_proportion)
-# prop.hh.with.elderly <- average_proportion %>% filter(hh_member_age == "60+y") %>% pull(average_proportion)
-# prop.children.with.adult <- average_proportion %>% filter(hh_member_age == "0-19y_and_20-59y") %>% pull(average_proportion)
-# prop.children.only <- average_proportion %>% filter(hh_member_age == "0-19y_only") %>% pull(average_proportion)
-
-prop.hh.with.child <- 0.84
-prop.hh.with.adult <- 0.98
-prop.hh.with.elderly <- 0.45
-#prop.children.with.adult <- average_proportion %>% filter(hh_member_age == "0-19y_and_20-59y") %>% pull(average_proportion)
-prop.children.only <- 0.0018
-
-# Household Assignment ----------------------------------------------------
 
 # Determine which households will have a member under 19 
 hh.u19 <- sample(x = hh.ids, size = round(prop.hh.with.child * n.hh)) # randomly select a set of household id, equals to the number of hh having kids<19, to consider them to have children under 19
@@ -133,10 +176,9 @@ children.hh.assign <- sample(x = hh.u19, size = length(which(age.grp == "0-19y")
 persons.by.hh[persons.by.hh$ids %in% which(age.grp == "0-19y")[(length(hh.u19) + 1):length(which(age.grp == "0-19y"))], ]$hh <- children.hh.assign # assign the household ids to the rest of nodes in 0-19y
 
 # Determine which hh with children will have at least one 19 - 59 member
-#num.children.wo.adult <- round((1-prop.children.with.adult) * (sum(age.grp == "0-19y"))) # number of households only with children
-num.children.wo.adult <- round(prop.children.only * (sum(age.grp == "0-19y")))
+num.children.wo.adult <- round((1-prop.children.with.adult) * (sum(age.grp == "0-19y"))) # number of households only with children
 num.children <- persons.by.hh[persons.by.hh$age.grp == "0-19y", ] %>% group_by(hh) %>% summarize(num = n()) # number of 0-19y children per household
-## this optimization is to select housholds ids have children but without adults
+## this optimization is to select households ids have children but without adults
 hh.select <- gbp1d_solver_dpp(p = num.children$num, # count of children in each hh as weight for the optimization
                               w = num.children$num,
                               c = num.children.wo.adult) # constraint is the number of children live in households without an adult
@@ -144,12 +186,12 @@ hh.wo.adult <- num.children$hh[as.logical(hh.select$k)]
 hh.with.adult <- setdiff(num.children$hh, hh.wo.adult) # hh w/ adults
 hh.by.age$mem.20t59 = ifelse(hh.by.age$hh.ids %in% hh.with.adult, TRUE, NA) 
 
-# Determine which hh without children will have at least one 19 - 59 member
+# Determine which hh without children will have at least one 20 - 59 member
 num.hh.add.adult <- round(n.hh * prop.hh.with.adult - sum(hh.by.age$mem.20t59 == TRUE, na.rm = TRUE) # those mem.20t59 == TRUE are households with children and with adult, so the output is the # of households without children but with adult
                           )
 hh.add.adult <- sample(x = hh.by.age[is.na(hh.by.age$mem.20t59) & hh.by.age$mem.u19 == FALSE, ]$hh.ids, # for households haven't been characterized and without children, randomly select # of households without children but with adult
                        size = num.hh.add.adult)
-hh.by.age[hh.by.age$hh.ids %in% hh.add.adult, ]$mem.20t59 <- TRUE # record the select in the dataframe tracking hh assignment
+hh.by.age[hh.by.age$hh.ids %in% hh.add.adult, ]$mem.20t59 <- TRUE # record the select households in the dataframe tracking hh assignment
 hh.by.age[is.na(hh.by.age$mem.20t59), ]$mem.20t59 <- FALSE # for the rest of households, we consider them to not have adult (20-59)
 hh.20t59 <- hh.by.age[hh.by.age$mem.20t59 == TRUE, ]$hh.ids # retrieve all household id with adults (20-59) 
 
@@ -158,65 +200,109 @@ persons.by.hh[persons.by.hh$ids %in% which(age.grp == "20-59y")[1:length(hh.20t5
 adults.hh.assign <- sample(x = hh.20t59, size = length(which(age.grp == "20-59y")) - length(hh.20t59), replace = TRUE) # this assignment distributes the remaining household id with adults by sampling from the existing households - each household can have 2 adults
 persons.by.hh[persons.by.hh$ids %in% which(age.grp == "20-59y")[(length(hh.20t59) + 1):length(which(age.grp == "20-59y"))], ]$hh <- adults.hh.assign # assign the remaining household id with adults to the nodal attribute data
 
-# Determine which hh will have a 65+ member
+# Determine which hh will have a 60+ member
 hh.must.elderly <- hh.by.age[hh.by.age$mem.20t59 == FALSE, ]$hh.ids # we consider households don't have adult as those must have elderly
 hh.by.age[hh.by.age$mem.20t59 == FALSE, ]$mem.60p <- TRUE # same as the logic above, we consider households don't have adult as those must have elderly
-num.hh.add.elderly <- round(n.hh * prop.hh.with.elderly - length(hh.must.elderly)) # In the rural data, the proportion of households with elderly is smaller than the proportion of household without adults, making this line problematic
+num.hh.add.elderly <- round(n.hh * prop.hh.with.elderly - length(hh.must.elderly)) # the number of households >=1 elderly - the number of household without adults = number of households needs to have elderly 
 hh.add.elderly <- sample(x = hh.by.age[is.na(hh.by.age$mem.60p), ]$hh.ids, size = num.hh.add.elderly)
 hh.by.age[hh.by.age$hh.ids %in% hh.add.elderly, ]$mem.60p <- TRUE
 hh.by.age[is.na(hh.by.age$mem.60p), ]$mem.60p <- FALSE
 hh.60p <- hh.by.age[hh.by.age$mem.60p == TRUE, ]$hh.ids
 
-## Adaptation to the above - we consider the elderly assignment is independent from adult
-# num.hh.add.elderly <- round(n.hh * prop.hh.with.elderly) # number of household with any elderly
-# hh.add.elderly <- sample(x = hh.by.age$hh.ids, size = num.hh.add.elderly) # randomly select num.hh.add.elderly household IDs with elderly
-# hh.by.age[hh.by.age$hh.ids %in% hh.add.elderly, ]$mem.60p <- TRUE # in the household dataframe, assign T to household with elderly
-# hh.by.age[is.na(hh.by.age$mem.60p), ]$mem.60p <- FALSE # in the household dataframe, for other households, assign F to household with elderly
-# hh.60p <- hh.by.age[hh.by.age$mem.60p == TRUE, ]$hh.ids # retrieve the household ids with elderly. after the adaptation hh.60p is the same as hh.add.elderly %>% sort
-
 # Assign elderly to selected households
-## select rows in the nodal attribute data whose nodes is 60+y and in the first set of rows equal to the number of households having 60+y
+## select rows in the nodal attribute data whose nodes is 60-100y and in a set of rows equal to the number of households having 60-100y
 persons.by.hh[persons.by.hh$ids %in% which(age.grp == "60+y")[1:length(hh.60p)], ]$hh <- hh.60p
-## for the rest of nodes of the 3rd age group, we randomly select housholds ID with 60+y to them
+## for the rest of nodes of the 3rd age group, we randomly select housholds ID with 60-100y to them
 elderly.hh.assign <- sample(x = hh.60p, size = length(which(age.grp == "60+y")) - length(hh.60p), replace = TRUE)
 ## assign elderly.hh.assign to the rest of nodes 60+
 persons.by.hh[persons.by.hh$ids %in% which(age.grp == "60+y")[(length(hh.60p) + 1):length(which(age.grp == "60+y"))], ]$hh <- elderly.hh.assign 
 
-# Check Household Assignment ----------------------------------------------
+# Save results
+output$assignments <- output$validation<- output <- list()
+output$assignments <- persons.by.hh
 
+# Check Household Assignment ----------------------------------------------
 # Rules 1 - 3: Proportions of households with at least one child/adult/elderly person 
 hh.check1 <- persons.by.hh %>% group_by(age.grp) %>% summarize(num.hh = n_distinct(hh))
-hh.check1$pct.hh <- round(hh.check1$num.hh / length(unique(persons.by.hh$hh)), 3) * 100
- hh.check1
+hh.check1$pct.hh.simulated <- round(hh.check1$num.hh / length(unique(persons.by.hh$hh)), 3) 
 
-# Rule 4: Average household size 
-hh.check2 <- persons.by.hh %>% group_by(hh) %>% summarize(num.person = n())
-mean.hh.check2 <- round(mean(hh.check2$num.person), 1)
-hh.size
-
-# 5. Every household with a child must also have at least one adult
-hh.check3 <- persons.by.hh %>% group_by(hh) %>% summarize(min.age.grp = min(age.grp), max.age.grp = max(age.grp))
-orphans <- nrow(hh.check3[hh.check3$min.age.grp == "0-19y" & hh.check3$max.age.grp == "0-19y", ])
-orphans
-## compared to 5 households, this is still a little off.
-
-
-# 6. 97.9% of children live with an adult in the 19-59 age range 
+sim_v_obs_props <- 
+hh.check1 %>% 
+  select(age.grp, pct.hh.simulated) %>% 
+  mutate(prop_type = 
+           recode(age.grp,
+                  "0-19y" = "prop_hh_w_child",
+                  "20-59y" = "prop_hh_w_adult",
+                  "60+y" = "prop_hh_w_elderly",
+                  )
+         ) %>% select(prop_type, pct.hh.simulated)
+ 
+## percentage of children who live with an adult in the 19-59 age range 
 hh.check4 <- persons.by.hh %>% group_by(hh, age.grp) %>% summarize(num.person = n())
 hh.check4 <- spread(hh.check4, key = age.grp, value = num.person)
 hh.check4 <- hh.check4[!is.na(hh.check4$`0-19y`) & !is.na(hh.check4$`20-59y`), ]
-children.in.hh.w.adult <-sum(hh.check4$`0-19y`) / length(which(age.grp == "0-19y"))
-1- children.in.hh.w.adult;  prop.children.only
+children.in.hh.w.adult <- round(
+  sum(hh.check4$`0-19y`) / length(which(age.grp == "0-19y")), 3
+)
+
+sim_v_obs_dta <- 
+sim_v_obs_props %>% 
+  rbind(., c("prop_child_w_adult", children.in.hh.w.adult)) %>%  #simulated data
+  cbind(., pct.hh.observed = c(prop.hh.with.child, prop.hh.with.adult,prop.hh.with.elderly,prop.children.with.adult) #observed data
+        )
+
+# rename variable to save the rest of validation results
+sim_v_obs_dta <- 
+sim_v_obs_dta %>% rename(data_type = prop_type, simulated = pct.hh.simulated, observed = pct.hh.observed)
+
+# Rule 4: Average household size 
+hh.check2 <- persons.by.hh %>% group_by(hh) %>% summarize(num.person = n())
+mean.hh.check2 <- round(mean(hh.check2$num.person), 2)
+
+sim_v_obs_dta <- 
+sim_v_obs_dta %>% rbind(c("hh_size", 
+                            mean.hh.check2, 
+                            round(hh.size,2)
+                            )
+                          )
 
 
-# Prepare household network ----------------------------------------------
+# 5. Every household with a child must also have at least one adult for the simulated data
+hh.check3 <- persons.by.hh %>% group_by(hh) %>% summarize(min.age.grp = min(age.grp), max.age.grp = max(age.grp))
+orphans_simulated <- nrow(hh.check3[hh.check3$min.age.grp == "0-19y" & hh.check3$max.age.grp == "0-19y", ]) # the number of houeholds having only children
 
-# # Set household attribute
-# est[[1]]$newnetwork <- set.vertex.attribute(est[[1]]$newnetwork, "household", persons.by.hh$hh)
-# 
-# # Save household edge list
-# hhPairs <- merge(persons.by.hh, persons.by.hh, by = "hh")
-# hhPairs <- subset(hhPairs, (ids.x < ids.y))
-# hhPairs <- hhPairs[, c(2, 4)]
-# names(hhPairs) <- c(".head", ".tail")
-# rm(list=setdiff(ls(), c("est", "hhPairs", "vax_targets", "mr_vec")))
+orphans_simulated
+
+sim_v_obs_dta <- 
+  sim_v_obs_dta %>% rbind(c("freq_hh_child_only", 
+                            orphans_simulated, freq.hh.child.only
+                           
+  )
+  )
+
+
+# save validation data to "output"
+output$validation <- sim_v_obs_dta
+
+output
+  }
+
+node_hh_assign_rural <- 
+node_hh_assign(
+  #observed proportions of households with children, adults, and elderly, respectively. 
+  prop.hh.with.child = prop_hh_members_rural$proportions %>% filter(prop_type == "prop_hh_w_child") %>% pull(proportion),
+  prop.hh.with.adult = prop_hh_members_rural$proportions %>% filter(prop_type == "prop_hh_w_adult") %>% pull(proportion),
+  prop.hh.with.elderly = prop_hh_members_rural$proportions %>% filter(prop_type == "prop_hh_w_elderly") %>% pull(proportion),
+  #observed proportions of children with adults. 
+  prop.children.with.adult = prop_hh_members_rural$proportions %>% filter(prop_type == "prop_child_w_adult") %>% pull(proportion), 
+  #observed frequency if household only with children 
+  freq.hh.child.only = prop_hh_members_rural$freq_hh_only_w_child,
+  # mean degree calculated from the age mixing matrix of edge count of the home layer of a network
+  mean.deg = mean.deg,
+  # age group of each node in the modeled population
+  age.grp # 3-category age groups consist of "0-19y", 20-59y", and "60-100y"
+)
+
+
+
+
