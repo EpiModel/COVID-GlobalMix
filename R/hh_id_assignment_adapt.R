@@ -285,7 +285,7 @@ sim_v_obs_dta <-
 output$validation <- sim_v_obs_dta
 
 output
-  }
+}
 
 node_hh_assign_rural <- 
 node_hh_assign(
