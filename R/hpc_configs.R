@@ -10,7 +10,7 @@ est_cores <- 10
 hpc_node_setup <- c(
   ". /projects/epimodel/spack/share/spack/setup-env.sh",
   "spack unload -a",
-  "spack load r@4.4"
+  "spack load r@4.4.0"
 )
 
 
@@ -23,7 +23,7 @@ make_em_workflow <- function(wf_name, override = FALSE) {
     default_sbatch_opts = list(
       # "partition" = "epimodel",
       "partition" = "preemptable",
-      "mail-type" = "ALL",
+      "mail-type" = "FAIL",
       "mail-user" = mail_user
     )
   )
@@ -39,7 +39,7 @@ make_em_workflow <- function(wf_name, override = FALSE) {
       "mem" = "16G",
       "cpus-per-task" = 4,
       "time" = 180,
-      "mail-type" = "END"
+      "mail-type" = "FAIL"
     )
   )
 
