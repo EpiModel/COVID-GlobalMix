@@ -1,6 +1,6 @@
-layers_dx <- 
+layers_dx <-
   function(est_nw){
-    
+
      # T-ERGM for home, school, work, and nonhome
       dx <-
         netdx(est_nw,
@@ -10,11 +10,11 @@ layers_dx <-
               nwstats.formula = est_nw$formation,
               set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 1000000, # 2) bumping up from 200000
                                                                MCMC.interval = 50000), # 2) bumping up from 25000
-              set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
-                                                                 ),
+              set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000, # 1) bumping up from 50000
+                                                                 MCMC.maxchanges = Inf),
               dynamic = F,
               skip.dissolution = FALSE
         )
-    
+
     dx
   }

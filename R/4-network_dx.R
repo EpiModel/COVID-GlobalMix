@@ -14,23 +14,23 @@ suppressMessages(library(fs))
 
 
 # Loading data
-file.name_in <- 
-    paste0("data/netest_outputs/netest_", 
+file.name_in <-
+    paste0("data/netest_outputs/netest_",
            layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
            )
-  
-est  <- 
-  readRDS(file.name_in) 
 
-# Diagnosing layers 
+est  <-
+  readRDS(file.name_in)
+
+# Diagnosing layers
 source("R/layers_dx.R")
 
-dx <- 
+dx <-
 layers_dx(est_nw = est
           )
 
 # Outputting netdx result of the single layer
-file.name_out <- 
+file.name_out <-
     paste0("data/netdx_outputs/dx_", layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
            )
 
