@@ -3,14 +3,14 @@
 ## This script should not be run directly. But `sourced` the from scripts that
 ## interact with the HPC (usually the `workflow-***.R` ones)
 
-current_git_branch <- "main"
-mail_user <- "dehao.chen@emory.edu"
+current_git_branch <- "alg_tests"
+mail_user <- "aleguil@emory.edu"
 est_cores <- 10
 
 hpc_node_setup <- c(
   ". /projects/epimodel/spack/share/spack/setup-env.sh",
   "spack unload -a",
-  "spack load r@4.3.1"
+  "spack load r@4.4"
 )
 
 
@@ -21,8 +21,8 @@ make_em_workflow <- function(wf_name, override = FALSE) {
   wf <- slurmworkflow::create_workflow(
     wf_name = wf_name,
     default_sbatch_opts = list(
-       "partition" = "epimodel",
-      #"partition" = "preemptable",
+      # "partition" = "epimodel",
+      "partition" = "preemptable",
       "mail-type" = "ALL",
       "mail-user" = mail_user
     )

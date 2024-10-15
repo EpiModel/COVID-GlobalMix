@@ -27,7 +27,7 @@ percent_target_pop <- 0.4
 
 # Loading data
 ## target statistics
-node_attribute_target_stats <- 
+node_attribute_target_stats <-
   readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", percent_target_pop, ".Rds"))
 
 ## summary statistics, provides duration of contacts
@@ -38,24 +38,24 @@ netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
 node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School[
   node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School <0.01] <- 0
 
-# For rural school layer the low values were <10, this threshold is used for the re-coding 
+# For rural school layer the low values were <10, this threshold is used for the re-coding
 node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School[
   node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School <10] <- 0
 
 ############## Define items which will be read by netest  ##############
 source("R/model_inputs.R")
-model_input_items <- 
+model_input_items <-
 model_inputs(attri_tarstats = node_attribute_target_stats, dissolution = netstats$dissolution)
 
 
 ############## Model estimation  ##############
 # Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
-control.args <-  
+control.args <-
   list(
     sto_apoxy=
       control.ergm(
         # The following setting is copied from - https://github.com/EpiModel/EpiModelHIV-Template/commit/fd2f0ad58ef62dcf68824e593e2a067e226124dc
-        main.method = "Stochastic-Approximation", 
+        main.method = "Stochastic-Approximation",
         MCMLE.maxit = 500,
         SAN.maxit = 3,
         SAN.nsteps.times = 4,
@@ -77,8 +77,8 @@ control.args <-
 control.arg = control.args[[est_apch]]
 site = network
 model_input_items = model_input_items
-    
-if(site=="Rural"){ 
+
+if(site=="Rural"){
   nw_attributes <- model_input_items$initiate_nw$Rural # network attributes of all layers
   model_inputs <- model_input_items$formula_tarstats$Rural # network statistics and formation model formula of all layers
 } else if (site =="Urban"){
@@ -109,10 +109,10 @@ formation = ~edges + nodemix("age.grp", levels2 = -1) + nodefactor("deg.x_layer"
 
 # model fitting for each layer
 est_layer <- netest(nw = nw_attributes_layer,
-                    formation = formation, 
-                    target.stats = tstat, 
+                    formation = formation,
+                    target.stats = tstat,
                     coef.diss = model_inputs[[layer]]$diss,
-                    set.control.ergm =  
+                    set.control.ergm =
                       control.ergm(
                         main.method = "MCMLE",
                         MCMLE.maxit = 500,
@@ -124,7 +124,7 @@ est_layer <- netest(nw = nw_attributes_layer,
                   )
 
 
-dx <- netdx(est_layer, nsims = 20, ncores = 10, nsteps = 1000, 
+dx <- netdx(est_layer, nsims = 20, ncores = 10, nsteps = 1000,
             nwstats.formula = ~edges + nodemix("age.grp", levels2 = NULL) + nodefactor("deg.x_layer", levels = NULL),
             set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 200000,
                                                              MCMC.interval = 25000),
@@ -135,7 +135,7 @@ saveRDS(dx, file = "RuralSchool_netdx.rds")
 
 
 
-# Outputting estimation result the single layer 
+# Outputting estimation result the single layer
 file.name <- paste0(
   "data/netest_outputs/netest_",
   layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
