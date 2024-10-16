@@ -56,4 +56,6 @@ workflows/
 
 
 
-renv
+renv/
+renv/activate.R
+renv/activate.R
