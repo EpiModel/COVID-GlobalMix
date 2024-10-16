@@ -1,12 +1,20 @@
 library(sna)
+library(EpiModel)
+library(dplyr)
 # read target stats
 # Loading data
 ## target statistics
 node_attribute_target_stats <- 
   readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", 0.001, ".Rds"))
 
+node_attribute_target_stats_pt1<- 
+  readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", 0.1, ".Rds"))
+
 ## check household size
+### 0.1% target pop
 node_attribute_target_stats$node_hh_assign_validation$rural
+### 10% target pop 
+node_attribute_target_stats_pt1$node_hh_assign_validation$rural
 
 ## summary statistics, provides duration of contacts
 netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
@@ -28,7 +36,7 @@ coef.diss <- dissolution_coefs(dissolution = ~offset(edges),
 
 
 
-# network w/o houshold boundary
+# network w/o household boundary
 g <- 
 netest(
   nw = nw,
@@ -66,14 +74,13 @@ plot(g_1)
 
 
 ## Attempt 2 - using blockdiag(attr="hh_id")
-## define a block constraint introduced in: https://statnet.org/workshop-advanced-ergm/advanced_ergm_tutorial.html
-hh_constraints <- ~blockdiag(attr= "hh_id")
+## define a block constraint introduced in: https://search.r-project.org/CRAN/refmans/ergm/html/blockdiag-ergmConstraint-140bec05.html
 g_2 <- netest(
   nw = nw_hh_bound,
   formation = ~edges ,
   target.stats =  c(edge_stat),
-  coef.diss = coef.diss_1,
-  constraints = hh_constraints,
+  coef.diss = coef.diss,
+  constraints = ~blockdiag(attr= "hh_id"),
   control = control.net(
     ergm.control = control.ergm(
       
