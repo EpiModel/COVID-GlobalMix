@@ -815,13 +815,13 @@ node_hh_assign <-
     # total number of nodes
     n = length(age.grp)
     
-    # Set number of households, household ids, node ids all based on household size
+    # Set number of households based on household size
     ## household size
     hh.size <- mean.deg +1 
     ## number of households
     n.hh <- round(n / hh.size) 
     ## node's ID
-    ids <- 1:n 
+    ids <- 1:n # it's fine to generate node id here as the its in order with age.grp
     ## household ID
     hh.ids <- 1:n.hh
     
@@ -830,6 +830,7 @@ node_hh_assign <-
     # Create data frame of nodal attribute, hh is to record the houshold id a node is assigned
     persons.by.hh <- data.frame(ids = ids, age.grp = age.grp, hh = NA) 
     
+    set.seed(2024)
     # Determine which households will have a member under 19 
     hh.u19 <- sample(x = hh.ids, size = round(prop.hh.with.child * n.hh)) # randomly select a set of household id, equals to the number of hh having kids<19, to consider them to have children under 19
     hh.by.age$mem.u19 = ifelse(hh.by.age$hh.ids %in% hh.u19, TRUE, FALSE) # have the selection result in the dataframe (df) tracking household assignment
@@ -884,8 +885,8 @@ node_hh_assign <-
     persons.by.hh[persons.by.hh$ids %in% which(age.grp == "60+y")[(length(hh.60p) + 1):length(which(age.grp == "60+y"))], ]$hh <- elderly.hh.assign 
     
     # Save results
-    output$validation<- output$assignments <-  output <- list()
-    output$assignments <- persons.by.hh
+    output$assignments <- output$validation<- output <- list()
+    output$assignments <- persons.by.hh %>% rename(node.ids=ids, hh.ids=hh)
     
     # Check Household Assignment ----------------------------------------------
     # Rules 1 - 3: Proportions of households with at least one child/adult/elderly person 
@@ -946,12 +947,20 @@ node_hh_assign <-
       )
       )
     
+    # Save household edge list
+    hhPairs <- merge(persons.by.hh, persons.by.hh, by = "hh") # getting all combinations of nodes that belong to the same household - a cartesian product of node ids within each houshold
+    hhPairs <- subset(hhPairs, (ids.x < ids.y)) # remove duplicate pairs
+    hhPairs <- hhPairs %>% select(hh, ids.x, ids.y) %>% rename(hh.ids=hh, head.node.ids = ids.x, tail.node.ids = ids.y)
+    
+    output$edgelist <- hhPairs
+    
     
     # save validation data to "output"
     output$validation <- sim_v_obs_dta
     
     output
   }
+
 
 
 # function running all steps
@@ -1126,13 +1135,11 @@ node_attrib_target_pop <-
     
     # merging the household id with other nodal attributes
     ## rural
-    node.attr.rural <- cbind(node.attr.rural,  
-                             node_hh_assign_rural$assignments %>% select(age.grp, hh) %>% rename(age.grp.3cat = age.grp)
+    node.attr.rural <- cbind(node_hh_assign_rural$assignments %>% rename(age.grp.3cat = age.grp) %>% select(node.ids,hh.ids, age.grp.3cat), node.attr.rural
                              )
     
     ## urban
-    node.attr.urban <- cbind(node.attr.urban,  
-                             node_hh_assign_urban$assignments %>% select(age.grp, hh) %>% rename(age.grp.3cat = age.grp)
+    node.attr.urban <- cbind(node_hh_assign_urban$assignments %>% rename(age.grp.3cat = age.grp) %>% select(node.ids,hh.ids, age.grp.3cat), node.attr.urban
                              )
     
     
@@ -1227,9 +1234,14 @@ node_attrib_target_pop <-
     ## degree
     output$degrange$rural <- deg_tstat_r; output$degrange$urban <- deg_tstat_u
     
-    # validation result for household assignment
-    output$node_hh_assign_validation$rural <- node_hh_assign_rural$validation
-    output$node_hh_assign_validation$urban <- node_hh_assign_urban$validation
+    # household assignment
+    ## edgelist
+    output$node_hh_assign$edgelist$rural <- node_hh_assign_rural$edgelist
+    output$node_hh_assign$edgelist$urban <- node_hh_assign_urban$edgelist
+    
+    ## validation result for household assignment
+    output$node_hh_assign$node_hh_assign_validation$rural <- node_hh_assign_rural$validation
+    output$node_hh_assign$node_hh_assign_validation$urban <- node_hh_assign_urban$validation
    
     
     output
