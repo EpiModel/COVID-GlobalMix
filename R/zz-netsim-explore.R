@@ -22,143 +22,56 @@ library(intergraph)
 # ### 10% target pop 
 # node_attribute_target_stats_pt1$node_hh_assign_validation$rural
 
-## summary statistics, provides duration of contacts
-netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
+
 
 # N = node_attribute_target_stats$attr$rural %>% nrow()
-N = length(node_hh_assign_rural$assignments$hh)
-
-
-mean_deg = 2*sum(node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home)/N
-
-edge_stat = (mean_deg/2)*N
-
+N = length(node_hh_assign_rural$assignments$node.ids)
 
 nw <- network_initialize(N)
-#nw_hh_bound <- set_vertex_attribute(nw, "hh_id", node_attribute_target_stats$attr$rural$hh)
-nw_hh_bound <- set_vertex_attribute(nw, "hh_id", node_hh_assign_rural$assignments$hh)
 
-# dissolution model
-coef.diss <- dissolution_coefs(dissolution = ~offset(edges),
-                               duration = 1e+12)
-
-
-
-
-# network w/o household boundary
-g <- 
-netest(
-  nw = nw,
-  formation = ~edges ,
-  target.stats =  c(edge_stat),
-  coef.diss = coef.diss)$fit
-g <- 
-  simulate(g)
-plot(g)
-mean(get_degree(g))
-table(get_degree(g))
-table(component.dist(g, connected = "weak")$csize)
-components(g, connected = "weak")
-
-table(component.dist(g, connected = "weak")$membership)
+# although we assign hh.id attribute here, the adding of edge is completelu independent from hh.id
+nw_hh_bound <- set_vertex_attribute(nw, "hh.id", node_hh_assign_rural$assignments$hh.id)
 
 # network w/ houshold boundary
-## this may be caused by the hh_id is too restrictive
-### Sam's script
+nw_hh_bound <- network::add.edges(
+  nw,
+  #nw_hh_bound, # node.id serve as a global node id which are unique across the whole network
+  # these edges by head and tail are added using the global node ids - while household ids are not intentionally added, the edges of the same households are inherently grouped together
+  # hence, the edge creation is independent of household ids but solely depend on the node ids
+  node_hh_assign_rural$edgelist$head.node.ids, node_hh_assign_rural$edgelist$tail.node.ids) 
 
-help(package = "network")
-expand.grid(which(nw_hh_bound %v% "hh_id" == 1))
-g_test<-network.initialize(3) 
-add.edge(g_test, 1,2)
-as.edgelist(g_test)
-
-expand.grid(g_test)
-
-### adaptation
-edgelist_df <- 
-node_hh_assign_rural$edgelist
-
-# Retrieve the household IDs from the network for all nodes
-hh_ids <- get.vertex.attribute(nw_hh_bound, "hh_id")
-
-
-# Get the unique household IDs in the edgelist_df
-unique_hh_all <- sort(unique(hh_ids)) # unique hh_ids of all nodes 
-unique_hh_w_edges <- unique(edgelist_df$hh)  # unique hh_ids of all edges, 3 household ids aren't here given the nodes live alone
-
-# Loop through each unique household
-for(hh in unique_hh_w_edges
-    ) {
-  # Subset the rows in edgelist_df for the current household
-  hh_subset <- edgelist_df[hh == edgelist_df$hh, ]
-  
-  # Loop through each row in the subset for the current household
-  for(i in 1:nrow(hh_subset)) {
-    # Get the .head and .tail node IDs directly
-    head_node <- hh_subset$.head[i]
-    tail_node <- hh_subset$.tail[i]
-    
-    # Add the edge between these nodes in the network
-    nw_hh_bound <- add.edges(nw_hh_bound, head_node, tail_node)
-  }
-}
-
-# verify whether the edge list belong to hh ==3
-nodes_in_hh_4 <- node_hh_assign_rural$assignments$ids[which(hh_ids == 4)] # node id whose hh_id==3
-edgelist <- as.edgelist(nw_hh_bound)
-
-data.frame(edgelist)[valid_edges,]
-
-# Check if all edges correspond to nodes within household hh == 3;  validate this more...
-valid_edges <- apply(edgelist, 1, function(edge) {
-  all(edge %in% nodes_in_hh_4)
-})
-
-# Show valid edges
-edgelist[valid_edges, ]
-
-# plot added edges
-## color
-colors <- rainbow(length(unique_hh_all))
-color_map <- setNames(colors, unique_hh_all)
-vertex_colors <- color_map[as.character(hh_ids)] 
-# label nodes
-vertex_labels <- 
-  paste0(
-    "nd_", node_hh_assign_rural$assignments$ids, 
-    "@HH", hh_ids
-  )
-
-
+plot(nw_hh_bound)
 
 # Convert the network object to an igraph object using intergraph
 igraph_net <- asIgraph(nw_hh_bound)  # Convert nw_hh_bound to an igraph object
 
 # Extract node attributes (node ID and household ID)
-node_df <- data.frame(
-  id = V(igraph_net)$name,                # Node IDs
-  hh_id = get.vertex.attribute(nw_hh_bound, "hh_id")  # Household IDs
-)
-
 # Plot the network using ggraph and ggplot2
 ggraph(igraph_net, layout = 'fr') +       # Use a force-directed layout (or choose another)
   geom_edge_link(alpha = 0.8) +           # Plot the edges
   geom_node_point(
     aes(
     color = 
-      factor(node_hh_assign_rural$assignments$hh)
+      factor(node_hh_assign_rural$assignments$hh.ids)
     ), 
     size = 5,
     show.legend = FALSE) +   # Color nodes by household
   geom_node_text(aes(label = 
-                       paste("nd", node_hh_assign_rural$assignments$ids, 
-                             "_@HH", node_hh_assign_rural$assignments$hh))
+                       paste("nd", node_hh_assign_rural$assignments$node.ids, 
+                             "_@HH", node_hh_assign_rural$assignments$hh.ids))
                  ,
                  vjust = 1.5, size = 1.5) + # Add node and household labels
   scale_color_discrete(name = "Household") +  # Legend for household color
   theme_void() +                          # Minimalistic theme for network graphs
-  ggtitle("Network with Abbreviated Node and Household Labels")
+  ggtitle("Edges and nodes in the rural home layer")
 
+# Validating network statistics 
+##md
+table(
+nw_hh_bound %v% "hh.id") %>% mean
 
+## degrange
+
+degree(igraph_net) %>% hist()
 
 

@@ -172,13 +172,42 @@ hh_age_rural <-
   india_mix %>% 
   filter(study_site == "Rural")%>% 
   filter(hh_membership == "Member") %>% # Considering each contact is with household members (hh_membership=="Member"), no matter the contact is unique/repeat. 
-  select(rec_id, study_day,participant_age,contact_age)
+  select(rec_id, study_day, fromdayone, participant_age,contact_age)%>% 
+  ## merging age categories into 3 and retrieving contacts with household members
+  mutate(participant_age = case_when(participant_age %in% c("0-9y", "10-19y") ~ "0-19y",
+                                     participant_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                                     participant_age %in% c("60+y"  ) ~ "60-100y",
+                                     T ~ participant_age
+  ),
+  contact_age = case_when(contact_age %in% c("0-9y", "10-19y") ~ "0-19y",
+                          contact_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                          contact_age %in% c("60+y"  ) ~ "60-100y",
+                          T ~ contact_age
+  )
+  ) %>% # if a contact on day 2 is a repeated contact, we filter it out
+  filter(!(study_day == 2 & fromdayone == "Both days")
+  )
+
 
 hh_age_urban <- 
   india_mix %>% 
   filter(study_site == "Urban")%>% 
   filter(hh_membership == "Member") %>% # Considering each contact is with household members (hh_membership=="Member"), no matter the contact is unique/repeat. 
-  select(rec_id, study_day,participant_age,contact_age)
+  select(rec_id, study_day, fromdayone, participant_age,contact_age)%>% 
+  ## merging age categories into 3 and retrieving contacts with household members
+  mutate(participant_age = case_when(participant_age %in% c("0-9y", "10-19y") ~ "0-19y",
+                                     participant_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                                     participant_age %in% c("60+y"  ) ~ "60-100y",
+                                     T ~ participant_age
+  ),
+  contact_age = case_when(contact_age %in% c("0-9y", "10-19y") ~ "0-19y",
+                          contact_age %in% c("20-29y", "30-39y", "40-59y") ~ "20-59y",
+                          contact_age %in% c("60+y"  ) ~ "60-100y",
+                          T ~ contact_age
+  )
+  )   %>% # if a contact on day 2 is a repeated contact, we filter it out
+  filter(!(study_day == 2 & fromdayone == "Both days")
+  )
 
 
 # note: the output of function "proportion_hh_members" contains the proportions needed for generating the household ID attribute and the frequency of households having only children ("0-19y")
