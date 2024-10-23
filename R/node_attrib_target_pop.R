@@ -1040,7 +1040,7 @@ node_attrib_target_pop <-
     ## generate nodal attribute of binary contact status for the x-layer effect
     node.contact.layer.rural <- 
       node.layer.contact(deg.age.layer.dist_1day = contact_prop_age_layer_rural, 
-                         target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop)
+                         target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop) # tar_pop is the number of modeled population
       ) # rural network
     node.contact.layer.urban <- 
       node.layer.contact(deg.age.layer.dist_1day = contact_prop_age_layer_urban, 
@@ -1185,7 +1185,7 @@ node_attrib_target_pop <-
     ## rural
     nf.x.layer$rural <- 
       target_stats_x_layer(
-        x_layer_items = x_layer_indiv_stat_rural,
+        x_layer_items = x_layer_indiv_stat_rural, # the inputs are all based on the post-stratified single-day contact count
         N=n_node_rural
       )
     ## urban
@@ -1229,9 +1229,11 @@ node_attrib_target_pop <-
       targetstats_age.grp$formation_stats_rural$nm.age.grp.sum <-  targetstats_age.grp$formation_stats_urban$nm.age.grp.sum <- NULL
     
     output$targetstats_age.grp <- targetstats_age.grp
+    
+    ## cross-layer effects
     output$targetstats_x.layer <- nf.x.layer
     
-    ## degree
+    ## degree distribution
     output$degrange$rural <- deg_tstat_r; output$degrange$urban <- deg_tstat_u
     
     # household assignment
