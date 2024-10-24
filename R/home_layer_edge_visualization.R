@@ -6,72 +6,55 @@ library(ggraph)
 library(ggplot2)
 library(intergraph)
 
-
-# read target stats
-# Loading data
-## target statistics
-
-# 
+# Loading target stats and nodal attributes
 node_attribute_target_stats<-
-  readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", 0.01, ".Rds"))
-# 
-# ## check household size
-# ### 0.1% target pop
-# node_attribute_target_stats$node_hh_assign_validation$rural
-# ### 10% target pop 
-# node_attribute_target_stats_pt1$node_hh_assign_validation$rural
+  readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", 0.001, ".Rds"))
 
-
-
-# N = node_attribute_target_stats$attr$rural %>% nrow()
 N = node_attribute_target_stats$attr$rural %>% nrow()
 
 nw <- network_initialize(N)
 
-# although we assign hh.id attribute here, the adding of edge is completelu independent from hh.id
-nw <- set_vertex_attribute(nw, "hh.id", node_attribute_target_stats$attr$rural$hh.ids)
 
-
+# Assign edges to the network item
+## A vector of heads and tails of each edge 
 head_vec = node_attribute_target_stats$node_hh_assign$edgelist$rural$head.node.ids
 tail_vec = node_attribute_target_stats$node_hh_assign$edgelist$rural$tail.node.ids
 
 
-# network w/ houshold boundary
+## Assign the heads and tails to the network item by node id
+### note: node.id serve as a global node id which are unique across the whole network
+# the edges by head and tail are added using the global node ids - while household ids are not intentionally added, the edges of the same households are inherently grouped together
+# hence, the edge adding is independent of household ids and solely depends on the node ids
 nw <- network::add.edges(
   nw,
-  #nw, # node.id serve as a global node id which are unique across the whole network
-  # these edges by head and tail are added using the global node ids - while household ids are not intentionally added, the edges of the same households are inherently grouped together
-  # hence, the edge creation is independent of household ids but solely depend on the node ids
   head_vec, tail_vec) 
 
+
+# Assign household id to each node
+### note: although we assign hh.id attribute here, the adding of edge to nodes is completely independent from hh.id, detailed explanation is in below
+nw <- set_vertex_attribute(nw, "hh.id", node_attribute_target_stats$attr$rural$hh.ids)
 plot(nw)
 
+# Plot by household id
+hh_ids <- node_attribute_target_stats$attr$rural$hh.ids
+vertex_colors <- rainbow(length(unique(hh_ids)))[as.numeric(factor(hh_ids))]
+network::plot.network(nw, vertex.col = vertex_colors)
 
-
-# Convert the network object to an igraph object using intergraph
+# Fancier plotting using igraph
 igraph_net <- asIgraph(nw)  # Convert nw to an igraph object
 
 # Extract node attributes (node ID and household ID)
 # Plot the network using ggraph and ggplot2
 home_layer_fig <- 
-ggraph(igraph_net, layout = 'auto') +       # Use a force-directed layout (or choose another)
-  geom_edge_link(alpha = 0.7) +           # Plot the edges
+ggraph(igraph_net, layout = 'fr') +       # "fr" pulls connected nodes together
+  geom_edge_link(alpha = 0.7) +          
   geom_node_point(
     aes(
     color = 
       factor(node_attribute_target_stats$attr$rural$hh.ids)
     ), 
     size = 1,
-    show.legend = FALSE)# +   # Color nodes by household
-  # geom_node_text(aes(label = 
-  #                      paste("nd", node_attribute_target_stats$attr$rural$node.ids, 
-  #                            "_@HH", node_attribute_target_stats$attr$rural$hh.ids))
-  #                ,
-  #                vjust = 1.5, size = 1.5) + # Add node and household labels
-  # scale_color_discrete(name = "Household") +  # Legend for household color
-  # theme_void() +                          # Minimalistic theme for network graphs
-  # ggtitle("Edges and nodes in the rural home layer")
-
+    show.legend = FALSE)
 home_layer_fig 
 
 # Validating network statistics 
@@ -80,7 +63,6 @@ table(
 nw %v% "hh.id") %>% mean
 
 ## degrange
-
 degree(igraph_net) %>% table() %>% barplot()
 
 

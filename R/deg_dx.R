@@ -60,10 +60,9 @@ control.args <-
 # intiate network
 nw_r <- initiate_nw(attri_tarstats = node_attribute_target_stats, network = "rural")
 
-# try nonhome layer
+# Model fitting for nonhome layer
 target_nmix_vec_nh_r <- nmix_tar_lex(
 node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome)
-
 
 
 diss_nh_r <- 
@@ -73,7 +72,6 @@ diss_nh_r <-
 
 
 ## saturated model for age mixing
-
 tstat_nh_r <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
                 target_nmix_vec_nh_r$target_nmix_vec[- 1] # ,  #  edges counts from nodemix, excluding the first non-zero edge
                 #c(node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1]
@@ -91,13 +89,12 @@ model1 <-
 
 
 ## nodemix model adding degree(0) term
-
 tstat_nh_r_deg <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
                 target_nmix_vec_nh_r$target_nmix_vec[- 1]  ,  #  edges counts from nodemix, excluding the first non-zero edge
-                #node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
+                node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
                 # number of nodes w/ weighted degree of 0 - 43 (the target stat) doesn't work and running of netest failed
                 # 30,25 netest can be run but the simulated mean = 0.
-                20 # values that work with the input target stat being successfully simulated: 10, 20
+                #20 # values that work with the input target stat being successfully simulated: 10, 20
                 ) 
 
 
@@ -111,9 +108,9 @@ model2 <-
 
 model2$fit$coefficients
 
-## Edge only model with degree term - this would evalute whether the degree term works w/o the age mixing
+## Edge-only model with degree term - this would evalute whether the degree term works w/o the age mixing
 tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                         25
+                         20
                     #node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
 ) 
 
@@ -128,7 +125,9 @@ model3 <-
 
 ## Edge only model with degrange(from =0, to=1) - doesn't work
 tstat_nh_r_degrange_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                         sum(node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1:2])
+                          sum(node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1:2]
+                               )
+                         
 ) 
 model4 <- 
   netest(nw= nw_r$nw_nh,
@@ -152,58 +151,55 @@ model5 <-
 
 
 
+## Edge-only model with degree(0:3)
+tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
+                         
+                         node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[c(1:4)] 
+) 
+
+model8 <- 
+  netest(nw= nw_r$nw_nh,
+         formation = ~edges +degree(0:3), 
+         target.stats = tstat_nh_r_deg_edge  , 
+         coef.diss = diss_nh_r,
+         set.control.ergm = control.args$sto_apoxy
+  )
+
+## Edge-only model with degree(3)
+tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
+                         
+                         node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[c(4)] 
+) 
+
+model8 <- 
+  netest(nw= nw_r$nw_nh,
+         formation = ~edges +degree(3), 
+         target.stats = tstat_nh_r_deg_edge  , 
+         coef.diss = diss_nh_r,
+         set.control.ergm = control.args$sto_apoxy
+  )
+
+## Edge-only model with degree(1:3)
+tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
+                         node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[c(2:4)] 
+) 
+
+model9 <- 
+  netest(nw= nw_r$nw_nh,
+         formation = ~edges +degree(1:3), 
+         target.stats = tstat_nh_r_deg_edge  , 
+         coef.diss = diss_nh_r,
+         set.control.ergm = control.args$sto_apoxy
+  )
+
+
+
 ############## Model diagnosis  ##############
 
 
 # Validation assessment for model without degree(0) term - the simulated degree is 7.3, which significantly underestimate the nodes without edge
-dx_1 <-
-  netdx(model1,
-        nsims =  30,
-        ncores = 10,
-        nsteps = 1000,
-        nwstats.formula =  ~edges +nodemix("age.grp", levels2 =  -1)+degree(0),
-        set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 1000000, # 2) bumping up from 200000
-                                                         MCMC.interval = 50000), # 2) bumping up from 25000
-        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
-        ),
-        dynamic = T,
-        skip.dissolution = FALSE
-  )
-
-
-# Calibration assessment for model nodemix + degree(0) term 
-dx_2 <-
-  netdx(model2,
-        nsims =  30,
-        ncores = 10,
-        nsteps = 1000,
-        nwstats.formula =  ~edges +nodemix("age.grp", levels2 =  -1)+degree(0),
-        set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 1000000, # 2) bumping up from 200000
-                                                         MCMC.interval = 50000), # 2) bumping up from 25000
-        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
-        ),
-        dynamic = T,
-        skip.dissolution = FALSE
-  )
-
-# Calibration assessment for edge model + degree(0) term 
-dx_3 <-
-  netdx(model2,
-        nsims =  30,
-        ncores = 10,
-        nsteps = 1000,
-        nwstats.formula =  ~edges +degree(0),
-        set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 1000000, # 2) bumping up from 200000
-                                                         MCMC.interval = 50000), # 2) bumping up from 25000
-        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
-        ),
-        dynamic = T,
-        skip.dissolution = FALSE
-  )
-
-# Assessment for edge model + degrange(from=4) term - the simulated degree0 is 4 which is significantly underestimated
-dx_5 <-
-  netdx(model5,
+dx <-
+  netdx(model9,
         nsims =  30,
         ncores = 10,
         nsteps = 1000,
@@ -216,13 +212,19 @@ dx_5 <-
         skip.dissolution = FALSE
   )
 
+
+
+
+
 ## check degree distribution of the simulated data
+N = node_attribute_target_stats$attr$rural %>% nrow()
+
 library(ggplot2)
-test <- dx_5$stats.table.formation %>% tibble::rownames_to_column(., var = "degree type") %>% slice(-1) %>%  
-  mutate(`Sim Mean` = `Sim Mean`/118) %>% # convert to proportion of nodes
+test <- dx$stats.table.formation %>% tibble::rownames_to_column(., var = "degree type") %>% slice(-c(1)) %>%  
+  mutate(`Sim Mean` = `Sim Mean`/N) %>% # convert to proportion of nodes
   ggplot(., aes(x = `degree type`, y = `Sim Mean`)) +
   geom_bar(stat = "identity", fill = "steelblue") +
-  theme_minimal() +
+  theme_classic() +
   labs(x = "Degree Type", y = "Sim Mean", title = "Sim Mean by Degree Type") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 test
