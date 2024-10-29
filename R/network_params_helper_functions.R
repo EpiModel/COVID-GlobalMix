@@ -963,26 +963,18 @@ proportion_hh_members <- function(hh_age){
   
   
   ## Step 3: Calculate the number of children living with adults / total number of children
-  # Define the function to calculate the proportion of children with an adult (20-59y) in the household
-  
-  # Define a function to check if a household has an adult (20-59y)
-  has_adult <- function(age_list) {
-    return("20-59y" %in% age_list)
-  }
   
   # Count the total number of children (0-19y) in the household
   count_children <- function(age_list) {
     return(sum(age_list == "0-19y"))
   }
-  
-  # For each household (row), we use "has_adult" to record whether that household has ≥1 adults 
-  hh_member_age$has_adult <- sapply(hh_member_age$hh_member_age, has_adult)
+
   
   # For each household (row), we use "count_children" to record the number of children (those aged "0-19y")
   hh_member_age$children_count <- sapply(hh_member_age$hh_member_age, count_children)
   
-  # Filter only households with ≥ adult (20-59y) and calculate the total number of children in these households
-  children_with_adult <- sum(hh_member_age$children_count[hh_member_age$has_adult])
+  # Filter only households with adult (20-59y) and calculate the total number of children in these households
+  children_with_adult <- sum(hh_member_age$children_count[hh_member_age$adult])
   
   # Total number of children in all households
   total_children <- sum(hh_member_age$children_count)
