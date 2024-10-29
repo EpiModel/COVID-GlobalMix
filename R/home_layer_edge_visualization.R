@@ -23,7 +23,7 @@ tail_vec = node_attribute_target_stats$node_hh_assign$edgelist$rural$tail.node.i
 
 ## Assign the heads and tails to the network item by node id
 ### note: node.id serve as a global node id which are unique across the whole network
-# the edges by head and tail are added using the global node ids - while household ids are not intentionally added, the edges of the same households are inherently grouped together
+# the edges by head and tail are added using the global node ids - there's no need to add household ids as the edges of the same households are inherently grouped together
 # hence, the edge adding is independent of household ids and solely depends on the node ids
 nw <- network::add.edges(
   nw,
@@ -53,7 +53,7 @@ ggraph(igraph_net, layout = 'fr') +       # "fr" pulls connected nodes together
     color = 
       factor(node_attribute_target_stats$attr$rural$hh.ids)
     ), 
-    size = 1,
+    size = 3,
     show.legend = FALSE)
 home_layer_fig 
 
@@ -65,4 +65,12 @@ nw %v% "hh.id") %>% mean
 ## degrange
 degree(igraph_net) %>% table() %>% barplot()
 
+## number of households
+get_vertex_attribute(nw, "hh.id"
+) %>% unique %>% length() # 32 househholds
+
+component <- 
+sna::component.dist(nw)
+
+component$csize %>% length()
 
