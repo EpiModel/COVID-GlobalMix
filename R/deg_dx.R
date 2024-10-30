@@ -1,9 +1,9 @@
 # Evaluate fitting of degree statistics
 library(EpiModel); library(dplyr);library(tibble)
 
-# setting up the environment for rural school layer 
 
-percent_target_pop = 0.001
+percent_target_pop = 0.1 # or 0.001; 0.1 and 0.001 correspond to 10% and 0.1% of target population, respectively
+
 
 
 # helper functions
@@ -15,19 +15,21 @@ source("R/netest_helper_functions.R")
 node_attribute_target_stats <- 
   readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", percent_target_pop, ".Rds"))
 
+N = node_attribute_target_stats$attr$rural %>% nrow # number of nodes
+
 ## summary statistics, provides duration of contacts
 netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
 
 
-############## Recode low degree at school layer to 0  ##############
-# For both the urban and rural school layers, we recode those degree <1 to 0 to make netest viable
-# For urban school layer the low values were <0.01, this threshold is used for the re-coding - this can make netest run, but netdx shows poor fit
-node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School[
-  node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School <1] <- 0
-
-# For rural school layer the low values were <10, this threshold is used for the re-coding 
-node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School[
-  node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School <1] <- 0
+# ############## Recode low degree at school layer to 0  ##############
+# # For both the urban and rural school layers, we recode those degree <1 to 0 to make netest viable
+# # For urban school layer the low values were <0.01, this threshold is used for the re-coding - this can make netest run, but netdx shows poor fit
+# node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School[
+#   node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School <1] <- 0
+# 
+# # For rural school layer the low values were <10, this threshold is used for the re-coding 
+# node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School[
+#   node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School <1] <- 0
 
 
 
@@ -61,10 +63,11 @@ control.args <-
 nw_r <- initiate_nw(attri_tarstats = node_attribute_target_stats, network = "rural")
 
 # Model fitting for nonhome layer
+## Nodemix target statistics
 target_nmix_vec_nh_r <- nmix_tar_lex(
 node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome)
 
-
+## Duration statistics
 diss_nh_r <- 
   dissolution_coefs(dissolution = ~offset(edges), 
                     duration = netstats$dissolution %>% filter(study_site == "Rural" & contact_location == "Nonhome") %>% pull(know_contact_duration)
@@ -88,13 +91,10 @@ model1 <-
 
 
 
-## nodemix model adding degree(0) term
+##  model with saturated nodemix terms and degree(0) term
 tstat_nh_r_deg <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
                 target_nmix_vec_nh_r$target_nmix_vec[- 1]  ,  #  edges counts from nodemix, excluding the first non-zero edge
                 node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
-                # number of nodes w/ weighted degree of 0 - 43 (the target stat) doesn't work and running of netest failed
-                # 30,25 netest can be run but the simulated mean = 0.
-                #20 # values that work with the input target stat being successfully simulated: 10, 20
                 ) 
 
 
@@ -104,14 +104,14 @@ model2 <-
          target.stats = tstat_nh_r_deg , 
          coef.diss = diss_nh_r,
          set.control.ergm = control.args$sto_apoxy
-  ) # the running with a target stat of 43 for degree(0) fails, suggest the stat may be too high
+  ) 
 
 model2$fit$coefficients
 
-## Edge-only model with degree term - this would evalute whether the degree term works w/o the age mixing
+## Edge-only model with degree(0) term - this would evaluate whether the degree term works w/o the age mixing
 tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                         20
-                    #node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
+                        #N*0.16 # this scenario assumes 16% of nodes are isolated
+                    node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
 ) 
 
 model3 <- 
@@ -129,10 +129,11 @@ tstat_nh_r_degrange_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # 
                                )
                          
 ) 
+
 model4 <- 
   netest(nw= nw_r$nw_nh,
          formation = ~edges + degrange(from = 0, to =1), 
-         target.stats = tstat_nh_r_degrange_edge  , 
+         target.stats = tstat_nh_r_degrange_edge, 
          coef.diss = diss_nh_r,
          set.control.ergm = control.args$sto_apoxy
   )
@@ -153,11 +154,10 @@ model5 <-
 
 ## Edge-only model with degree(0:3)
 tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                         
                          node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[c(1:4)] 
 ) 
 
-model8 <- 
+model10 <- 
   netest(nw= nw_r$nw_nh,
          formation = ~edges +degree(0:3), 
          target.stats = tstat_nh_r_deg_edge  , 
@@ -199,7 +199,7 @@ model9 <-
 
 # Validation assessment for model without degree(0) term - the simulated degree is 7.3, which significantly underestimate the nodes without edge
 dx <-
-  netdx(model9,
+  netdx(model9, # this can be any of the above models
         nsims =  30,
         ncores = 10,
         nsteps = 1000,
@@ -217,11 +217,9 @@ dx <-
 
 
 ## check degree distribution of the simulated data
-N = node_attribute_target_stats$attr$rural %>% nrow()
-
 library(ggplot2)
 test <- dx$stats.table.formation %>% tibble::rownames_to_column(., var = "degree type") %>% slice(-c(1)) %>%  
-  mutate(`Sim Mean` = `Sim Mean`/N) %>% # convert to proportion of nodes
+  mutate(`Sim Mean` = `Sim Mean`/N) %>% # convert the simulated mean to to proportion of nodes
   ggplot(., aes(x = `degree type`, y = `Sim Mean`)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   theme_classic() +
