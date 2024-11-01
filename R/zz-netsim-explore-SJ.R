@@ -75,3 +75,54 @@ colMeans(g)
 
 g2 <- ergm(nw ~ edges + degcor, target.stats = c(1250, -0.078))
 
+nw <- network_initialize(1000)
+nb <- sample(1:100, 1000, TRUE)
+nw <- set_vertex_attribute(nw, "nb", nb)
+
+n <- names(summary(nw ~ nodemix("nb", levels2 = NULL)))
+n2 <- strsplit(n, "[.]")
+n3 <- sapply(1:length(n2), function (x) length(unique(as.numeric(n2[[x]][3:4]))))
+
+nm.levels <- which(n3 > 1)
+nm.ts <- rep(0, length(nm.levels))
+
+e <- ergm(nw ~ edges + nodemix("nb", levels2 = nm.levels), target.stats = c(1395, nm.ts))
+g1 <- simulate(e, nsim = 1000, monitor = nw ~ nodematch("nb"), output = "stats")
+colMeans(g1)[c(1, ncol(g1))]
+
+
+nw <- network_initialize(1000)
+nb <- sample(1:10, 1000, TRUE)
+nw <- set_vertex_attribute(nw, "nb", nb)
+
+g <- ergm(nw ~ edges + offset(nodematch("nb")), target.stats = c(1395), offset.coef = Inf)
+g <- simulate(g)
+summary(g ~ edges + nodematch("nb"))
+mean(get_degree(g))
+table(get_degree(g))
+table(component.dist(g, connected = "weak")$csize)
+components(g, connected = "weak")
+
+
+
+nw <- network.initialize(1000, directed = FALSE)
+nb <- sample(1:50, 1000, TRUE)
+nw <- set_vertex_attribute(nw, "nb", nb)
+
+n <- names(summary(nw ~ nodemix("nb", levels2 = NULL)))
+n2 <- strsplit(n, "[.]")
+n3 <- sapply(1:length(n2), function(x) length(unique(as.numeric(n2[[x]][3:4]))))
+
+nm.levels <- which(n3 > 1)
+nm.ts <- rep(0, length(nm.levels))
+nm.coef <- rep(-Inf, length(nm.levels))
+
+e <- ergm(nw ~ edges + nodemix("nb", levels2 = nm.levels), target.stats = c(1395, nm.ts), 
+          offset.coef = nm.ts, eval.loglik = FALSE)
+g1 <- simulate(e, nsim = 1000, monitor = nw ~ nodematch("nb"), output = "stats")
+colMeans(g1)[c(1, ncol(g1))]
+
+e <- ergm(nw ~ edges + offset(nodemix("nb", levels2 = nm.levels)), target.stats = c(1395), 
+          offset.coef = nm.ts, eval.loglik = FALSE)
+g1 <- simulate(e, nsim = 1000, monitor = nw ~ nodematch("nb"), output = "stats")
+colMeans(g1)[c(1, ncol(g1))]
