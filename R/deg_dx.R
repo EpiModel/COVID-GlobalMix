@@ -60,7 +60,7 @@ control.args <-
   )
 
 # intiate network
-nw_r <- initiate_nw(attri_tarstats = node_attribute_target_stats, network = "rural")
+nw_r <- initiate_nw(attr = node_attribute_target_stats$attr, network = "rural")
 
 # Model fitting for nonhome layer
 ## Nodemix target statistics
@@ -94,7 +94,7 @@ model1 <-
 ##  model with saturated nodemix terms and degree(0) term
 tstat_nh_r_deg <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
                 target_nmix_vec_nh_r$target_nmix_vec[- 1]  ,  #  edges counts from nodemix, excluding the first non-zero edge
-                node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
+                node_attribute_target_stats$degrange$rural$Nonhome[1] 
                 ) 
 
 
@@ -104,14 +104,14 @@ model2 <-
          target.stats = tstat_nh_r_deg , 
          coef.diss = diss_nh_r,
          set.control.ergm = control.args$sto_apoxy
-  ) 
+  ) # now there aren't errors
 
 model2$fit$coefficients
 
 ## Edge-only model with degree(0) term - this would evaluate whether the degree term works w/o the age mixing
 tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
                         #N*0.16 # this scenario assumes 16% of nodes are isolated
-                    node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
+                        node_attribute_target_stats$degrange$rural$Nonhome[1] 
 ) 
 
 model3 <- 
@@ -193,20 +193,45 @@ model9 <-
   )
 
 
+# Model fitting for school layer
+## Edge-only model with degree(0) term - this would evaluate whether the degree term works w/o the age mixing
+
+
+tstat_s_r_deg_edge <- c(node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% sum, # total edge
+                        
+                        node_attribute_target_stats$degrange$rural$School[1] 
+) 
+
+diss_s_r <- 
+  dissolution_coefs(dissolution = ~offset(edges), 
+                    duration = netstats$dissolution %>% filter(study_site == "Rural" & contact_location == "School") %>% pull(know_contact_duration)
+  )
+
+
+model_s <- 
+  netest(nw= nw_r$nw_s,
+         formation = ~edges +degree(0), 
+         target.stats = tstat_s_r_deg_edge  , 
+         coef.diss = diss_s_r,
+         set.control.ergm = control.args$sto_apoxy
+  )
+
+
 
 ############## Model diagnosis  ##############
 
 
 # Validation assessment for model without degree(0) term - the simulated degree is 7.3, which significantly underestimate the nodes without edge
 dx <-
-  netdx(model9, # this can be any of the above models
+  netdx(model_s, # this can be any of the above models
         nsims =  30,
         ncores = 10,
         nsteps = 1000,
         nwstats.formula =  ~edges +degree(0:9),
-        set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 1000000, # 2) bumping up from 200000
-                                                         MCMC.interval = 50000), # 2) bumping up from 25000
-        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
+        # ~edges +nodemix("age.grp", levels2 =  -1)+degree(0),
+        set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 200000, # 2) bumping up from 200000
+                                                         MCMC.interval = 25000), # 2) bumping up from 25000
+        set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 50000 # 1) bumping up from 50000
         ),
         dynamic = T,
         skip.dissolution = FALSE
@@ -230,6 +255,8 @@ test
 
 
 
+# check the proportion of degree(O) at the school and work layers
+node_attribute_target_stats$degrange$rural %>% mutate_if(is.numeric,~ ./N)
 
 
 

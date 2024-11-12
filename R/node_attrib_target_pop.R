@@ -36,11 +36,11 @@ node.age.grp <-
 
 
 # function generating nodal attribute of contact status at each layer
-node.layer.contact <- function(deg.age.layer.dist_1day, target_age_dist){
+node.layer.contact <- function(deg.age.layer.dist_2day, target_age_dist){
   
   ## Extracting proportion of having any contact
   deg.layer.prop <- # deg.layer.prop stores the proportion w/ any contact at each age group
-    deg.age.layer.dist_1day %>% 
+    deg.age.layer.dist_2day %>% 
     filter(contact_status == 1 # filter out the proportion of having any contact
     ) %>% select(-contact_status) %>% pivot_longer(!layer, names_to = "age.grp", values_to = "gt_0_prop") # converting to long format to facilitate data manipulation
   
@@ -106,8 +106,6 @@ target_stats_age <-
   ){
     
     # Note form_stat[[1]] and form_stat[[2]] respectively are the edge_node_factor_match and mix_prop
-    # We first characterize the target statistics using the ARTnet approach. Then, using the matrix edge count,
-    # we use the ergm.ego approach to characterize the same type of target statistics.
     
     # Number of nodes between edges per age group, node-level, for nodefactor, by the approach used in ARTnet
     form_stat[[1]]$nf.age.grp <- 
@@ -116,7 +114,7 @@ target_stats_age <-
         target_age_dist %>% 
           rename(participant_age=target_age_grp) , 
         by = "participant_age"
-      ) %>% mutate(nf.ag.ego = single_day_nf_md*tar_pop # number of edges in each age group = md of each age group * number of node of each age group
+      ) %>% mutate(nf.ag.ego = two_day_nf_md*tar_pop # number of edges in each age group = md of each age group * number of node of each age group
       ) 
     
     
@@ -124,7 +122,7 @@ target_stats_age <-
     # Total Edges, edge-level, for edge, by the approach used in ARTnet
     form_stat[[1]]$edge <-
       form_stat[[1]]$edge %>%
-      mutate(edges=single_day_md/2*sum(target_age_dist$tar_pop) # the crude total number of edges = overall MD/2 * total population across all age groups in a network
+      mutate(edges=two_day_md/2*sum(target_age_dist$tar_pop) # the crude total number of edges = overall MD/2 * total population across all age groups in a network
       ) %>% # the reason /2 is used here is because this is a edge-level statistic, this way didn't adjust for the age distribution of the target population.
       left_join(
         form_stat[[1]]$nf.age.grp %>% group_by(contact_location) %>%
@@ -141,7 +139,7 @@ target_stats_age <-
       left_join(form_stat[[1]]$nf.age.grp %>% select(participant_age, contact_location, nf.ag.ego), by = c("participant_age", "contact_location")  # number of nodes in age group
       ) %>% 
       mutate(
-        nm.ag.artnet= (nf.ag.ego/2)*single_day_nm_md # adapted from ARTnet: number of match edge in each age group = (number of nodes in each age group /2) * prop of matched nodes, the reason 2 is here is because this is an edge-level statistic
+        nm.ag.artnet= (nf.ag.ego/2)*two_day_nm_md # adapted from ARTnet: number of match edge in each age group = (number of nodes in each age group /2) * prop of matched nodes, the reason 2 is here is because this is an edge-level statistic
       )
     
     
@@ -153,7 +151,7 @@ target_stats_age <-
     
     #  Number of edges of a specific age-mixing pattern, edge-level, for node mix - this also forms a matrix for edge count
     
-    ## Define a function for the calculation of total number of edges for a single age mixing pattern
+    ## Define a function for the calculation of total number of edges for a age mixing pattern
     mix_edge_num <- 
       function(grp.a, grp.b, asymmetric_mix_matrix., nf.ag_layer.){ 
         # grp.a and grp.b are the two contacting age groups , asymmetric_mix_matrix. is the mixing matrix with bidirectional mixing proportion (i.e., mixing between grp a and grp b and grp b and grp a),
@@ -239,7 +237,7 @@ target_stats_age <-
     edge_ct_matrix$Nonhome[is.na(edge_ct_matrix$Nonhome)] <- 0  #  nonhome
     
     
-    ## For school and work layers, zeroing out ties in the upper triangular matrix
+    ## For school and work layers, zeroing out ties in the upper triangular matrix of some age groups
     ### For school of both networks, zeroing out ties of 60+y column to 0
     edge_ct_matrix$School[,6] <- 0
     ### For work of both networks, zeroing out ties of <= 19y rows to 0
@@ -305,6 +303,7 @@ post_stratification <-
   function(prop_parti,# age of each study participant
            modeled_pop_dta,# age of modeled population
            degree_2d){
+    
     outputs  <-  list()
     
     # Compare age distribution of study and modeled populations
@@ -319,39 +318,55 @@ post_stratification <-
     
     outputs$w_ai <- wai
     
-    ## Apply weight to each study participant's degre
-    weighted_degree <- 
-      degree_2d %>%  # degree of individual i of the study population
-      # joining weight to the degree dataframe
-      left_join(., wai, by = "participant_age") %>% 
-      mutate(
-        n_contacts_1d= n_contacts/2,# we consider the single-day degree as half of two-day degree - n_contacts is the 2-day degree
-        weighted_deg = round(n_contacts_1d*weight) 
-      ) 
+    # Proportion of a specific degree type among the study population, age-stratified
+    deg_age.grp <- table(degree_2d$contact_location, degree_2d$n_contacts, degree_2d$participant_age)
     
-    outputs$weighted_degree <- weighted_degree
+    ## Initialize an empty list to store the proportion dataframes
+    deg_age.grp_proportion_unw<- deg_age.grp_proportion_w <-  list()
+    target_age_grp <- c("0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y")
     
-    ## preparing dataframe for visualization
-    ### weighted degree
-    ct_w <-  table(weighted_degree$contact_location, weighted_degree$weighted_deg) # degree count of each degree type, by contact location
-    ct_w <- as.data.frame.matrix(t(ct_w)) %>% rownames_to_column(., var="deg_type")  # transform to a dataframe
+    ## for each age group, calculate the proportions
+    for (i in 1:6) {
+      
+      # Use prop.table with margin = 1 to calculate row-wise proportions
+      proportion_matrix <- prop.table(as.matrix(deg_age.grp[,,i]), margin = 1)
+      
+      # Sum the columns with degree type >= 4 and create a new column for them
+      merged_column <- rowSums(proportion_matrix[, 5:ncol(proportion_matrix)])
+      
+      # Subset to keep only columns for degrees < 4 and add the merged column
+      ## unweighted
+      proportion_matrix <- cbind(proportion_matrix[, 1:4], ">=4" = merged_column)
+      
+      ## weighted
+      proportion_matrix_w <-
+        proportion_matrix*
+        (wai %>% filter(participant_age == target_age_grp[i]) %>% pull(weight)
+         )
+      
+      # Store the modified matrix as a dataframe in the list
+      ## unweighted
+      deg_age.grp_proportion_unw[[target_age_grp[i]]] <- 
+        as.data.frame(t(proportion_matrix))
+      
+      ## weighted
+      deg_age.grp_proportion_w[[target_age_grp[i]]] <- 
+        as.data.frame(t(proportion_matrix_w))
+      
+    }
     
-    ### unweighted degree
-    ct_un_w <- table(weighted_degree$contact_location, round(weighted_degree$n_contacts_1d)) # degree count of each degree type
-    ct_un_w <- as.data.frame.matrix(t(ct_un_w)) %>% rownames_to_column(., var="deg_type")  # transform to a dataframe
+    # summing over all age group to get the overall proportion
+    deg_proportion_unw <-  Reduce("+", deg_age.grp_proportion_unw)
+    deg_proportion_w <- Reduce("+", deg_age.grp_proportion_w)
     
-    ### calculate proportion in each degree type
-    prop_both <- rbind(ct_w %>% mutate(weight_type="weighted"), 
-                       ct_un_w %>% 
-                         mutate(weight_type="unweighted"
-                         )
-    ) %>% 
-      mutate_if(is.numeric, ~ . / 624) %>%  # normalize
-      mutate(deg_type = as.factor(as.numeric(deg_type)))
+    # normalize to [0,1]
+    deg_proportion_unw_rescale <-  prop.table(as.matrix(deg_proportion_unw), margin = 2) 
+    deg_proportion_w_rescale <-  prop.table(as.matrix(deg_proportion_w), margin = 2) 
     
-    prop_w <-  prop_both %>% filter(weight_type =="weighted")
-    
-    outputs$adjusted_prop <- prop_w
+
+    outputs$age_specific$ deg_age.grp_proportion_unw <- deg_age.grp_proportion_unw; outputs$age_specific$ deg_age.grp_proportion_w <- deg_age.grp_proportion_w
+    outputs$deg_proportion$deg_proportion_unw <-  deg_proportion_unw; outputs$deg_proportion$deg_proportion_w <-  deg_proportion_w;
+    outputs$deg_proportion_rescale$deg_proportion_unw_rescale <- deg_proportion_unw_rescale ;  outputs$deg_proportion_rescale$deg_proportion_w_rescale <- deg_proportion_w_rescale 
     
     
     outputs
@@ -359,37 +374,50 @@ post_stratification <-
 
 
 # Function to calculate proportion of having contact by age group and layer using the signle-day weighted degree
-contact_prop_age_layer <- 
-  function(weighted_degree){
-    # Summarizing the data to calculate proportion of having any contact by contact_location and participant_age
-    contact_summary <- weighted_degree %>%
-      mutate(contact_status = ifelse(weighted_deg > 0, 1, 0)) %>%
-      group_by(contact_location, participant_age, contact_status) %>%
-      summarize(count = n()) %>% ungroup %>% 
-      group_by(contact_location, participant_age) %>%
-      mutate(proportion = count / sum(count)) %>%
-      ungroup()
-    
-    
-    wt_deg.age.layer.dist_1days <- contact_summary %>% select(-count) %>% 
-      pivot_wider(names_from = c(participant_age), values_from = proportion) %>% 
-      select(`0-9y`, `10-19y`, `20-29y`, `30-39y`, `40-59y`,  `60+y`, contact_status, contact_location) %>%
-      mutate(across(everything(), ~ replace_na(., 0))) %>% as.data.frame() %>% rename(layer = contact_location )
-    
-    wt_deg.age.layer.dist_1days 
-  }
+# 
+# contact_prop_age_layer <- 
+#   function(degree_2d, wai){
+#     
+#     # Calculate weighted degree
+#     weighted_degree <- 
+#     degree_2d %>% left_join(., wai, by = "participant_age") %>% 
+#       mutate(weighted_deg = n_contacts*weight) # note that although the weight is included here, the proportion without adjust for it is the same
+#     
+#     # Summarizing the data to calculate proportion of having any contact by contact_location and participant_age
+#     contact_summary <- weighted_degree %>%
+#       mutate(contact_status = ifelse(weighted_deg > 0, 1, 0)) %>%
+#       group_by(contact_location, participant_age, contact_status) %>%
+#       summarize(count = n()) %>% ungroup %>% 
+#       group_by(contact_location, participant_age) %>%
+#       mutate(proportion = count / sum(count)) %>%
+#       ungroup()
+#     
+#     
+#     wt_deg.age.layer.dist_2days <- contact_summary %>% select(-count) %>% 
+#       pivot_wider(names_from = c(participant_age), values_from = proportion) %>% 
+#       select(`0-9y`, `10-19y`, `20-29y`, `30-39y`, `40-59y`,  `60+y`, contact_status, contact_location) %>%
+#       mutate(across(everything(), ~ replace_na(., 0))) %>% as.data.frame() %>% rename(layer = contact_location )
+#     
+#     wt_deg.age.layer.dist_2days 
+#   }
 
 
-# function characterizing individual-level summary statistics for the cross layer effect, using post-stratification weighted degree 
-assoc_btw_layers <- function(contact_count_long){
+# function characterizing pre-requisites for the cross layer effect, using post-stratification weighted degree 
+assoc_btw_layers <- function(degree_2d, wai){
+  
+  # Calculate weighted degree
+  weighted_degree <- 
+    degree_2d %>% left_join(., wai, by = "participant_age") %>% 
+    mutate(weighted_deg = n_contacts*weight) # note that although the weight is included here, the proportion without adjust for it is the same
   
   # Note: things that are outputted from the function - single-day regression coefficients of the associations (coefficient_summary_1day), single-day predicted mean degrees conditioning on the other layer (mean_deg_1day),
   # single-day proportions of having contacts (deg.layer.dist_1day), and the raw data in wide-format (data_wide) for the regressions 
   
   ## Getting individual-level contact count at different locations by row through converting long format data to wide format 
   contact_count_wide  <- # single-day contact count in wide format
-    contact_count_long %>% data.frame()%>% 
-    tidyr::pivot_wider(names_from = "contact_location", values_from = "n_contacts"
+    weighted_degree %>% data.frame()%>% 
+    select(-c(weight, n_contacts)) %>% 
+    tidyr::pivot_wider(names_from = "contact_location", values_from = "weighted_deg"
     ) %>%  # 624 rows for rural and 624 rows for urban, each row for a participant and the degrees at different layers
     as.data.frame()
   
@@ -422,55 +450,55 @@ assoc_btw_layers <- function(contact_count_long){
   
   output_model$h_s <- 
     contact_count_wide %>% 
-    glm(Home~ School_cat, data=., family = poisson(link=log))
+    lm(Home~ School_cat, data=.)
   
   output_model$h_w <- 
     contact_count_wide %>% 
-    glm(Home~ Work_cat, data=., family = poisson(link=log))
+    lm(Home~ Work_cat, data=.)
   
   output_model$h_nh <- 
     contact_count_wide %>% 
-    glm(Home~ Nonhome_cat, data=., family = poisson(link=log)) 
+    lm(Home~ Nonhome_cat, data=.) 
   
   # Effects of other layers on School
   output_model$s_h <- 
     contact_count_wide %>% 
-    glm(School~ Home_cat, data=., family = poisson(link=log))
+    lm(School~ Home_cat, data=.)
   
   output_model$s_w <- 
     contact_count_wide %>% 
-    glm(School~ Work_cat , data=., family = poisson(link=log))
+    lm(School~ Work_cat , data=.)
   
   output_model$s_nh <- 
     contact_count_wide %>% 
-    glm(School~ Nonhome_cat , data=., family = poisson(link=log))
+    lm(School~ Nonhome_cat , data=.)
   
   # Effects of other layers on work 
   output_model$w_h <- 
     contact_count_wide %>% 
-    glm(Work~ Home_cat, data=., family = poisson(link=log))
+    lm(Work~ Home_cat, data=.)
   
   output_model$w_s <- 
     contact_count_wide %>% 
-    glm(Work~ School_cat , data=., family = poisson(link=log))
+    lm(Work~ School_cat , data=.)
   
   output_model$w_nh <- 
     contact_count_wide %>% 
-    glm(Work~ Nonhome_cat , data=., family = poisson(link=log))
+    lm(Work~ Nonhome_cat , data=.)
   
   
   # Effects of other layers on Nonhome
   output_model$nh_h <- 
     contact_count_wide %>% 
-    glm(Nonhome~ Home_cat, data=., family = poisson(link=log))
+    lm(Nonhome~ Home_cat, data=.)
   
   output_model$nh_s <- 
     contact_count_wide %>% 
-    glm(Nonhome~ School_cat , data=., family = poisson(link=log))
+    lm(Nonhome~ School_cat , data=.)
   
   output_model$nh_w <- 
     contact_count_wide %>% 
-    glm(Nonhome~ Work_cat , data=., family = poisson(link=log))
+    lm(Nonhome~ Work_cat , data=.)
   
   
   ############### Summarizing the two-day coefficients on a table ###############
@@ -493,7 +521,7 @@ assoc_btw_layers <- function(contact_count_long){
     )
   
   
-  ############### Characterizing single-day predicted degree of the modeled layer by other layers ###############
+  ############### Characterizing 2-day predicted degree of the modeled layer by other layers ###############
   # function to characterize the network statistics based on coefficients of Poisson regression
   effect_oth_layers <- 
     function(
@@ -501,10 +529,10 @@ assoc_btw_layers <- function(contact_count_long){
     ){
       
       out <- 
-        c(# single-day mean degree of the outcome (conditioned) layer when the predictive (conditioning) layer didn't have contact (labeled as "other_layer.0")
-          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*0), 
-          # single-day mean degree of the outcome layer when the predictive layer have any contact (labeled as "other_layer.1")
-          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*1) 
+        c(# 2-day mean degree of the outcome (conditioned) layer when the predictive (conditioning) layer didn't have contact (labeled as "other_layer.0")
+          layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*0, 
+          # 2-day mean degree of the outcome layer when the predictive layer have any contact (labeled as "other_layer.1")
+          layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*1
         )
       
       names(out) <- paste0( "other_layer", c("=0", "=1")) 
@@ -515,7 +543,7 @@ assoc_btw_layers <- function(contact_count_long){
     }
   
   
-  # Network statistics of the other layers at single-day scale 
+  # Network statistics of the other layers at 2-day scale 
   nf.deg.oth_layers <- 
     rbind(
       
@@ -585,9 +613,10 @@ assoc_btw_layers <- function(contact_count_long){
     )
   
   
+  
   ############### Characterizing the proportion of having and not having contact for each layer, and the raw mean degree ###############
   # Overall proportion, w/o stratifying for age
-  deg.layer.dist_1day <- 
+  deg.layer.dist_2day <- 
     rbind( # proportion
       prop.table(table(contact_count_wide$Home_cat)),
       prop.table(table(contact_count_wide$School_cat)),
@@ -598,7 +627,7 @@ assoc_btw_layers <- function(contact_count_long){
     mutate(layer = c("Home", "School", "Work", "Nonhome"))
   
   # age-stratified proportion, for generating nodal attribute
-  deg.age.layer.dist_1day <- 
+  deg.age.layer.dist_2day <- 
     rbind(
       # Home
       prop.table(
@@ -624,11 +653,11 @@ assoc_btw_layers <- function(contact_count_long){
     mutate(
       contact_status = rep(c(0,1), 4),
       layer = rep(c("Home", "School", "Work", "Nonhome"), each =2)
-    ); row.names(deg.age.layer.dist_1day) <- NULL
+    ); row.names(deg.age.layer.dist_2day) <- NULL
   
   ############### Outputting ###############
-  output$coefficient_summary_1day <- tb_slope; output$mean_deg_1day <-  nf.deg.oth_layers;
-  output$deg.layer.dist_1day <- deg.layer.dist_1day; output$deg.age.layer.dist_1day <- deg.age.layer.dist_1day
+  output$coefficient_summary_2day <- tb_slope; output$mean_deg_2day <-  nf.deg.oth_layers;
+  output$deg.layer.dist_2day <- deg.layer.dist_2day; output$deg.age.layer.dist_2day <- deg.age.layer.dist_2day
   output$data_wide <- contact_count_wide
   
   output
@@ -644,10 +673,10 @@ target_stats_x_layer <-
   ){
     
     # Load things needed for characterizing the cross-layer target statistics
-    prop_contact <- x_layer_items$deg.layer.dist_1day # proportion of having any contact at a 1-day scale
-    cond_mean_deg <- x_layer_items$mean_deg_1day # conditioned mean single-day degree
-    coefficient <- # Poisson regression coefficient for the cross-layer effects
-      x_layer_items$coefficient_summary_1day %>% data.frame() %>% 
+    prop_contact <- x_layer_items$deg.layer.dist_2day # proportion of having any contact at a 2-day scale
+    cond_mean_deg <- x_layer_items$mean_deg_2day # conditioned mean 2-day degree
+    coefficient <- # Linear regression coefficient for the cross-layer effects
+      x_layer_items$coefficient_summary_2day %>% data.frame() %>% 
       tibble::rownames_to_column(var="association") %>% rename(coefficient=2, p_value =5) %>% 
       select(association, coefficient, p_value)
     
@@ -705,90 +734,12 @@ target_stats_x_layer <-
 
 
 # function to calculate target statistics for degree and degrange terms
-deg_target_stats <- function(N_nodes, deg_dist)
-{
-  output <- list()
+deg_target_stats <- 
+  function(N_nodes, deg_dist){
   
   # target statistics
-  ## create range categories
-  deg_dist <- 
-    deg_dist %>% mutate(deg_type = as.numeric(as.character(deg_type))
-    ) %>% mutate( # create categories for the the following model: degree(0:3)+ degrange(from=4).
-      deg_range_5cat = case_when(
-        deg_type >=4  ~ ">=4",
-        T ~ as.character(deg_type))
-    ) %>% 
-    group_by(deg_range_5cat) %>% 
-    summarise(prop_h=sum(Home), 
-              prop_s=sum(School),
-              prop_w=sum(Work),
-              prop_nh=sum(Nonhome)
-    )
+  data.frame(deg_dist*N_nodes) %>% rownames_to_column(var= "deg_range_5cat")
   
-  prop_df <- deg_dist %>% select(deg_range_5cat, prop_s) %>% rename(prop=2)
-  
-  allocate_people <- function(N_nodes, prop_df) {
-    
-    
-    # Calculate the expected allocation by multiplying the total number of people by the proportions
-    prop_df$expected_allocation <- prop_df$prop * N_nodes
-    
-    # Round the expected allocation to the nearest integer
-    prop_df$N_nodes_age <- round(prop_df$expected_allocation)
-    
-    # Check the difference between the sum of N_nodes_age and the total number of people
-    difference <- N_nodes - sum(prop_df$N_nodes_age)
-    
-    # Adjust the allocation to ensure the sum equals the total number of people
-    if (difference != 0) {
-      # Sort the data frame by the decimal part of expected allocation to adjust rounding
-      prop_df$decimal_part <- prop_df$expected_allocation - floor(prop_df$expected_allocation)
-      
-      # Adjust the allocation by distributing the difference
-      if (difference > 0) {
-        # Increase the N_nodes_age for the groups with the largest decimal parts
-        prop_df <- prop_df[order(-prop_df$decimal_part), ]
-        prop_df$N_nodes_age[1:difference] <- prop_df$N_nodes_age[1:difference] + 1
-      } else {
-        # Reduce the N_nodes_age for the groups with the smallest decimal parts
-        prop_df <- prop_df[order(prop_df$decimal_part), ]
-        prop_df$N_nodes_age[1:abs(difference)] <- prop_df$N_nodes_age[1:abs(difference)] - 1
-      }
-      
-      prop_df$decimal_part <- NULL
-    }
-    
-    # Drop the decimal_part column and arrange rows
-    prop_df <- 
-      prop_df %>% 
-      mutate(deg_range_5cat= factor(deg_range_5cat, levels = c("0", "1", "2", "3", ">=4")
-      )
-      ) %>% 
-      arrange(deg_range_5cat)
-    
-    # Return the final allocation
-    prop_df
-  }
-  
-  ## calculate total proportion for each range category
-  ### home
-  output$Home <-
-    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_h) %>% rename(prop=2))
-  
-  ### School
-  output$School <-
-    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_s) %>% rename(prop=2))
-  
-  ### Work
-  output$Work <-
-    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_w) %>% rename(prop=2))
-  
-  
-  ### Nonhome
-  output$Nonhome <-
-    allocate_people(N_nodes = N_nodes, prop_df = deg_dist %>% select(deg_range_5cat, prop_nh) %>% rename(prop=2))
-  
-  output
   
 }
 
@@ -802,7 +753,7 @@ node_hh_assign <-
     prop.hh.with.elderly,
     #observed proportions of children with adults. 
     prop.children.with.adult, 
-    #observed frequency if household only with children 
+    #observed frequency of household only with children 
     freq.hh.child.only,
     # mean degree calculated from the age mixing matrix of edge count
     mean.deg,
@@ -1008,42 +959,46 @@ node_attrib_target_pop <-
     
     # Calculate post-stratification proportion for each degree type
     ## rural
-    dists_r_1d <- 
+    dists_r_2d <- 
       post_stratification(
-        prop_parti=netstats$formation$formation_stats_rural$degree_related$prop_parti, 
-        modeled_pop_dta = node.age.grp.rural %>% rename(node.age.grp = target_age_grp) %>% select(node.age.grp), # from this script
-        degree_2d= netstats$formation$formation_stats_rural$degree_related$contact_count_2d %>% data.frame() #contact counts at 2-day scale , better to be from last script
+        prop_parti=netstats$formation$formation_stats_rural$degree_related$prop_parti, # age distribution of study participants
+        modeled_pop_dta = node.age.grp.rural %>% rename(node.age.grp = target_age_grp) %>% select(node.age.grp), # age groups of nodes for deriving age distributino of modeled population
+        degree_2d= netstats$formation$formation_stats_rural$degree_related$contact_count_2d %>% data.frame() # raw contact counts at 2-day scale
       )
     
     
     ## urban
-    dists_u_1d <- 
+    dists_u_2d <- 
       post_stratification(
         prop_parti=netstats$formation$formation_stats_urban$degree_related$prop_parti,
-        modeled_pop_dta = node.age.grp.urban %>% rename(node.age.grp = target_age_grp) %>% select(node.age.grp), # from this script
-        degree_2d= netstats$formation$formation_stats_urban$degree_related$contact_count_2d %>% data.frame() #contact counts at 2-day scale 
+        modeled_pop_dta = node.age.grp.urban %>% rename(node.age.grp = target_age_grp) %>% select(node.age.grp), 
+        degree_2d= netstats$formation$formation_stats_urban$degree_related$contact_count_2d %>% data.frame() # raw contact counts at 2-day scale 
       )
     
     # Generating nodal attribute of contact status at each layer, with proportion of contact specific to each age group
-    ## Calculate the proportion of having contact based on the post-stratified degree
+    
+    ## Characterize items related to individual-level cross-layer effect
     ### rural
-    contact_prop_age_layer_rural <- 
-    contact_prop_age_layer(
-      weighted_degree = dists_r_1d$weighted_degree %>% select(rec_id, contact_location, participant_age, weighted_deg)
-    ) 
+    x_layer_indiv_stat_rural <- 
+      assoc_btw_layers(
+        degree_2d = netstats$formation$formation_stats_rural$degree_related$contact_count_2d,
+        wai = dists_r_2d$w_ai
+      )
     ### urban
-    contact_prop_age_layer_urban <- 
-      contact_prop_age_layer(
-        weighted_degree = dists_u_1d$weighted_degree %>% select(rec_id, contact_location, participant_age, weighted_deg)
-      ) 
+    x_layer_indiv_stat_urban <- 
+      assoc_btw_layers(
+        degree_2d = netstats$formation$formation_stats_urban$degree_related$contact_count_2d,
+        wai = dists_u_2d$w_ai
+      )
+
     
     ## generate nodal attribute of binary contact status for the x-layer effect
     node.contact.layer.rural <- 
-      node.layer.contact(deg.age.layer.dist_1day = contact_prop_age_layer_rural, 
+      node.layer.contact(deg.age.layer.dist_2day = x_layer_indiv_stat_rural$deg.age.layer.dist_2day, #  proportion of having contact based on the post-stratified degree
                          target_age_dist = target_age_distribut %>% filter( network == "rural") %>% select(target_age_grp, tar_pop) # tar_pop is the number of modeled population
       ) # rural network
     node.contact.layer.urban <- 
-      node.layer.contact(deg.age.layer.dist_1day = contact_prop_age_layer_urban, 
+      node.layer.contact(deg.age.layer.dist_2day = x_layer_indiv_stat_urban$deg.age.layer.dist_2day, 
                          target_age_dist = target_age_distribut %>% filter( network == "urban") %>% select(target_age_grp, tar_pop)
       ) # urban network
     
@@ -1150,13 +1105,13 @@ node_attrib_target_pop <-
     deg_tstat_r <- 
       deg_target_stats(
         N_nodes = n_node_rural,
-        deg_dist = dists_r_1d$adjusted_prop)
+        deg_dist = dists_r_2d$deg_proportion_rescale$deg_proportion_w_rescale)
     
     ## urban
     deg_tstat_u <- 
       deg_target_stats(
         N_nodes = n_node_urban,
-        deg_dist = dists_u_1d$adjusted_prop)
+        deg_dist =  dists_u_2d$deg_proportion_rescale$deg_proportion_w_rescale)
     
     # proportion of having and not having contact calculated from the post-stratified degree
     
@@ -1164,22 +1119,7 @@ node_attrib_target_pop <-
     ############## Target statistics (cross-layer effects) ##############
     nf.x.layer <- list()
     
-    # individual-level effect
-    ## rural
-    x_layer_indiv_stat_rural <- 
-      assoc_btw_layers(contact_count_long = 
-                         dists_r_1d$weighted_degree %>% 
-                         select(rec_id, contact_location, participant_age, weighted_deg) %>% 
-                         rename(n_contacts= weighted_deg) 
-      )
-    ## urban
-    x_layer_indiv_stat_urban <- 
-      assoc_btw_layers(contact_count_long = 
-                         dists_u_1d$weighted_degree %>% 
-                         select(rec_id, contact_location, participant_age, weighted_deg) %>% 
-                         rename(n_contacts= weighted_deg) 
-      )
-    
+
     # target statistics
     ## Note - we adjust for the cross-layer effect between school and work and vice versa for the modeling but all effects are outputted here
     ## rural
@@ -1221,7 +1161,7 @@ node_attrib_target_pop <-
     
     
     ## nodemix(age.grp)
-    ### Note; for urban work layer, the edge count of 10-19y of the assortative mixing in the edge-count matrix has been re-coded to zero, along with the other edge counts of 10-19y.
+    ### Note: for school and work layers of both networks, the edge counts of some older and younger age groups were recoded to 0. Please refer to notes in the target_stats_age function for details
     
     ## nodematch(age.grp)
     ### Note: since the assortative edge counts in nodemix are the same as nodematch, we exclude the target statistics of nodemath from the final output

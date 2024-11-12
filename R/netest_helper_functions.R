@@ -1,13 +1,13 @@
 
 # sub-function to initiate a network and assign nodal attribute of age group and layer-specific contact status to that network
 initiate_nw <- 
-  function(attri_tarstats, network){
+  function(attr, network){
     
     # Create a list to store things for output
     output <- list()  
     
     # Total number of nodes in each network
-    n_node = attri_tarstats$attr[[network]] %>% nrow() 
+    n_node = attr[[network]] %>% nrow() 
     
     # Initiate nodes
     nw <- network_initialize(n_node)
@@ -15,28 +15,28 @@ initiate_nw <-
     # Adding age attribute to the nodes
     ## Age group
     nw <- set_vertex_attribute(nw, attrname = "age.grp",
-                                      value= as.character(attri_tarstats$attr[[network]]$node.age.grp )
+                                      value= as.character(attr[[network]]$node.age.grp )
     )
     
     ## Continuous age
     nw <- set_vertex_attribute(nw, attrname = "age",
-                                      value= attri_tarstats$attr[[network]]$node.age
+                                      value= attr[[network]]$node.age
     )
     
     # Adding household id to the home layer
     output$nw_h <- set_vertex_attribute(nw, attrname = "hh_id", 
-                                        value = attri_tarstats$attr[[network]]$hh)
+                                        value = attr[[network]]$hh)
 
     
     # Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
     ## For school as the conditioned layer
     output$nw_s <- set_vertex_attribute(nw, attrname = "deg.x_layer", 
-                                        value = attri_tarstats$attr[[network]]$contact_attribute_Work
+                                        value = attr[[network]]$contact_attribute_Work
     )
     
     ## For work as the conditioned layer
     output$nw_w <- set_vertex_attribute(nw, attrname = "deg.x_layer",
-                                        value = attri_tarstats$attr[[network]]$contact_attribute_School
+                                        value = attr[[network]]$contact_attribute_School
     )
     
     # The non-home layer only contains the age attributes

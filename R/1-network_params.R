@@ -3,16 +3,11 @@
 ####### Characterization of network statistics for GlobalMix India Data #######
 
 # Methodological notes
-# (1) There are two ways to derive network summary statistics, one is fitting poisson models to individual-level count data, 
+# (1) We use a common definition of an “edge” for a persistent network throughout this script and its functions: a contact between two people that has existed over a two-day period that we sampled from.
+# (2) There are two ways to derive network summary statistics, one is fitting poisson models to individual-level count data, 
 # the other is based on summarizing contact data - the approach used in CorporateMix. Given it is easier to devise uncertainties using the glm method, 
 # we go with this approach to calculate the summary network statistics. We regrouped the age categories in the first two decades of life by decade. 
-
-# (2) We excluded contacts lasted ≤ 15 mins in analysis, given the interest on respiratory-related diseases. 
-
-# (3) Given the data were egocentric, at the single-day scale, we use $M.D.=\frac{number of contacts}{n}$ to calculate mean degree. 
-# Given the data are of contacts over two days, the single-day mean degree of of contact is half of the mean degree of two-day contact;
-# However, the proportion of observing an edge at the two-day scale is the same as the single-day scale.
-
+# (3) We excluded contacts lasted ≤ 15 mins in analysis, given the interest on respiratory-related diseases. 
 # (4) Characterization of network layers: The network layers is processed from multiple questions asking contact locations. 
 # Given these questions are not mutually exclusive due to the check-box design in REDCap, we characterized contact location as the 
 # location of primary contact, following the order of home, school, work, non-home (excluding work and school). That is: 
@@ -53,7 +48,7 @@ india_contact <-
 
 table(india_contact$hh_membership, india_contact$study_site )
 
-# Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact
+# Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact. Also, the number of rural and urban participants are both equal to 624
 
 # Merging participant and contact data and processing them
 india_mix <- participant_contact_merge(india_participant = india_participant, india_contact = india_contact) # the age group in india_participant is also been updated
@@ -94,8 +89,7 @@ prop_parti_urban <-
 
 
 # function calculates two-day proportions of mixing between age groups of participant and contact 
-# Note: 1)given both the numerator (i.e., number of edges matched to a patterm) and denominator (i.e., total number od edges in a layer) are divided by 2 for converting two- to one-day scale, 
-#the two-day proportion is the same as the single-day propotion. 2) We characterize the proportion using both the glm and summary methods for cross-validation.
+# Note: We have characterized the proportion using both the glm and summary methods for cross-validation.
 # Characterizing mixing proportions by layer
 ## Note: the following use the mix_prop function to characterize the mixing proportion for all contact layers
 ## define function settings
@@ -138,28 +132,6 @@ mix_prop_urban_layers
 edge_node_factor_match_rural <- edge_node_factor_match(contact_count_site = contact_count_rural)
 edge_node_factor_match_urban <- edge_node_factor_match(contact_count_site = contact_count_urban)
 
-
-# Correlation between layers
-## Characterization of regression coefficients
-## Function assessing associations of degree between layers using Poisson regression, with dichotomized degree as independent variable. 
-layer_assoc_rural <- assoc_btw_layers(contact_count_long=contact_count_rural$contact_degree)
-layer_assoc_urban <- assoc_btw_layers(contact_count_long=contact_count_urban$contact_degree) 
-
-## Visual evaluation of correlation between layers and assessing effect sizes
-### We tabulated the degrees between layers. We observed the following - in both the rural and urban networks, the contacts at school and work are relatively separated
-### spearman correlation,rural
-layer_assoc_rural$data_wide %>% select(-c(rec_id, participant_age, Nonhome_cat, Home_cat, School_cat, Work_cat)) %>% 
-  ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
-)
-)
-layer_assoc_rural$coefficient_summary
-
-### spearman correlation,urban
-layer_assoc_urban $data_wide %>% select(-c(rec_id, participant_age, Nonhome_cat, Home_cat, School_cat, Work_cat)) %>% 
-  ggpairs(upper = list(continuous = wrap("cor", method = "spearman")
-  )
-  )
-layer_assoc_urban$coefficient_summary
 
 
 ########################## Characterizing dissolution statistics of contact duration at school and work ##########################
@@ -224,11 +196,11 @@ formation_stats_rural <- formation_stats_urban <- network_stats <- list()
 
 formation_stats_rural$edge_node_factor_match_rural <- edge_node_factor_match_rural
 formation_stats_rural$mix_prop_rural_layers <- mix_prop_rural_layers
-formation_stats_rural$layer_assoc_rural <- layer_assoc_rural
+
 
 formation_stats_urban$edge_node_factor_match_urban <- edge_node_factor_match_urban
 formation_stats_urban$mix_prop_urban_layers <- mix_prop_urban_layers
-formation_stats_urban$layer_assoc_urban <- layer_assoc_urban
+
 
 ### individual-level raw 2-day degree, age distribution of participants
 formation_stats_rural$degree_related$contact_count_2d <- contact_count_rural$contact_degree; formation_stats_rural$degree_related$prop_parti <- prop_parti_rural # rural

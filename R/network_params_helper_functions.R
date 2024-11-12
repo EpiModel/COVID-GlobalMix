@@ -146,16 +146,16 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
     india_mix.site %>%
     group_by(rec_id, contact_location, fromdayone, .drop = F)%>% summarise(n_contacts = n()) %>% # summarizing number of contacts by characteristics included in "group_by"
     ungroup() %>% 
-    mutate(
-      n_contacts = case_when(
-        contact_location %in% c("Home", "Work","School") ~ n_contacts, # for these layers, a replicated contact is counted as unique contact
-        contact_location %in% c("Nonhome" ) & fromdayone == "Both days" ~ n_contacts*2, # for non-home layer, a replicated contact is counted as two contact
-        contact_location %in% c("Nonhome" ) & fromdayone %in% c("Day 1", "Day 2") ~ n_contacts, # for non-home layer, a unique contact is counted as one contact
-        T ~ n_contacts # for observation with fromdayone information missed, we return the original n_contacts
-      )  
-    )%>% 
-    group_by(rec_id, contact_location, .drop = F) %>% summarise(n_contacts = sum(n_contacts)
-    ) %>% ungroup() %>% # total number of contacts of each participant at each contact location over two days
+    # mutate(
+    #   n_contacts = case_when(
+    #     contact_location %in% c("Home", "Work","School") ~ n_contacts, # for these layers, a replicated contact is counted as unique contact
+    #     contact_location %in% c("Nonhome" ) & fromdayone == "Both days" ~ n_contacts*2, # for non-home layer, a replicated contact is counted as two contact
+    #     contact_location %in% c("Nonhome" ) & fromdayone %in% c("Day 1", "Day 2") ~ n_contacts, # for non-home layer, a unique contact is counted as one contact
+    #     T ~ n_contacts # for observation with fromdayone information missed, we return the original n_contacts
+    #   )  
+    # )%>% 
+    group_by(rec_id, contact_location, .drop = F) %>% summarise(n_contacts = sum(n_contacts)# total number of contacts of each participant at each contact location over all the day types (Day 1, Day 2, Both days)
+    ) %>% ungroup() %>% 
     # add the participants w/o contact to the data
     rbind(., 
           data.frame(
@@ -222,18 +222,18 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
            
     ) %>% 
     # select subset of variables for output
-    select(rec_id, contact_location, fromdayone, participant_age, contact_age, age.grp1_1:age.grp6_6
+    select(rec_id, contact_location,  participant_age, contact_age, age.grp1_1:age.grp6_6
     )
   
-  age.grp_mix_status <-
-    age.grp_mix_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we replicate it to two edges (i.e., two rows).
-    ) %>% 
-    rbind(., 
-          age.grp_mix_status %>% filter(
-            (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for other contacts/edges (than the above ones) and for those having missing value for fromdayone, we treat it as a single edge (i.e., one row).
-          ) 
-    ) %>% 
-    select(-fromdayone) # exclude this variable as it's not needed
+  # age.grp_mix_status <-
+  #   age.grp_mix_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we replicate it to two edges (i.e., two rows).
+  #   ) %>% 
+  #   rbind(., 
+  #         age.grp_mix_status %>% filter(
+  #           (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for other contacts/edges (than the above ones) and for those having missing value for fromdayone, we treat it as a single edge (i.e., one row).
+  #         ) 
+  #   ) %>% 
+  #   select(-fromdayone) # exclude this variable as it's not needed
   
   
   #### Status of whether age groups of participant and contact are the same, edge-level, for nodematch ####
@@ -244,15 +244,15 @@ contact_freq_site <- function(india_mix., india_participant., india_contact., st
     select(rec_id,  contact_location, fromdayone, participant_age, contact_age, same.age.grp
     )
   
-  same.age.grp_status <- 
-    same.age.grp_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we treat it as two edges (i.e., two rows).
-    ) %>% 
-    rbind(., 
-          same.age.grp_status %>% filter(
-            (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for other contacts/edges (than the above ones) and for those having missing value for fromdayone, we treat it as a single edge (i.e., one row).
-          ) 
-    ) %>% 
-    select(-fromdayone) # exclude this variable as it's not needed
+  # same.age.grp_status <- 
+  #   same.age.grp_status %>% filter(fromdayone == "Both days" & contact_location == "Nonhome")%>% slice(rep(1:n(), each = 2) # for a contacts/edges that repeated over the two-day period at the non-home layer, we treat it as two edges (i.e., two rows).
+  #   ) %>% 
+  #   rbind(., 
+  #         same.age.grp_status %>% filter(
+  #           (!(fromdayone == "Both days" & contact_location == "Nonhome")) | is.na(fromdayone) # for other contacts/edges (than the above ones) and for those having missing value for fromdayone, we treat it as a single edge (i.e., one row).
+  #         ) 
+  #   ) %>% 
+  #   select(-fromdayone) # exclude this variable as it's not needed
   
   
   
@@ -408,18 +408,18 @@ edge_node_factor_match <- function(contact_count_site){
     fit_edge %>% 
     mutate(
       # single-day mean degree, original scale
-      single_day_md = exp(Estimate)/2, # the 2 here is two covert the 2 to 1 day scale
+      two_day_md = exp(Estimate)#,
       
-      # calculation, log-link scale
-      two_day_sd_link = `Std. Error`*sqrt(n_participants_site), # two-day standard deviation for the coefficient at the log scale
-      single_day_sd_link = two_day_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
-      single_day_se_link = single_day_sd_link/sqrt(n_participants_site), # single-day standard error for the coefficient at the log scale
-      single_day_md_link = log(single_day_md),
-      
-      # uncertainties, original scale
-      single_day_lower95ci = exp(single_day_md_link -1.96*single_day_se_link),
-      single_day_upper95ci =  exp(single_day_md_link +1.96*single_day_se_link)
-    ) %>% select(single_day_md, single_day_lower95ci, single_day_upper95ci
+      # # calculation, log-link scale
+      # two_day_sd_link = `Std. Error`*sqrt(n_participants_site), # two-day standard deviation for the coefficient at the log scale
+      # single_day_sd_link = two_day_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
+      # single_day_se_link = single_day_sd_link/sqrt(n_participants_site), # single-day standard error for the coefficient at the log scale
+      # single_day_md_link = log(single_day_md),
+      # 
+      # # uncertainties, original scale
+      # single_day_lower95ci = exp(single_day_md_link -1.96*single_day_se_link),
+      # single_day_upper95ci =  exp(single_day_md_link +1.96*single_day_se_link)
+    ) %>% select(two_day_md #, single_day_lower95ci, single_day_upper95ci
     )
   
   
@@ -437,36 +437,36 @@ edge_node_factor_match <- function(contact_count_site){
   nf <- data.frame() 
   for (i in 1:4 # characterize mean degree and uncertainties for each layer
   ) {
-    fit_nf_single <- 
+    fit_nf_ego <- 
       contact_count_site$contact_degree %>% filter(contact_location == levels(contact_count_site$contact_degree$contact_location)[i]) %>% 
       glm(n_contacts~ -1+participant_age, data=., family = poisson) %>% summary() # coefficients of each age group for two-day contact rate
     
-    fit_nf_single <- fit_nf_single$coefficients %>% as.data.frame()
+    fit_nf_ego <- fit_nf_ego$coefficients %>% as.data.frame()
     
-    fit_nf_single <-
-      fit_nf_single%>% rownames_to_column() %>% 
+    fit_nf_ego <-
+      fit_nf_ego%>% rownames_to_column() %>% 
       rename(participant_age=1) %>% mutate(participant_age= str_remove(participant_age, "participant_age") 
       ) %>% 
       left_join(
         n_participants_nf_site
       )
     
-    fit_nf_single <- 
-      fit_nf_single %>% 
+    fit_nf_ego <- 
+      fit_nf_ego %>% 
       mutate(
-        # single-day mean degree, original scale
-        single_day_nf_md = exp(Estimate)/2, # the 2 here is two covert the 2 to 1 day scale
+        # two-day mean degree, original scale
+        two_day_nf_md = exp(Estimate), 
         
-        # calculation, log-link scale
-        two_day_nf_sd_link = `Std. Error`*sqrt(n_participants_nf_site), # two-day standard deviation for the coefficient at the log scale
-        single_day_nf_sd_link = two_day_nf_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
-        single_day_nf_se_link = single_day_nf_sd_link/sqrt(n_participants_nf_site), # single-day standard error for the coefficient at the log scale
-        single_day_nf_md_link = log(single_day_nf_md), # single-day mean degree, log scale
-        
-        # uncertainties, original scale
-        single_day_nf_lower95ci = exp(single_day_nf_md_link -1.96*single_day_nf_se_link),
-        single_day_nf_upper95ci =  exp(single_day_nf_md_link +1.96*single_day_nf_se_link)
-      ) %>% select(participant_age, single_day_nf_md, single_day_nf_lower95ci, single_day_nf_upper95ci
+        # # calculation, log-link scale
+        # two_day_nf_sd_link = `Std. Error`*sqrt(n_participants_nf_site), # two-day standard deviation for the coefficient at the log scale
+        # single_day_nf_sd_link = two_day_nf_sd_link/2,  # single-day standard deviation for the coefficient at the log scale
+        # single_day_nf_se_link = single_day_nf_sd_link/sqrt(n_participants_nf_site), # single-day standard error for the coefficient at the log scale
+        # single_day_nf_md_link = log(single_day_nf_md), # single-day mean degree, log scale
+        # 
+        # # uncertainties, original scale
+        # single_day_nf_lower95ci = exp(single_day_nf_md_link -1.96*single_day_nf_se_link),
+        # single_day_nf_upper95ci =  exp(single_day_nf_md_link +1.96*single_day_nf_se_link)
+      ) %>% select(participant_age, two_day_nf_md #, single_day_nf_lower95ci, single_day_nf_upper95ci
       ) %>% 
       mutate(contact_location = levels(contact_count_site$contact_degree$contact_location)[i]) # specify layer
     
@@ -475,7 +475,7 @@ edge_node_factor_match <- function(contact_count_site){
     
     
     nf <- 
-      rbind(nf, fit_nf_single)
+      rbind(nf, fit_nf_ego)
     
   }
   
@@ -497,16 +497,16 @@ edge_node_factor_match <- function(contact_count_site){
     ) # "n" is the total number of edges in each age group in a network
     
     
-    fit_nm_single <- 
+    fit_nm_two_day <- 
       data_nm %>% 
       glm(same.age.grp ~ -1+ participant_age,
           data = ., family = "binomial"
       )  %>% summary() # coefficients for matching proportion under each age group, this proportion is the same between the two-day and one-day scale
     
-    fit_nm_single <- fit_nm_single$coefficients %>% as.data.frame()
+    fit_nm_two_day <- fit_nm_two_day$coefficients %>% as.data.frame()
     
-    fit_nm_single <-
-      fit_nm_single%>% rownames_to_column() %>% 
+    fit_nm_two_day <-
+      fit_nm_two_day%>% rownames_to_column() %>% 
       rename(participant_age=1) %>% mutate(participant_age= str_remove(participant_age, "participant_age") 
       ) %>% 
       left_join(
@@ -514,27 +514,27 @@ edge_node_factor_match <- function(contact_count_site){
       )
     
     
-    fit_nm_single <- 
-      fit_nm_single %>% 
+    fit_nm_two_day <- 
+      fit_nm_two_day %>% 
       mutate(
-        # single-day mean degree, original scale
-        single_day_nm_md = expit(Estimate), # the proportion at the single-day scale is the same as the two-day scale
+        # two-day mean degree, original scale
+        two_day_nm_md = expit(Estimate), # the proportion at the two-day scale is the same as the two-day scale
         
-        # calculation, logit-link scale
-        two_day_nm_sd_link = `Std. Error`*sqrt(n), # two-day standard deviation for the coefficient at the logit scale. 
-        single_day_nm_sd_link = two_day_nm_sd_link/2,  # single-day standard deviation for the coefficient at the logit scale
-        single_day_nm_se_link = single_day_nm_sd_link/sqrt(n), # single-day standard error for the coefficient at the logit scale
-        single_day_nm_md_link = logit(single_day_nm_md), # single-day mean degree, logit scale
-        
-        # uncertainties, original scale
-        single_day_nm_lower95ci = expit(single_day_nm_md_link -1.96*single_day_nm_se_link),
-        single_day_nm_upper95ci =  expit(single_day_nm_md_link +1.96*single_day_nm_se_link)
-      ) %>% select(participant_age, single_day_nm_md, single_day_nm_lower95ci, single_day_nm_upper95ci
+        # # calculation, logit-link scale
+        # two_day_nm_sd_link = `Std. Error`*sqrt(n), # two-day standard deviation for the coefficient at the logit scale. 
+        # single_day_nm_sd_link = two_day_nm_sd_link/2,  # single-day standard deviation for the coefficient at the logit scale
+        # single_day_nm_se_link = single_day_nm_sd_link/sqrt(n), # single-day standard error for the coefficient at the logit scale
+        # single_day_nm_md_link = logit(single_day_nm_md), # single-day mean degree, logit scale
+        # 
+        # # uncertainties, original scale
+        # single_day_nm_lower95ci = expit(single_day_nm_md_link -1.96*single_day_nm_se_link),
+        # single_day_nm_upper95ci =  expit(single_day_nm_md_link +1.96*single_day_nm_se_link)
+      ) %>% select(participant_age, two_day_nm_md#, single_day_nm_lower95ci, single_day_nm_upper95ci
       ) %>% 
       mutate(contact_location = levels(contact_count_site$same.age.grp_status$contact_location)[i]) # specify layer
     
     nm <- 
-      rbind(nm, fit_nm_single)
+      rbind(nm, fit_nm_two_day)
     
   }
   
@@ -549,7 +549,7 @@ edge_node_factor_match <- function(contact_count_site){
 assoc_btw_layers <- function(contact_count_long # contact count over the two days for each participant
 ){
   
-  # Note: things that are outputted from the function - Two-day regression coefficients of the associations (coefficient_summary_2days), single-day predicted mean degrees conditioning on the other layer (mean_deg_1day),
+  # Note: things that are outputted from the function - Two-day regression coefficients of the associations (coefficient_summary_2days), two-day predicted mean degrees conditioning on the other layer,
   # two-day proportions of having contacts (deg.layer.dist_2days), and the raw data in wide-format (data_wide) for the regressions 
   
   ## Getting individual-level contact count at different locations by row through converting long format data to wide format 
@@ -662,7 +662,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
     )
   
   
-  ############### Characterizing single-day predicted degree of the modeled layer by other layers ###############
+  ############### Characterizing two-day predicted degree of the modeled layer by other layers ###############
   # function to characterize the network statistics based on coefficients of Poisson regression
   effect_oth_layers <- 
     function(
@@ -670,10 +670,10 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
     ){
       
       out <- 
-        c(# single-day mean degree of the outcome layer when the predictive layer didn't have contact
-          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*0)/2, # the 2 here to covert the two-day MD to single-day MD
-          # single-day mean degree of the outcome layer when the predictive layer have any contact
-          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*1)/2 # the 2 here to covert the two-day MD to single-day MD
+        c(# two-day mean degree of the outcome layer when the predictive layer didn't have contact
+          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*0), 
+          # two-day mean degree of the outcome layer when the predictive layer have any contact
+          exp(layer_assoc$coefficients[1]+layer_assoc$coefficients[2]*1) 
         )
       
       names(out) <- paste0( "other_layer", c("=0", "=1"))
@@ -684,7 +684,7 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
     }
   
   
-  # Network statistics of the other layers at single-day scale 
+  # Network statistics of the other layers at two-day scale 
   nf.deg.oth_layers <- 
     rbind(
       
@@ -743,11 +743,11 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
       
     )%>% 
     
-    # Comparing the predicted mean degs with the unadjusted mean degs of the modeled layer at the single-day scale
+    # Comparing the predicted mean degs with the unadjusted mean degs of the modeled layer at the two-day scale
     cbind(
       raw_md_modeled_layer = 
         rep(
-          apply(contact_count_wide %>% select(Home, School, Work, Nonhome), MARGIN = 2, mean) %>% as.numeric()/2, # the 2 here to covert the two-day MD to single-day MD
+          apply(contact_count_wide %>% select(Home, School, Work, Nonhome), MARGIN = 2, mean) %>% as.numeric(),
           each=3
           
         )
@@ -755,7 +755,6 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
   
   
   ############### Characterizing the proportion of having and not having contact for each layer, and the raw mean degree ###############
-  # check with Sam about whether the 2 should be used to divide the proportion for the single-day scale
   # Overall proportion, w/o stratifying for age
   deg.layer.dist_2days <- 
     rbind( # proportion
@@ -809,15 +808,13 @@ assoc_btw_layers <- function(contact_count_long # contact count over the two day
 know_dur <- function(india_mix.){
   
   #  Introduction:  
-  # For duration at the home layer, we assume it to be non-dissolving so it would be a large number. 
-  # For duration at the nonhome layer, we assume it refreshes daily. 
+  # For the home layer, we consider it to be saturated and deterministically assign edges, so no need to estimate duration. 
   # The duration of the school, work, and nonhome layer is characterized in the following way:
   # 1) We tabulate time of knowing a contact and contact frequency to retrieve the proportions of daily contact under each category of the duration of knowing the contact. 
   # 2) For a contact who is known less than ≤ 10 years, we took the mid point of each know contact category as the known duration. 
   # 3) For a contact who is known > 10 years, we characterize the known duration using "known_contact", participant's age, and contact's age. Details for the characterization of this category is documented in the "analysis_decision" file. 
   # 4) We multiply the proportion of daily contact (as weight) and the known duration to calculate the adjusted known duration. Then we sum over the margin of the categories as the duration.
-  # There are few contact whose participants' age is less than the reported know contact duration of > 10 yrs, rendering the characterized duration to be <0; we used the participant's age as the duration for these observations.
-  # Since the the following analysis is only applied to the school and work layer, there's no need to adjust for the replicated contacts as we consider them to be unique.  
+  # There are few contact whose participants' age is less than the reported known contact duration of > 10 yrs, rendering the characterized duration to be <0; we used the participant's age as the duration for these observations.
   
   #  Characterize the known duration for known_contact >10 yrs at the individual level
   known_dur_gt_10yr <- india_mix. %>% 
@@ -859,11 +856,11 @@ know_dur <- function(india_mix.){
     summarize(known_contact_avg = mean(known_duration_adj)*365 # converting duration in years to duration in days
     ) %>% ungroup()
   
-  # Characterize known duration of contact (in days) for all categories of durations
+  # Characterize known duration of contact (in days) for all categories of duration
   known_duration <-
     india_mix. %>% 
     # characterize frequency of daily contact 
-    filter(contact_location %in% c("School", "Work", "Nonhome")) %>%  # school and work layers are those we want to characterize the duration
+    filter(contact_location %in% c("School", "Work", "Nonhome")) %>%  
     droplevels() %>% 
     group_by(study_site, contact_location, frequency_contact, known_contact) %>%  
     tally() %>% # summarize frequency from tabulation of frequency_contact & known_contact, by network and layer
@@ -915,18 +912,11 @@ know_dur <- function(india_mix.){
     ) %>%   
     # weighted duration of contact
     summarize(know_contact_duration = sum(weighted_known_contact_d)
-    ) %>% ungroup() 
-  
-  # Combining characterized duration of the School, Work, and Nonhome layers with 1e6 of the Home layers
-  known_duration %>% 
-    rbind(.,
-          data.frame(
-            study_site = c("Rural", "Urban"),
-            contact_location = "Home",
-            know_contact_duration = 1e12) # duration at the magnitude of a trillion
-    ) %>% 
-    mutate(contact_location = factor(contact_location,   levels = c("Home", "School", "Work", "Nonhome"))) %>% 
+    ) %>% ungroup() %>% 
+    mutate(contact_location = factor(contact_location,   levels = c( "School", "Work", "Nonhome"))) %>% 
     arrange(study_site, contact_location)
+  
+  known_duration
   
 }
 
@@ -942,8 +932,8 @@ proportion_hh_members <- function(hh_age){
   
   
   ## Step 2: Calculate the relative proportion of hh_member_age by study day
-  ### prop.hh.with.child, prop.hh.with.adult, prop.hh.with.elderly are the proportions of households with children, adults, and elderlies, respectively. 
-  ### E.g., prop.hh.with.child is calculated as (the number of households with ≥1 children)/(the total number of households).
+  ### prop_hh_w_child , prop_hh_w_adult, prop_hh_w_elderly are the proportions of households with children, adults, and elderlies, respectively. 
+  ### E.g., prop_hh_w_child is calculated as (the number of households with ≥1 children)/(the total number of households).
   
   hh_member_age <- hh_member_age %>%
     mutate(
