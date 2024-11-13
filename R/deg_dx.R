@@ -8,7 +8,7 @@ percent_target_pop = 0.1 # or 0.001; 0.1 and 0.001 correspond to 10% and 0.1% of
 
 # helper functions
 source("R/netest_helper_functions.R")
-
+ 
 
 # Loading data
 ## target statistics
@@ -123,74 +123,6 @@ model3 <-
   )
 
 
-## Edge only model with degrange(from =0, to=1) - doesn't work
-tstat_nh_r_degrange_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                          sum(node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1:2]
-                               )
-                         
-) 
-
-model4 <- 
-  netest(nw= nw_r$nw_nh,
-         formation = ~edges + degrange(from = 0, to =1), 
-         target.stats = tstat_nh_r_degrange_edge, 
-         coef.diss = diss_nh_r,
-         set.control.ergm = control.args$sto_apoxy
-  )
-
-## Edge only model with degrange(from = 4,to=Inf) 
-tstat_nh_r_degrange_4plus_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                              node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[5]
-) 
-model5 <- 
-  netest(nw= nw_r$nw_nh,
-         formation = ~edges + degrange(from = 4, to =Inf), 
-         target.stats = tstat_nh_r_degrange_4plus_edge , 
-         coef.diss = diss_nh_r,
-         set.control.ergm = control.args$sto_apoxy
-  )
-
-
-
-## Edge-only model with degree(0:3)
-tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                         node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[c(1:4)] 
-) 
-
-model10 <- 
-  netest(nw= nw_r$nw_nh,
-         formation = ~edges +degree(0:3), 
-         target.stats = tstat_nh_r_deg_edge  , 
-         coef.diss = diss_nh_r,
-         set.control.ergm = control.args$sto_apoxy
-  )
-
-## Edge-only model with degree(3)
-tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                         
-                         node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[c(4)] 
-) 
-
-model8 <- 
-  netest(nw= nw_r$nw_nh,
-         formation = ~edges +degree(3), 
-         target.stats = tstat_nh_r_deg_edge  , 
-         coef.diss = diss_nh_r,
-         set.control.ergm = control.args$sto_apoxy
-  )
-
-## Edge-only model with degree(1:3)
-tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
-                         node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[c(2:4)] 
-) 
-
-model9 <- 
-  netest(nw= nw_r$nw_nh,
-         formation = ~edges +degree(1:3), 
-         target.stats = tstat_nh_r_deg_edge  , 
-         coef.diss = diss_nh_r,
-         set.control.ergm = control.args$sto_apoxy
-  )
 
 
 # Model fitting for school layer
@@ -253,10 +185,6 @@ test <- dx$stats.table.formation %>% tibble::rownames_to_column(., var = "degree
 test
 
 
-
-
-# check the proportion of degree(O) at the school and work layers
-node_attribute_target_stats$degrange$rural %>% mutate_if(is.numeric,~ ./N)
 
 
 
