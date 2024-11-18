@@ -23,24 +23,40 @@ initiate_nw <-
                                       value= attr[[network]]$node.age
     )
     
-    # Adding household id to the home layer
-    output$nw_h <- set_vertex_attribute(nw, attrname = "hh_id", 
-                                        value = attr[[network]]$hh)
+    # Adding edges to the home layer (i=1 in the loop)
+    ## A vector of heads and tails of each edge 
+    head_vec = node_attribute_target_stats$node_hh_assign$edgelist[[network]]$head.node.ids
+    tail_vec = node_attribute_target_stats$node_hh_assign$edgelist[[network]]$tail.node.ids
+    
+    
+    ## Assign the heads and tails to the home layer item by node id
+    ### note: node.id serve as a global id which are unique across the whole network
+    ### the edges by head and tail are added using the global node ids - there's no need to add household ids as the edges of the same households are inherently grouped together
+    ### hence, the edge adding is independent of household ids and solely depends on the node ids
+    nw_h <- network::add.edges(
+      nw,
+      head_vec, tail_vec) 
+    
+    # Assign household id to each node at home layer
+    ### note: although we assign hh.id attribute here, the adding of edge to nodes is completely independent from hh.id, detailed explanation is in below
+    output$nw_h <- set_vertex_attribute(nw_h, "hh.id", node_attribute_target_stats$attr$rural$hh.ids)
+    
 
     
     # Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
-    ## For school as the conditioned layer
+    ## For school as the conditioned layer (i=2 in the loop)
     output$nw_s <- set_vertex_attribute(nw, attrname = "deg.x_layer", 
                                         value = attr[[network]]$contact_attribute_Work
     )
     
-    ## For work as the conditioned layer
+    ## For work as the conditioned layer (i=3 in the loop)
     output$nw_w <- set_vertex_attribute(nw, attrname = "deg.x_layer",
                                         value = attr[[network]]$contact_attribute_School
     )
     
-    # The non-home layer only contains the age attributes
-    output$nw_nh <- nw
+    # The non-home layer only contains the age attributes (i=4 in the loop)
+    output$nw_nh <- nw 
+  
     
     output
     
@@ -108,7 +124,7 @@ formula_tarstats <-
     fst_gt0_edge <- which(target_nmix_vec_layer$target_nmix_vec != 0)[1]
     
     ## Define the formula of formation model
-    if (form_model == "nmix_saturate_nmatch_hh_id"){
+    if (form_model == "nmix_saturate_hh_id"){
       ### Fully saturate model for age mixing without x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
       frmn_fm <- 
         paste0(
@@ -122,7 +138,7 @@ formula_tarstats <-
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
                  target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge (i.e., 100% of edges are in the assortative mixing for hh_id) - IMPORTANT - update needed
-                 c(degrange$N_nodes_age[1])  # number of nodes w/ weighted degree of 0
+                 c(degrange[1])  # number of nodes w/ weighted degree of 0
       )
       
     } else if (form_model == "nmix_saturate"){
@@ -130,14 +146,15 @@ formula_tarstats <-
       frmn_fm <- 
         paste0(
           "~edges +",
-          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ") + degree(0)"
+          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ") 
+          #+ degree(0)"
         )
       frmn_fm <- as.formula(frmn_fm)
       
       ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
                  target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
-                 c(degrange$N_nodes_age[1]) # number of nodes w/ weighted degree of 0
+                 #c(degrange[1]) # number of nodes w/ weighted degree of 0
                  )
       
     } else if (form_model == "nmix_saturate_xlayer"){
@@ -146,7 +163,8 @@ formula_tarstats <-
         paste0(
           "~edges +",
           "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")+",
-          "nodefactor(\"deg.x_layer\", levels =-1) + degree(0)"  
+          "nodefactor(\"deg.x_layer\", levels =-1) 
+          #+ degree(0)"  
         )
       frmn_fm <- as.formula(frmn_fm)
       
@@ -155,7 +173,7 @@ formula_tarstats <-
         c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
           target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
           x_layer %>% pull(nf_other_layer_1), # x-layer effect
-          c(degrange$N_nodes_age[1]) # number of nodes w/ weighted degree of 0 - model-predicted number of populations;
+          #c(degrange[1]) # number of nodes w/ weighted degree of 0 - model-predicted number of populations;
         )
     } 
     
@@ -178,9 +196,9 @@ model_inputs <- function(attri_tarstats, dissolution){
   
   ############## Set up vertex attributes ##############
   # run the function to set up the nodal attributes 
-  nw_rural <- initiate_nw(attri_tarstats = attri_tarstats, network = "rural")
+  nw_rural <- initiate_nw(attr = attri_tarstats$attr, network = "rural")
   
-  nw_urban <- initiate_nw(attri_tarstats = attri_tarstats, network = "urban")
+  nw_urban <- initiate_nw(attr = attri_tarstats$attr, network = "urban")
   
   
   ############## Arrange target statistics for age mixing in lexicographic order  ##############
@@ -203,10 +221,10 @@ model_inputs <- function(attri_tarstats, dissolution){
   
   ## Argument specifications for each layer 
   layers <- c("Home", "School", "Work", "Nonhome") 
-  form_model_types <- c("nmix_saturate_nmatch_hh_id", "nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate")
+  form_model_types <- c("nmix_saturate_hh_id", "nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate")
   
-  for (i in 1:4) {
-    formula_tarstats_rural[[i]] <- 
+  for (i in 2:4) { # i starts from 2 to skip the home layer 
+    formula_tarstats_rural[[i-1]] <- # i-1 here is to have the list order of the school, work, and nonhome layers correspond to 1,2, and 3
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
@@ -216,7 +234,7 @@ model_inputs <- function(attri_tarstats, dissolution){
         dissolution_value = dissolution  %>% filter(study_site =="Rural") %>% filter(contact_location == layers[i]) %>% pull(know_contact_duration)
       )
     
-    formula_tarstats_urban[[i]] <- 
+    formula_tarstats_urban[[i-1]] <- # i-1 here is to have the list order of the school, work, and nonhome layers correspond to 1,2, and 3
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
@@ -227,7 +245,7 @@ model_inputs <- function(attri_tarstats, dissolution){
       )
     
   }
-  names(formula_tarstats_rural) <- names(formula_tarstats_urban) <- layers
+  names(formula_tarstats_rural) <- names(formula_tarstats_urban) <- layers[-1] # we use "-1" to skip the home layer
   
   # Output all things 
   output <- list()
@@ -244,36 +262,32 @@ est_nws <-
   function(control.arg, layer, site, model_input_items){
     
     if(site=="Rural"){ 
-      nw_attributes <- model_input_items$initiate_nw$Rural # network attributes of all layers
+      nw <- model_input_items$initiate_nw$Rural # network attributes of all layers
       model_inputs <- model_input_items$formula_tarstats$Rural # network statistics and formation model formula of all layers
     } else if (site =="Urban"){
-      nw_attributes <- model_input_items$initiate_nw$Urban
+      nw <- model_input_items$initiate_nw$Urban
       model_inputs <- model_input_items$formula_tarstats$Urban
     } else{}
     
     
-    # define nodal attribute for the model
-    if(
-      layer == "Home"
-    ){
-      nw_attributes_layer = nw_attributes$nw_h
-    } else if (
+    # define network for the model
+    if (
       layer == "School"
     ){
-      nw_attributes_layer = nw_attributes$nw_s
+      nw_layer = nw$nw_s
     } else if (
       layer == "Work"
     ){
-      nw_attributes_layer = nw_attributes$nw_w
+      nw_layer = nw$nw_w
     } else if (
       layer == "Nonhome"
     ){
-      nw_attributes_layer = nw_attributes$nw_nh
+      nw_layer = nw$nw_nh
     }else {}
     
     # model fitting for each layer
     est_layer <- 
-      netest(nw= nw_attributes_layer,
+      netest(nw= nw_layer,
              formation = model_inputs[[layer]]$frmn_fm, 
              target.stats = model_inputs[[layer]]$tstat, 
              coef.diss = model_inputs[[layer]]$diss,

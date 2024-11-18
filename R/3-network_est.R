@@ -14,11 +14,6 @@ suppressMessages(library(fs))
 # helper functions
 source("R/netest_helper_functions.R")
 
-# Inputs - note: this shold be unmuted when running the script through sbatch. Currently, we use slurmworkflow to submit jobs of this script to the HPC.
-# layer <- Sys.getenv("layer")
-# network <- Sys.getenv("network")
-# est_apch <- Sys.getenv("est_apch")
-# percent_target_pop <- Sys.getenv("percent_target_pop")
 
 # Loading data
 ## target statistics
@@ -70,7 +65,8 @@ control.args <-
       )
   )
 
-# Sourcing function to estimate model
+# Use function to estimate model
+if(layer %in% c("School", "Work", "Nonhome")){
 est <- est_nws(
   control.arg = control.args[[est_apch]],
   layer = layer,
@@ -83,6 +79,15 @@ file.name <- paste0(
   "data/netest_outputs/netest_",
   layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
 )
+} else{ # Home layer
+  est <- model_input_items$initiate_nw[[network]]$nw_h
+  
+  file.name <- paste0(
+    "data/netest_outputs/deterministic_",
+    layer, "__", network,"__",  percent_target_pop, ".Rds"
+  )
+  
+}
 
 # The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
 out_dir <- "data/netest_outputs"

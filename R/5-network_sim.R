@@ -1,4 +1,4 @@
-# Note: the purpose of this script is to simulate networks from the 4 layers of each network
+# Note: the purpose of this script is to simulate networks from the school, work, and nonhome layers of each network
 # The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
 # network = "Urban"/"Rural"
 # est_apch = "mcmle"/"sto_apoxy"
@@ -10,7 +10,7 @@ suppressMessages(library(EpiModel))
 suppressMessages(library(fs))
 
 # Load Data 
-layers <- c("Home", "School", "Work", "Nonhome")
+layers <- c( "School", "Work", "Nonhome")
 
 file.name_in <- 
     paste0("data/netest_outputs/netest_",
@@ -19,14 +19,12 @@ file.name_in <-
 
 ests <- list()
 
-ests$Home <- 
-  readRDS(file.name_in[1]) 
 ests$School <- 
-  readRDS(file.name_in[2]) 
+  readRDS(file.name_in[1]) 
 ests$Work <- 
-  readRDS(file.name_in[3]) 
+  readRDS(file.name_in[2]) 
 ests$Nonhome <- 
-  readRDS(file.name_in[4]) 
+  readRDS(file.name_in[3]) 
 
 # Dynamic network simulation
 ## Load function for dynamic network simulation
@@ -47,10 +45,9 @@ file.name <-
 source("R/reachable.R")
 
 # Transforming "networkDynamic" into a "cumulative edgelist" and save
-saveRDS(as_cumulative_edgelist(nw_sim$Home), file.name[1])
-saveRDS(as_cumulative_edgelist(nw_sim$School), file.name[2])
-saveRDS(as_cumulative_edgelist(nw_sim$Work), file.name[3])
-saveRDS(as_cumulative_edgelist(nw_sim$Nonhome), file.name[4])
+saveRDS(as_cumulative_edgelist(nw_sim$School), file.name[1])
+saveRDS(as_cumulative_edgelist(nw_sim$Work), file.name[2])
+saveRDS(as_cumulative_edgelist(nw_sim$Nonhome), file.name[3])
 
 # Saving "networkDynamic" for diagnosis
 saveRDS(nw_sim, 

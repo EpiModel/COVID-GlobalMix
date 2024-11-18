@@ -5,14 +5,14 @@ sim_network <- function(
   
   # Init network sim
   nw <- list()
-  for (i in 1:4) {
+  for (i in 1:3) {
     x <- est[[i]]
     nw[[i]] <- simulate(x$fit, basis = x$fit$newnetwork,
                         control = control.simulate.ergm(MCMC.burnin = 2e5)
     )
   } # nw contains simulations for the 4 layers
   
-  names(nw) <- c("Home", "School", "Work", "Nonhome")
+  names(nw) <- c("School", "Work", "Nonhome")
   
   # Dynamic time loop
   for (at in 1:nsteps) {
@@ -35,24 +35,12 @@ sim_network <- function(
     )
     
     ## reassign continuous and categorical age to the nodal attribute of the 4 layers
-    for (i in 1:4) {
+    for (i in 1:3) {
       nw[[i]] <- set_vertex_attribute(nw[[i]], attrname = "age" , 
                                       value =age)
       nw[[i]] <- set_vertex_attribute(nw[[i]], attrname = "age.grp", 
                                       value =age.grp)
     }
-    
-    # Simulate network for Home layer
-    nw[["Home"]] <- suppressWarnings(simulate(nw[["Home"]],
-                                         formation = est[["Home"]]$formation,
-                                         dissolution = est[["Home"]]$coef.diss$dissolution,
-                                         coef.form = est[["Home"]]$coef.form,
-                                         coef.diss = est[["Home"]]$coef.diss$coef.crude,
-                                         time.start = at,
-                                         time.slices = 1,
-                                         time.offset = 0,
-                                         monitor = "all",
-                                         output = "networkDynamic"))
     
     # Simulate network for Nonhome layer
     nw[["Nonhome"]] <- suppressWarnings(simulate(nw[["Nonhome"]],

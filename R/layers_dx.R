@@ -1,7 +1,7 @@
 layers_dx <- 
   function(est_nw){
     
-     # T-ERGM for home, school, work, and nonhome
+     # T-ERGM for school, work, and nonhome
       dx <-
         netdx(est_nw,
               nsims =  30,
@@ -12,7 +12,7 @@ layers_dx <-
                                                                MCMC.interval = 50000), # 2) bumping up from 25000
               set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
                                                                  ),
-              dynamic = F,
+              dynamic = T,
               skip.dissolution = FALSE
         )
     
