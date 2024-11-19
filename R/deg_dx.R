@@ -108,6 +108,8 @@ model2 <-
 
 model2$fit$coefficients
 
+
+
 ## Edge-only model with degree(0) term - this would evaluate whether the degree term works w/o the age mixing
 tstat_nh_r_deg_edge <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
                         #N*0.16 # this scenario assumes 16% of nodes are isolated
@@ -197,10 +199,60 @@ model9 <-
 ############## Model diagnosis  ##############
 
 
+tstat_nh_r_deg <- c(target_nmix_vec_nh_r$target_nmix_vec %>% sum(), # total edge
+                    target_nmix_vec_nh_r$target_nmix_vec[- 1]  ,  #  edges counts from nodemix, excluding the first non-zero edge
+                    node_attribute_target_stats$degrange$rural$Nonhome$N_nodes_age[1] 
+) 
+
+
+model2 <- 
+  netest(nw= nw_r$nw_nh,
+         formation = ~edges +nodemix("age.grp", levels2 =  -1)+degree(0), 
+         target.stats = tstat_nh_r_deg , 
+         coef.diss = diss_nh_r,
+         set.control.ergm = control.args$sto_apoxy
+  ) 
+
+model2 <- 
+  netest(nw= nw_r$nw_nh,
+         formation = ~edges + nodemix("age.grp", levels2 =  -1), 
+         target.stats = tstat_nh_r_deg[-length(tstat_nh_r_deg)], 
+         coef.diss = diss_nh_r
+  ) 
+
+model2 <- 
+  netest(nw= nw_r$nw_nh,
+         formation = ~edges + degree(0), 
+         target.stats = c(tstat_nh_r_deg[1], tstat_nh_r_deg[length(tstat_nh_r_deg)]), 
+         coef.diss = diss_nh_r
+  ) 
+
+nw <- network_initialize(n = 11781)
+fit <- netest(nw = nw,
+              formation = ~edges + degree(0), 
+              target.stats = c(17346, 4286), 
+              coef.diss = diss_nh_r
+) 
+
+dx <-
+  netdx(model2, # this can be any of the above models
+        nsims =  10,
+        ncores = 10,
+        nsteps = 1000,
+        nwstats.formula =  ~edges + nodemix("age.grp", levels2 = -1) + degree(0:9),
+        # set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 1000000, # 2) bumping up from 200000
+        #                                                  MCMC.interval = 50000), # 2) bumping up from 25000
+        # set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
+        # ),
+        dynamic = T,
+        skip.dissolution = FALSE
+  )
+print(dx)
+
 # Validation assessment for model without degree(0) term - the simulated degree is 7.3, which significantly underestimate the nodes without edge
 dx <-
-  netdx(model9, # this can be any of the above models
-        nsims =  30,
+  netdx(model2, # this can be any of the above models
+        nsims =  10,
         ncores = 10,
         nsteps = 1000,
         nwstats.formula =  ~edges +degree(0:9),
