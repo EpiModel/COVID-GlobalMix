@@ -37,7 +37,7 @@ node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_ma
 
 ############## Define items which will be read by netest  ##############
 model_input_items <- 
-model_inputs(node_attribute_target_stats = node_attribute_target_stats, dissolution = netstats$dissolution)
+model_inputs(node_attribute_target_stats = node_attribute_target_stats, dissolution = netstats$dissolution, layer = layer)
 
 if(layer %in% c("School", "Work", "Nonhome")){
 ############## Model estimation  ##############

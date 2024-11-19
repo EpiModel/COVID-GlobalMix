@@ -192,7 +192,7 @@ formula_tarstats <-
   }
 
 # top-level function reading nodal attributes, target statistics, the dissolution statistics of the Urban and Rural networks
-model_inputs <- function(node_attribute_target_stats, dissolution){
+model_inputs <- function(node_attribute_target_stats, dissolution, layer){
   
   ############## Set up vertex attributes ##############
   # run the function to set up the nodal attributes 
