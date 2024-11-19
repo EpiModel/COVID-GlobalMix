@@ -1,13 +1,13 @@
 
 # sub-function to initiate a network and assign nodal attribute of age group and layer-specific contact status to that network
 initiate_nw <- 
-  function(attr, network){
+  function(node_attribute_target_stats, network){
     
     # Create a list to store things for output
     output <- list()  
     
     # Total number of nodes in each network
-    n_node = attr[[network]] %>% nrow() 
+    n_node = node_attribute_target_stats$attr[[network]] %>% nrow() 
     
     # Initiate nodes
     nw <- network_initialize(n_node)
@@ -15,12 +15,12 @@ initiate_nw <-
     # Adding age attribute to the nodes
     ## Age group
     nw <- set_vertex_attribute(nw, attrname = "age.grp",
-                                      value= as.character(attr[[network]]$node.age.grp )
+                                      value= as.character(node_attribute_target_stats$attr[[network]]$node.age.grp )
     )
     
     ## Continuous age
     nw <- set_vertex_attribute(nw, attrname = "age",
-                                      value= attr[[network]]$node.age
+                                      value= node_attribute_target_stats$attr[[network]]$node.age
     )
     
     # Adding edges to the home layer (i=1 in the loop)
@@ -46,12 +46,12 @@ initiate_nw <-
     # Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
     ## For school as the conditioned layer (i=2 in the loop)
     output$nw_s <- set_vertex_attribute(nw, attrname = "deg.x_layer", 
-                                        value = attr[[network]]$contact_attribute_Work
+                                        value = node_attribute_target_stats$attr[[network]]$contact_attribute_Work
     )
     
     ## For work as the conditioned layer (i=3 in the loop)
     output$nw_w <- set_vertex_attribute(nw, attrname = "deg.x_layer",
-                                        value = attr[[network]]$contact_attribute_School
+                                        value = node_attribute_target_stats$attr[[network]]$contact_attribute_School
     )
     
     # The non-home layer only contains the age attributes (i=4 in the loop)
@@ -192,13 +192,13 @@ formula_tarstats <-
   }
 
 # top-level function reading nodal attributes, target statistics, the dissolution statistics of the Urban and Rural networks
-model_inputs <- function(attri_tarstats, dissolution){
+model_inputs <- function(node_attribute_target_stats, dissolution){
   
   ############## Set up vertex attributes ##############
   # run the function to set up the nodal attributes 
-  nw_rural <- initiate_nw(attr = attri_tarstats$attr, network = "rural")
+  nw_rural <- initiate_nw(node_attribute_target_stats = node_attribute_target_stats, network = "rural")
   
-  nw_urban <- initiate_nw(attr = attri_tarstats$attr, network = "urban")
+  nw_urban <- initiate_nw(node_attribute_target_stats = node_attribute_target_stats, network = "urban")
   
   if(layer %in% c("School", "Work", "Nonhome")
      ){
@@ -210,10 +210,10 @@ model_inputs <- function(attri_tarstats, dissolution){
   # Target statistics for age mixing
   ## Apply the function to each layer
   ### Rural
-  target_nmix_vec_rural <- lapply( attri_tarstats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix, nmix_tar_lex)
+  target_nmix_vec_rural <- lapply( node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix, nmix_tar_lex)
   
   ### Urban
-  target_nmix_vec_urban <- lapply( attri_tarstats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix, nmix_tar_lex)
+  target_nmix_vec_urban <- lapply( node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix, nmix_tar_lex)
   
   ############## Set up model formulas and network statistics  ##############
   # Use the function to specify models and network statistics
@@ -230,8 +230,8 @@ model_inputs <- function(attri_tarstats, dissolution){
         layer = layers[i],
         form_model = form_model_types[i],
         target_nmix_vec_layer=target_nmix_vec_rural[[layers[i]]],
-        x_layer = attri_tarstats$targetstats_x.layer$rural,
-        degrange = attri_tarstats$degrange$rural[[layers[i]]],
+        x_layer = node_attribute_target_stats$targetstats_x.layer$rural,
+        degrange = node_attribute_target_stats$degrange$rural[[layers[i]]],
         dissolution_value = dissolution  %>% filter(study_site =="Rural") %>% filter(contact_location == layers[i]) %>% pull(know_contact_duration)
       )
     
@@ -240,8 +240,8 @@ model_inputs <- function(attri_tarstats, dissolution){
         layer = layers[i],
         form_model = form_model_types[i],
         target_nmix_vec_layer = target_nmix_vec_urban[[layers[i]]],
-        x_layer = attri_tarstats$targetstats_x.layer$urban,
-        degrange = attri_tarstats$degrange$urban[[layers[i]]],
+        x_layer = node_attribute_target_stats$targetstats_x.layer$urban,
+        degrange = node_attribute_target_stats$degrange$urban[[layers[i]]],
         dissolution_value = dissolution  %>% filter(study_site =="Urban") %>% filter(contact_location == layers[i]) %>% pull(know_contact_duration)
       )
     
