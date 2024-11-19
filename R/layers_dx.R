@@ -8,9 +8,9 @@ layers_dx <-
               ncores = 10,
               nsteps = 1000,
               nwstats.formula = est_nw$formation,
-              set.control.ergm = control.simulate.formula.ergm(MCMC.burnin = 1000000, # 2) bumping up from 200000
-                                                               MCMC.interval = 50000), # 2) bumping up from 25000
-              set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 100000 # 1) bumping up from 50000
+              set.control.ergm = control.simulate.formula.ergm(MCMC.burnin =  200000, # can bump up to 1000000
+                                                               MCMC.interval = 25000), # can bump up to 50000 
+              set.control.tergm = control.simulate.formula.tergm(MCMC.burnin.min = 50000 # can bump up to 100000 
                                                                  ),
               dynamic = T,
               skip.dissolution = FALSE
@@ -18,3 +18,4 @@ layers_dx <-
     
     dx
   }
+

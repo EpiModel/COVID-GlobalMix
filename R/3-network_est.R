@@ -39,7 +39,7 @@ node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_ma
 model_input_items <- 
 model_inputs(attri_tarstats = node_attribute_target_stats, dissolution = netstats$dissolution)
 
-
+if(layer %in% c("School", "Work", "Nonhome")){
 ############## Model estimation  ##############
 # Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
 control.args <-  
@@ -66,7 +66,6 @@ control.args <-
   )
 
 # Use function to estimate model
-if(layer %in% c("School", "Work", "Nonhome")){
 est <- est_nws(
   control.arg = control.args[[est_apch]],
   layer = layer,

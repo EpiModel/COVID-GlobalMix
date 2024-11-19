@@ -153,7 +153,7 @@ formula_tarstats <-
       
       ### Target statistics correspond to the formation model
       tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
-                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
+                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge] #,  #  edges counts from nodemix, excluding the first non-zero edge
                  #c(degrange[1]) # number of nodes w/ weighted degree of 0
                  )
       
@@ -172,7 +172,7 @@ formula_tarstats <-
       tstat <-
         c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
           target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge],  #  edges counts from nodemix, excluding the first non-zero edge
-          x_layer %>% pull(nf_other_layer_1), # x-layer effect
+          x_layer %>% pull(nf_other_layer_1) #, # x-layer effect
           #c(degrange[1]) # number of nodes w/ weighted degree of 0 - model-predicted number of populations;
         )
     } 
@@ -200,7 +200,8 @@ model_inputs <- function(attri_tarstats, dissolution){
   
   nw_urban <- initiate_nw(attr = attri_tarstats$attr, network = "urban")
   
-  
+  if(layer %in% c("School", "Work", "Nonhome")
+     ){
   ############## Arrange target statistics for age mixing in lexicographic order  ##############
   # Note: we treat the 1st non-zero age group as reference group for nodemix -
   # for the home, nonhome, and school layers, it's the edge of "0-9y-0-9y"
@@ -246,12 +247,14 @@ model_inputs <- function(attri_tarstats, dissolution){
     
   }
   names(formula_tarstats_rural) <- names(formula_tarstats_urban) <- layers[-1] # we use "-1" to skip the home layer
-  
+  }
   # Output all things 
   output <- list()
   output$initiate_nw$Rural <- nw_rural; output$initiate_nw$Urban <- nw_urban
+  if(layer %in% c("School", "Work", "Nonhome")
+  ){
   output$formula_tarstats$Rural <- formula_tarstats_rural; output$formula_tarstats$Urban <- formula_tarstats_urban
-  
+  }
   output
   
 }
