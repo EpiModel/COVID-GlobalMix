@@ -1172,6 +1172,8 @@ node_attrib_target_pop <-
     
     ## cross-layer effects
     output$targetstats_x.layer <- nf.x.layer
+    ### individual contact status
+    output$participant_contact_layer$rural <-  x_layer_indiv_stat_rural$data_wide;  output$participant_contact_layer$urban <-  x_layer_indiv_stat_urban$data_wide
     
     ## degree distribution
     output$degrange$rural <- deg_tstat_r; output$degrange$urban <- deg_tstat_u

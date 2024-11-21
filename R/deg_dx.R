@@ -60,7 +60,7 @@ control.args <-
   )
 
 # intiate network
-nw_r <- initiate_nw(attr = node_attribute_target_stats$attr, network = "rural")
+nw_r <- initiate_nw(node_attribute_target_stats = node_attribute_target_stats, network = "rural")
 
 # Model fitting for nonhome layer
 ## Nodemix target statistics
@@ -185,10 +185,52 @@ test <- dx$stats.table.formation %>% tibble::rownames_to_column(., var = "degree
 test
 
 
+# proportion based on contact status
+## nodal attribute of contact at the nonhome layer
+table( # I suspect the marginal is the proportion of not having contact
+node_attribute_target_stats$attr$rural$contact_attribute_Nonhome,
+node_attribute_target_stats$attr$rural$node.age.grp
+) %>% prop.table(., margin = 2) 
+
+## marginal
+table(node_attribute_target_stats$attr$rural$contact_attribute_Nonhome) %>% prop.table() # marginal proportion is 0.35, this is based on the target population (contact of study participant + age distribution)
+
+# proportion based on degree(0)
+node_attribute_target_stats$degrange$rural %>% mutate_if(is.numeric, ~./N) # the proportion is 0.37, the small different with the above is likely caused by normalization.
+
+# proportion based on study participants - identical to nodal attribute
+table(node_attribute_target_stats$participant_contact_layer$rural$Nonhome_cat, 
+      node_attribute_target_stats$participant_contact_layer$rural$participant_age) %>% prop.table(., margin = 2) %>% 
+  cbind(., marginal=
+node_attribute_target_stats$participant_contact_layer$rural$Nonhome_cat %>% table() %>% prop.table()
+)
+# associating contact status with participant's demographic data
+participant_bi_deg <- 
+node_attribute_target_stats$participant_contact_layer$rural %>% 
+  merge(., india_participant %>% filter(study_site == "Rural") %>% select(-participant_age), by = "rec_id"
+        )
+
+independent_vars <- c("participant_sex", "participant_age", "read_write", "enrolled_school", "transport_use")
+
+models_list <- list()
 
 
+for (indep_var in independent_vars) {
+  # Create the regression formula
+  formula <- as.formula(paste("Nonhome_cat", "~", indep_var))
+  
+ 
+  model <- glm(formula, data = participant_bi_deg, family = binomial) %>% summary
+  
+  # Print the summary of the model
+  cat("\nRegression of", "Nonhome_cat", "on", indep_var, ":\n")
+  print(model)
+  
+  models_list[[indep_var]] <- model$coefficients
+}
+ 
 
-
+glm(Nonhome_cat ~ transport_use, data = participant_bi_deg, family = binomial) %>% summary()
 
 
 
