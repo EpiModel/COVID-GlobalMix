@@ -2,7 +2,7 @@
 library(EpiModel); library(dplyr);library(tibble)
 
 
-percent_target_pop = 0.1 # or 0.001; 0.1 and 0.001 correspond to 10% and 0.1% of target population, respectively
+percent_target_pop = 0.01 # or 0.001; 0.1 and 0.001 correspond to 10% and 0.1% of target population, respectively
 
 
 
@@ -123,6 +123,25 @@ model3 <-
   )
 
 
+# Model fitting using the nodefactor term. 
+nw <- network.initialize(n = N, directed = FALSE)
+nw <- set.vertex.attribute(nw, "group", 1- node_attribute_target_stats$attr$rural$contact_attribute_Nonhome # we flip the contact status here so those doesn't contact will have a "1" status to work with the 0 target statistics
+                           )
+fit <- ergm(nw ~ edges + nodefactor("group"),
+            target.stats =
+              c( node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome %>% sum,
+                0)
+            )
+## Simulated degree term
+simulated_result <- 
+colMeans(simulate(fit, output = "stats", monitor = ~degree(0:10), nsim = 1e4))
+
+barplot(
+simulated_result[3:13]/N)
+## Observed degree term
+node_attribute_target_stats$degrange$rural %>% select(deg_range_5cat,Nonhome) %>% mutate_if(is.numeric, ~./N)
+plot(simulate(fit))
+
 
 
 # Model fitting for school layer
@@ -147,6 +166,7 @@ model_s <-
          coef.diss = diss_s_r,
          set.control.ergm = control.args$sto_apoxy
   )
+
 
 
 
@@ -190,7 +210,10 @@ test
 table( # I suspect the marginal is the proportion of not having contact
 node_attribute_target_stats$attr$rural$contact_attribute_Nonhome,
 node_attribute_target_stats$attr$rural$node.age.grp
-) %>% prop.table(., margin = 2) 
+) %>% prop.table(., margin = 2) %>% 
+  cbind(., marginal=
+          node_attribute_target_stats$attr$rural$contact_attribute_Nonhome %>% table() %>% prop.table()
+        )
 
 ## marginal
 table(node_attribute_target_stats$attr$rural$contact_attribute_Nonhome) %>% prop.table() # marginal proportion is 0.35, this is based on the target population (contact of study participant + age distribution)
