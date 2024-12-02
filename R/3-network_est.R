@@ -25,14 +25,22 @@ netstats <- readRDS("data/network_stats_attributes/network_params.Rds")
 
 
 ############## Recode low degree at school layer to 0  ##############
-# For both the urban and rural school layers, we recode those degree <1 to 0 to make netest viable
-# For urban school layer the low values were <0.01, this threshold is used for the re-coding - this can make netest run, but netdx shows poor fit
+# For both the urban and rural school layers, we recode those degree <1 to 0 to make netest runnable
+## urban
 node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School[
   node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School <1] <- 0
 
-# For rural school layer the low values were <10, this threshold is used for the re-coding 
+## rural
 node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School[
   node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School <1] <- 0
+
+
+############## Zero out degrees of edge types of 40-59y at urban school ##############
+# given we encounter error for the nodemix terms of this age group and the proportions of contact are 0 of those >=40y, we zero out the corresponding
+# statistics to see whether the model is runnable
+node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School$`40-59y` <- 0
+
+
 
 
 ############## Define items which will be read by netest  ##############
