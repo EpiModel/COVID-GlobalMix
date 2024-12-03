@@ -20,34 +20,48 @@ source("R/reachable.R")
 
 
 # Loading data
-layers <- c("Home", "School", "Work", "Nonhome")
 
 
-# Create file names to read edgelist files
-file.name_in <- 
-  paste0("data/netsim_outputs/el_cuml__", layers, "__", 
-         network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
 # file name of the outputted files
+
 file.name_out <- paste0(
   "data/frp_outputs/frp_length_",
-  layer, "__", network,"__", est_apch,"__", percent_target_pop, "__", paste0(as.character(nodes)), ".Rds"
+  layer, "__", network,"__", percent_target_pop, "__", paste0(as.character(nodes)), ".Rds"
 )
+
 
 # Loading edgelist
 if (layer == "Home") {
-  el_cuml <- readRDS(file.name_in[1])
-} else if (layer == "School") {
-  el_cuml <- readRDS(file.name_in[2])
-} else if (layer == "Work") {
-  el_cuml <- readRDS(file.name_in[3])
-} else if (layer == "Nonhome"){
-  el_cuml <- readRDS(file.name_in[4])
+  # manually convert to cumulative edgelist
+  el_cuml <- 
+    readRDS(
+      paste0(
+        "data/netest_outputs/deterministic_",
+        layer, "__", network,"__",  percent_target_pop, ".Rds"
+      )
+    ) %>% data.frame() %>%  rename(tail=.tail, head=.head ) %>% select(head, tail) %>% mutate(start=1, stop=2)
+  
+} else if (layer %in%  c("School", "Work", "Nonhome")) {
+  el_cuml <- readRDS(  paste0("data/netsim_outputs/el_cuml__", layer, "__", 
+                              network,"__", est_apch,"__", percent_target_pop, ".Rds")
+                     )
 } else if (layer == "All") {
-  el_cuml_home <- readRDS(file.name_in[1])
-  el_cuml_school <- readRDS(file.name_in[2])
-  el_cuml_work <- readRDS(file.name_in[3])
-  el_cuml_nonhome <- readRDS(file.name_in[4])
+  # home
+  el_cuml_home <- 
+    readRDS(
+      paste0(
+        "data/netest_outputs/deterministic_",
+        layer, "__", network,"__",  percent_target_pop, ".Rds"
+      )
+    ) %>% data.frame() %>%  rename(tail=.tail, head=.head ) %>% select(head, tail) %>% mutate(start=1, stop=2)
+  # school, work, nonhome
+  file.name_in <- 
+    paste0("data/netsim_outputs/el_cuml__", c("School", "Work", "Nonhome"), "__", 
+           network,"__", est_apch,"__", percent_target_pop, ".Rds")
+  el_cuml_school <- readRDS(file.name_in[1])
+  el_cuml_work <- readRDS(file.name_in[2])
+  el_cuml_nonhome <- readRDS(file.name_in[3])
   
   # combining edgelists of different layers
   el_all <- dplyr::bind_rows(el_cuml_home, el_cuml_school, el_cuml_work, el_cuml_nonhome)

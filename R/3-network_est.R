@@ -35,10 +35,11 @@ node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_ma
   node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School <1] <- 0
 
 
-############## Zero out degrees of edge types of 40-59y at urban school ##############
+############## Zero out degrees of edge types of 40-59y at urban and rural school ##############
 # given we encounter error for the nodemix terms of this age group and the proportions of contact are 0 of those >=40y, we zero out the corresponding
 # statistics to see whether the model is runnable
-node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School$`40-59y` <- 0
+node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School$`40-59y` <- 0 # urban
+node_attribute_target_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School$`40-59y` <- 0 # urban
 
 
 

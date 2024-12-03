@@ -5,6 +5,7 @@ network = c("Rural", "Urban")
 est_apch = "mcmle"#/"sto_apoxy"/
 layers = c("All","Home","School","Work","Nonhome")
 percent_target_pop =  0.1 #/1/0.1
+nodes # the number of nodes with edges whose FRPs are calculated, the default setting is NULL, that FRPs for all nodes are calculated
 
 
 
@@ -26,13 +27,14 @@ n_u <- nrow(tar_stats$attr$urban)
 # Loading raw FRP result
 file.name_r <- paste0(
   "data/frp_outputs/frp_length_",
-  layers, "__",  network[1],"__", est_apch,"__", percent_target_pop, ".Rds"
+  layers, "__",  network[1],"__",  percent_target_pop, "__", paste0(as.character(nodes)), ".Rds"
 )
 
 file.name_u <- paste0(
   "data/frp_outputs/frp_length_",
-  layers, "__",  network[2],"__", est_apch,"__", percent_target_pop,  ".Rds"
+  layers, "__",  network[2],"__",  percent_target_pop, "__", paste0(as.character(nodes)), ".Rds"
 )
+
 
 
 frp_all_r <- readRDS(file.name_r[1])
@@ -86,6 +88,12 @@ frp_length_nh_r <-
   )
 
 
+frp_length_h_u <-
+  frp_length_df_process(
+    attr = tar_stats$attr$urban, 
+    frp_length = frp_h_u$lengths,
+    denom = n_u
+  )
 
 frp_length_s_u <-
   frp_length_df_process(
@@ -110,6 +118,7 @@ rm(list=
 
 # Visualize FRP length
 frp_length_plot(frp_length =frp_length_h_r, title = "Home, rural")
+frp_length_plot(frp_length =frp_length_h_u, title = "Home, urban")
 ggarrange(
   frp_length_plot(frp_length =frp_length_s_r, title = "School, rural"),
   frp_length_plot(frp_length =frp_length_w_r, title = "Work, rural"),

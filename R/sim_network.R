@@ -20,7 +20,7 @@ sim_network <- function(
     # update age at each time step
     ## get age of the current time step
     age <- 
-      get_vertex_attribute(nw[[1]], attrname = "age") 
+      get_vertex_attribute(nw[["School"]], attrname = "age") 
       
     ## update age
     ### update continuous age
@@ -34,7 +34,7 @@ sim_network <- function(
                           age>= 60  ~ "60+y",
     )
     
-    ## reassign continuous and categorical age to the nodal attribute of the 4 layers
+    ## reassign continuous and categorical age to the nodal attribute of the 3 layers
     for (i in 1:3) {
       nw[[i]] <- set_vertex_attribute(nw[[i]], attrname = "age" , 
                                       value =age)
