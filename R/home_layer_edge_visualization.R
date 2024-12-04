@@ -70,9 +70,10 @@ get_vertex_attribute(nw, "hh.id"
 ) %>% unique %>% length() # 32 househholds
 
 # check component size for the urban home under 10% population
-
+h_u <- 
+readRDS("./data/netest_outputs/deterministic_Home__Urban__0.1.Rds")
 component <- 
-sna::component.dist(node_attribute_target_stats)
+sna::component.dist(h_u)
 
-component$csize %>% length()
+component$csize %>% table %>% length
 

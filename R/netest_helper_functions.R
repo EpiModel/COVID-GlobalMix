@@ -57,16 +57,16 @@ initiate_nw <-
     
     # Adding layer-specific contact status 
     ## Home
-    output$nw_h <- set.vertex.attribute(nw_h, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_Home) # we flip the contact status here so those doesn't contact will have a "1" status to work with the 0 target statistics
+    output$nw_h <- set_vertex_attribute(nw_h, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_Home) # we flip the contact status here so those doesn't contact will have a "1" status to work with the 0 target statistics
     
     ## School
-    output$nw_s <- set.vertex.attribute(nw_s, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_School)
+    output$nw_s <- set_vertex_attribute(nw_s, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_School)
                                   
     ## Work
-    output$nw_w <- set.vertex.attribute(nw_w, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_Work)
+    output$nw_w <- set_vertex_attribute(nw_w, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_Work)
     
     ## Nonhome
-    output$nw_nh <- set.vertex.attribute(nw, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_Nonhome) # The non-home layer contains the age attributes (i=4 in the loop) and the contact status
+    output$nw_nh <- set_vertex_attribute(nw, "no.contact", 1- node_attribute_target_stats$attr[[network]]$contact_attribute_Nonhome) # The non-home layer contains the age attributes (i=4 in the loop) and the contact status
     
     output
     
