@@ -162,19 +162,6 @@
       ],
       "Hash": "8c7115cd3a0e048bda2a7cd110549f7a"
     },
-    "MatrixModels": {
-      "Package": "MatrixModels",
-      "Version": "0.5-3",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "methods",
-        "stats"
-      ],
-      "Hash": "0776bf7526869e0286b0463cb72fb211"
-    },
     "R6": {
       "Package": "R6",
       "Version": "2.5.1",
@@ -246,20 +233,6 @@
         "utils"
       ],
       "Hash": "a9e2118c664c2cd694f03de074e8d4b3"
-    },
-    "SparseM": {
-      "Package": "SparseM",
-      "Version": "1.84-2",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "graphics",
-        "methods",
-        "stats",
-        "utils"
-      ],
-      "Hash": "e78499cbcbbca98200254bd171379165"
     },
     "abind": {
       "Package": "abind",
@@ -1683,24 +1656,6 @@
       ],
       "Hash": "1cba04a4e9414bdefc9dcaa99649a8dc"
     },
-    "quantreg": {
-      "Package": "quantreg",
-      "Version": "5.99.1",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "MASS",
-        "Matrix",
-        "MatrixModels",
-        "R",
-        "SparseM",
-        "graphics",
-        "methods",
-        "stats",
-        "survival"
-      ],
-      "Hash": "c48844cd7961de506a1b4d22b2e082c7"
-    },
     "rappdirs": {
       "Package": "rappdirs",
       "Version": "0.3.3",
@@ -1947,22 +1902,6 @@
         "vctrs"
       ],
       "Hash": "960e2ae9e09656611e0b8214ad543207"
-    },
-    "survival": {
-      "Package": "survival",
-      "Version": "3.7-0",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "graphics",
-        "methods",
-        "splines",
-        "stats",
-        "utils"
-      ],
-      "Hash": "5aaa9cbaf4aba20f8e06fdea1850a398"
     },
     "svglite": {
       "Package": "svglite",
