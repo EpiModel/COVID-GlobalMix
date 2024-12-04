@@ -69,8 +69,10 @@ degree(igraph_net) %>% table() %>% barplot()
 get_vertex_attribute(nw, "hh.id"
 ) %>% unique %>% length() # 32 househholds
 
+# check component size for the urban home under 10% population
+
 component <- 
-sna::component.dist(nw)
+sna::component.dist(node_attribute_target_stats)
 
 component$csize %>% length()
 
