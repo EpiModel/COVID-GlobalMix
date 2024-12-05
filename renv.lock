@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.4.1",
+    "Version": "4.4.2",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -68,11 +68,10 @@
       "Version": "2.5.0",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteUsername": "EpiModel",
-      "RemoteRepo": "EpiModelHPC",
-      "RemoteRef": "main",
-      "RemoteSha": "18af89a4ba4720507820835613135315e9f9e78b",
       "RemoteHost": "api.github.com",
+      "RemoteRepo": "EpiModelHPC",
+      "RemoteUsername": "EpiModel",
+      "RemoteSha": "18af89a4ba4720507820835613135315e9f9e78b",
       "Requirements": [
         "EpiModel",
         "R",
@@ -92,7 +91,7 @@
         "tidyr",
         "tidyselect"
       ],
-      "Hash": "83cb8939d8e98b01ff8a3625edf764eb"
+      "Hash": "fbbf0334722833645383d3cdf528859e"
     },
     "Formula": {
       "Package": "Formula",
@@ -1942,16 +1941,15 @@
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteUsername": "EpiModel",
       "RemoteRepo": "slurmworkflow",
-      "RemoteRef": "main",
+      "RemoteUsername": "EpiModel",
       "RemoteSha": "04935f0cd2ea9f0c468a4627eb7363e0a84415fe",
       "Requirements": [
         "R",
         "fs",
         "yaml"
       ],
-      "Hash": "2b4349b5242f1a516cfa152b94df4a3a"
+      "Hash": "2cd166d9c26bfb8e4358d70cafee71fa"
     },
     "sna": {
       "Package": "sna",
@@ -2045,11 +2043,10 @@
       "Version": "0.0.0.9000",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteUsername": "EpiModel",
-      "RemoteRepo": "swfcalib",
-      "RemoteRef": "main",
-      "RemoteSha": "b37d195b3bda3158e6902624d76ccc4d28e6782f",
       "RemoteHost": "api.github.com",
+      "RemoteRepo": "swfcalib",
+      "RemoteUsername": "EpiModel",
+      "RemoteSha": "b37d195b3bda3158e6902624d76ccc4d28e6782f",
       "Requirements": [
         "R",
         "dplyr",
@@ -2059,7 +2056,7 @@
         "lhs",
         "slurmworkflow"
       ],
-      "Hash": "d08cc05ff5dc589dd192f29eee9c861b"
+      "Hash": "068e7d4356d816baf2740381e1adc66e"
     },
     "systemfonts": {
       "Package": "systemfonts",
