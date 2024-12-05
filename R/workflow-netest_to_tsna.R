@@ -44,7 +44,7 @@ wf <- add_workflow_step(
     MoreArgs = list(
       hpc_context = TRUE,
       network="Urban",
-      est_apch="mcmle",
+      est_apch="sto_apoxy",
       percent_target_pop="0.1"),
     setup_lines = hpc_node_setup
   ),
