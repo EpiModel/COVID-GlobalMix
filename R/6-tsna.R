@@ -20,11 +20,7 @@ source("R/reachable.R")
 
 
 # Loading data
-
-
-
-# file name of the outputted files
-
+## file name of the outputted files
 file.name_out <- paste0(
   "data/frp_outputs/frp_length_",
   layer, "__", network,"__", percent_target_pop, "__", paste0(as.character(nodes)), ".Rds"
