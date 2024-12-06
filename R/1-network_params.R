@@ -32,7 +32,6 @@ library("tidyr")
 library("tibble")
 library("sjlabelled")
 library("stringr")
-library("GGally")
 library("gbp")
 library("purrr")
 
