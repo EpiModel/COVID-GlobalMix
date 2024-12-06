@@ -10,7 +10,7 @@ est_cores <- 10
 hpc_node_setup <- c(
   ". /projects/epimodel/spack/share/spack/setup-env.sh",
   "spack unload -a",
-  "spack load r@4.4.2"
+  "spack load r@4.4.1"
 )
 
 
