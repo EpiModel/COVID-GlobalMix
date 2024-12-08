@@ -13,11 +13,7 @@ suppressMessages(library(EpiModel))
 suppressMessages(library(doParallel))
 suppressMessages(library(fs))
 suppressMessages(library(progressr))
-
-
-# Load functions
-source("R/reachable.R")
-
+suppressMessages(library(dplyr))
 
 # Loading data
 ## file name of the outputted files
@@ -26,6 +22,7 @@ file.name_out <- paste0(
   layer, "__", network,"__", percent_target_pop, "__", paste0(as.character(nodes)), ".Rds"
 )
 
+source("R/reachable.R")
 
 # Loading edgelist
 if (layer == "Home") {
@@ -48,7 +45,7 @@ if (layer == "Home") {
     readRDS(
       paste0(
         "data/netest_outputs/deterministic_",
-        layer, "__", network,"__",  percent_target_pop, ".Rds"
+        "Home", "__", network,"__",  percent_target_pop, ".Rds"
       )
     ) %>% data.frame() %>%  rename(tail=.tail, head=.head ) %>% select(head, tail) %>% mutate(start=1, stop=2)
   # school, work, nonhome
