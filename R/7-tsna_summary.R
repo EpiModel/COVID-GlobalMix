@@ -5,7 +5,7 @@ network = c("Rural", "Urban")
 est_apch = "mcmle"#/"sto_apoxy"/
 layers = c("All","Home","School","Work","Nonhome")
 percent_target_pop =  0.1 #/1/0.1
-nodes # the number of nodes with edges whose FRPs are calculated, the default setting is NULL, that FRPs for all nodes are calculated
+nodes =NULL# the number of nodes with edges whose FRPs are calculated, the default setting is NULL, that FRPs for all nodes are calculated
 
 
 
@@ -59,6 +59,15 @@ source("./R/result_helper_functions.R")
 
 ## note - the result for the 40% pop has been erased with 2-node results
 # Process FRP data
+## rural
+frp_length_all_r <-
+  frp_length_df_process(
+    attr = tar_stats$attr$rural,
+    frp_length = frp_all_r$lengths,
+    denom = n_r
+  )
+
+
 frp_length_h_r <-
   frp_length_df_process(
     attr = tar_stats$attr$rural,
@@ -87,7 +96,7 @@ frp_length_nh_r <-
     denom = n_r
   )
 
-
+## urban
 frp_length_h_u <-
   frp_length_df_process(
     attr = tar_stats$attr$urban, 
