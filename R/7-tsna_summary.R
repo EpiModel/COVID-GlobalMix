@@ -75,6 +75,7 @@ frp_length_h_r <-
     denom = n_r
   )
 
+
 frp_length_s_r <-
   frp_length_df_process(
     attr = tar_stats$attr$rural, 
@@ -126,15 +127,22 @@ rm(list=
    )
 
 # Visualize FRP length
-frp_length_plot(frp_length =frp_length_h_r, title = "Home, rural")
-frp_length_plot(frp_length =frp_length_h_u, title = "Home, urban")
+## rural
+frp_all_r_plot <- frp_length_plot(frp_length =frp_length_all_r, title = "All, rural")
+frp_h_r_plot <- frp_length_plot(frp_length =frp_length_h_r, title = "Home, rural")
+frp_s_r_plot <- frp_length_plot(frp_length =frp_length_s_r, title = "School, rural")
+frp_w_r_plot <- frp_length_plot(frp_length =frp_length_w_r, title = "Work, rural")
+frp_nh_r_plot <- frp_length_plot(frp_length =frp_length_nh_r, title = "Nonhome, rural")
+
+
 ggarrange(
-  frp_length_plot(frp_length =frp_length_s_r, title = "School, rural"),
-  frp_length_plot(frp_length =frp_length_w_r, title = "Work, rural"),
-  frp_length_plot(frp_length =frp_length_nh_r, title = "Nonhome, rural"),
-  frp_length_plot(frp_length =frp_length_s_u, title = "School, urban"),
-  frp_length_plot(frp_length =frp_length_w_u, title = "Work, urban"),
-  ncol = 3, nrow = 2,
+  frp_all_r_plot,
+  frp_h_r_plot,
+  frp_s_r_plot,
+  frp_w_r_plot,
+  frp_nh_r_plot,
+  
+  ncol = 5, nrow = 1,
   common.legend = TRUE, 
   legend = "bottom"
 )
@@ -142,8 +150,8 @@ ggarrange(
 
 # FRP length per n people at different time steps
 rbind(
-  frp_moments_layer(frp_length_layer = frp_length_s_u, per_n_people = 10000, layer = "urban_school"),
-  frp_moments_layer(frp_length_layer = frp_length_w_u, per_n_people = 10000, layer = "urban_work"),
+  frp_moments_layer(frp_length_layer = frp_length_all_r, per_n_people = 10000, layer = "rural_all"),
+  frp_moments_layer(frp_length_layer = frp_length_h_r, per_n_people = 10000, layer = "rural_home"),
   frp_moments_layer(frp_length_layer = frp_length_s_r, per_n_people = 10000, layer = "rural_school"),
   frp_moments_layer(frp_length_layer = frp_length_w_r, per_n_people = 10000, layer = "rural_work"),
   frp_moments_layer(frp_length_layer = frp_length_nh_r, per_n_people = 10000, layer = "rural_nonhome")
@@ -151,17 +159,20 @@ rbind(
   kbl() %>% 
   kable_classic()
 
+(1/n_r)*1e4
 
 # One-year FRP by age
 ## rural
 cbind(
-frp_moments_365_layer(frp_length_layer = frp_length_s_r, per_n_people = 10000),
+frp_moments_365_layer(frp_length_layer = frp_length_all_r, per_n_people = 10000),
+frp_moments_365_layer(frp_length_layer = frp_length_h_r, per_n_people = 10000)%>% select(-node.age.grp),
+frp_moments_365_layer(frp_length_layer = frp_length_s_r, per_n_people = 10000) %>% select(-node.age.grp),
 frp_moments_365_layer(frp_length_layer = frp_length_w_r, per_n_people = 10000) %>% select(-node.age.grp),
 frp_moments_365_layer(frp_length_layer = frp_length_nh_r, per_n_people = 10000) %>% select(-node.age.grp)
 )%>%  column_to_rownames(var = "node.age.grp") %>%
   kbl() %>% 
   kable_classic() %>%
-  add_header_above(c(" " = 1, "School, rural" = 3, "Work, rural" = 3, "Nonhome, rural" = 3))
+  add_header_above(c(" " = 1, "All, rural" = 3, "Home, rural" = 3,  "School, rural" = 3, "Work, rural" = 3, "Nonhome, rural" = 3))
 
 ## urban
 cbind(
@@ -176,22 +187,22 @@ cbind(
 
 
 
-# Summary statistics
-## note: the reason that the target statistics on 7/30 is different from the later is because several kids are missed in the calculation of the ego mean deg that time, which was resolved later
-cbind(
-## formation
-form_stats(tar_stats, summary_stats),
-## dissolution
-summary_stats$dissolution %>% 
-  mutate(know_contact_duration = format(know_contact_duration, scientific = T, digits = 2)) %>% 
-  pivot_wider(names_from = study_site, values_from = know_contact_duration) %>% select(-contact_location)
-)%>%  column_to_rownames(var = "layer")%>%
-  kbl() %>% 
-  kable_classic() %>%
-  add_header_above(c(" " = 1,  "Mean degree (conditioned mean degree)" = 2, "Duration" = 2))
-### Interpretation - as expected, the mean degree of the layer in the rural work layer is lower than urban.
-### The contact duration is longer (weaker dissolvability), which may contributes to the lower FRP.
-### The mean deg at work, conditioned on school having contact, is much lower, at the rural layer - this is the primary
-### factor determining the shape of the FRP length distribution
+# # Summary statistics
+# ## note: the reason that the target statistics on 7/30 is different from the later is because several kids are missed in the calculation of the ego mean deg that time, which was resolved later
+# cbind(
+# ## formation
+# form_stats(tar_stats, summary_stats),
+# ## dissolution
+# summary_stats$dissolution %>% 
+#   mutate(know_contact_duration = format(know_contact_duration, scientific = T, digits = 2)) %>% 
+#   pivot_wider(names_from = study_site, values_from = know_contact_duration) %>% select(-contact_location)
+# )%>%  column_to_rownames(var = "layer")%>%
+#   kbl() %>% 
+#   kable_classic() %>%
+#   add_header_above(c(" " = 1,  "Mean degree (conditioned mean degree)" = 2, "Duration" = 2))
+# ### Interpretation - as expected, the mean degree of the layer in the rural work layer is lower than urban.
+# ### The contact duration is longer (weaker dissolvability), which may contributes to the lower FRP.
+# ### The mean deg at work, conditioned on school having contact, is much lower, at the rural layer - this is the primary
+# ### factor determining the shape of the FRP length distribution
 
 

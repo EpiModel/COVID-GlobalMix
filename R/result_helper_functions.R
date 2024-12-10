@@ -15,7 +15,7 @@ frp_length_df_process <-
 frp_length_plot <- 
   function(frp_length, title){
     ## Define the color palette
-    palv6 <- c("red", "blue", "green", "purple", "orange", "cyan")
+    palv6 <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00") # a color-blind friendly palette
     
     ## Map the categories to the corresponding colors
     color_mapping <- setNames(palv6, c("0-9y",  "10-19y", "20-29y", "30-39y", "40-59y", "60+y"))
