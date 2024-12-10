@@ -1,6 +1,7 @@
 # Note: the purpose of this script is to simulate networks from the school, work, and nonhome layers of each network
 # The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
 # network = "Urban"/"Rural"
+# network = "Rural"/"Urban
 # est_apch = "mcmle"/"sto_apoxy"
 # percent_target_pop = "0.1"/"0.4"/"1"
 
