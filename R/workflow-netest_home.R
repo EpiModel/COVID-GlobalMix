@@ -20,7 +20,7 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/3-network_est.R",
-    network=c("Rural", "Urbane"),
+    network=c("Rural", "Urban"),
     
     MoreArgs = list(
       hpc_context = TRUE,
