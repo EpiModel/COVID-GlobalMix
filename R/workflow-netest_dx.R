@@ -1,9 +1,4 @@
-## HPC Workflow: Networks
-##
-## Define a workflow to run the estimation and diagnostics of the network models
-## on the HPC
-
-
+## HPC Workflow: a workflow to run the estimation and diagnostics of the network models
 # Setup ------------------------------------------------------------------------
 library(slurmworkflow)
 library(future.apply)
@@ -13,25 +8,25 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netest_dx_0.1_u_1206", override = TRUE)
+wf <- make_em_workflow("netest_dx_1_r_1213", override = TRUE)
 
 # netest
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/3-network_est.R",
-    layer=c("School", "Work", "Nonhome"),
+    layer=c("Home","School", "Work", "Nonhome"),
     
     MoreArgs = list(
                 hpc_context = TRUE,
-                network=c("Urban"),
+                network=c("Rural"),
                 est_apch="mcmle",
-                percent_target_pop="0.1"),
+                percent_target_pop="1"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
     "cpus-per-task" = est_cores,
-    "time" = "72:00:00",
+    "time" = "120:00:00",
     "mem" = "0"
   )
 )
@@ -44,14 +39,14 @@ wf <- add_workflow_step(
     layer=c("School", "Work", "Nonhome"),
     MoreArgs = list(
       hpc_context = TRUE,
-      network=c("Urban"),
+      network=c("Rural"),
       est_apch="mcmle",
-      percent_target_pop="0.1"),
+      percent_target_pop="1"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
     "cpus-per-task" = est_cores,
-    "time" = "72:00:00",
+    "time" = "120:00:00",
     "mem" = "0"
   )
 )

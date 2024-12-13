@@ -98,12 +98,21 @@ frp_length_nh_r <-
   )
 
 ## urban
+frp_length_all_u <-
+  frp_length_df_process(
+    attr = tar_stats$attr$urban,
+    frp_length = frp_all_u$lengths,
+    denom = n_u
+  )
+
+
 frp_length_h_u <-
   frp_length_df_process(
-    attr = tar_stats$attr$urban, 
+    attr = tar_stats$attr$urban,
     frp_length = frp_h_u$lengths,
     denom = n_u
   )
+
 
 frp_length_s_u <-
   frp_length_df_process(
@@ -116,6 +125,13 @@ frp_length_w_u <-
   frp_length_df_process(
     attr = tar_stats$attr$urban, 
     frp_length = frp_w_u$lengths,
+    denom = n_u
+  )
+
+frp_length_nh_u <-
+  frp_length_df_process(
+    attr = tar_stats$attr$urban, 
+    frp_length = frp_nh_u$lengths,
     denom = n_u
   )
 
@@ -134,27 +150,56 @@ frp_s_r_plot <- frp_length_plot(frp_length =frp_length_s_r, title = "School, rur
 frp_w_r_plot <- frp_length_plot(frp_length =frp_length_w_r, title = "Work, rural")
 frp_nh_r_plot <- frp_length_plot(frp_length =frp_length_nh_r, title = "Nonhome, rural")
 
+## urban
+frp_all_u_plot <- frp_length_plot(frp_length =frp_length_all_u, title = "All, urban")
+frp_h_u_plot <- frp_length_plot(frp_length =frp_length_h_u, title = "Home, urban")
+frp_s_u_plot <- frp_length_plot(frp_length =frp_length_s_u, title = "School, urban")
+frp_w_u_plot <- frp_length_plot(frp_length =frp_length_w_u, title = "Work, urban")
+frp_nh_u_plot <- frp_length_plot(frp_length =frp_length_nh_u, title = "Nonhome, urban")
 
+frp_plot <- 
 ggarrange(
   frp_all_r_plot,
   frp_h_r_plot,
   frp_s_r_plot,
   frp_w_r_plot,
   frp_nh_r_plot,
+  frp_all_u_plot,
+  frp_h_u_plot,
+  frp_s_u_plot,
+  frp_w_u_plot,
+  frp_nh_u_plot,
   
-  ncol = 5, nrow = 1,
+  ncol = 5, nrow = 2,
   common.legend = TRUE, 
   legend = "bottom"
 )
 
 
+frp_plot
+
+
+
+
 # FRP length per n people at different time steps
+## rural
 rbind(
-  frp_moments_layer(frp_length_layer = frp_length_all_r, per_n_people = 10000, layer = "rural_all"),
-  frp_moments_layer(frp_length_layer = frp_length_h_r, per_n_people = 10000, layer = "rural_home"),
-  frp_moments_layer(frp_length_layer = frp_length_s_r, per_n_people = 10000, layer = "rural_school"),
-  frp_moments_layer(frp_length_layer = frp_length_w_r, per_n_people = 10000, layer = "rural_work"),
-  frp_moments_layer(frp_length_layer = frp_length_nh_r, per_n_people = 10000, layer = "rural_nonhome")
+  frp_moments_layer(frp_length_layer = frp_length_all_r, per_n_people = 10000, layer = "rural_all", N= n_r),
+  frp_moments_layer(frp_length_layer = frp_length_h_r, per_n_people = 10000, layer = "rural_home", N= n_r),
+  frp_moments_layer(frp_length_layer = frp_length_s_r, per_n_people = 10000, layer = "rural_school", N= n_r),
+  frp_moments_layer(frp_length_layer = frp_length_w_r, per_n_people = 10000, layer = "rural_work", N= n_r),
+  frp_moments_layer(frp_length_layer = frp_length_nh_r, per_n_people = 10000, layer = "rural_nonhome", N= n_r)
+) %>% 
+  kbl() %>% 
+  kable_classic()
+
+## urban
+rbind(
+  frp_moments_layer(frp_length_layer = frp_length_all_u, per_n_people = 10000, layer = "urban_all", N=n_u),
+  frp_moments_layer(frp_length_layer = frp_length_h_u, per_n_people = 10000, layer = "urban_home", N=n_u),
+  frp_moments_layer(frp_length_layer = frp_length_s_u, per_n_people = 10000, layer = "urban_school", N=n_u),
+  frp_moments_layer(frp_length_layer = frp_length_w_u, per_n_people = 10000, layer = "urban_work", N=n_u),
+  frp_moments_layer(frp_length_layer = frp_length_nh_u, per_n_people = 10000, layer = "urban_nonhome", N=n_u)
 ) %>% 
   kbl() %>% 
   kable_classic()
@@ -176,13 +221,15 @@ frp_moments_365_layer(frp_length_layer = frp_length_nh_r, per_n_people = 10000) 
 
 ## urban
 cbind(
-  frp_moments_365_layer(frp_length_layer = frp_length_s_u, per_n_people = 10000),
-  frp_moments_365_layer(frp_length_layer = frp_length_w_u, per_n_people = 10000) %>% select(-node.age.grp)
+  frp_moments_365_layer(frp_length_layer = frp_length_all_u, per_n_people = 10000),
+  frp_moments_365_layer(frp_length_layer = frp_length_h_u, per_n_people = 10000)%>% select(-node.age.grp),
+  frp_moments_365_layer(frp_length_layer = frp_length_s_u, per_n_people = 10000) %>% select(-node.age.grp),
+  frp_moments_365_layer(frp_length_layer = frp_length_w_u, per_n_people = 10000) %>% select(-node.age.grp),
+  frp_moments_365_layer(frp_length_layer = frp_length_nh_u, per_n_people = 10000) %>% select(-node.age.grp)
 )%>%  column_to_rownames(var = "node.age.grp") %>%
   kbl() %>% 
   kable_classic() %>%
-  add_header_above(c(" " = 1, "School, urban" = 3, "Work, urban" = 3))
-
+  add_header_above(c(" " = 1, "All, urban" = 3, "Home, urban" = 3,  "School, urban" = 3, "Work, urban" = 3, "Nonhome, urban" = 3))
 
 
 

@@ -42,7 +42,7 @@ frp_length_plot <-
 
 # table showing statistical moments of FRP length in %
 frp_moments_layer <-
-  function(frp_length_layer, per_n_people, layer, d_365){
+  function(frp_length_layer, per_n_people, layer, d_365, N){
 
   frp_length_layer <- frp_length_layer %>%
     mutate(across(where(is.numeric), ~ . * per_n_people)) # multiple per_n_people to proportion to get the value per n people
@@ -60,20 +60,20 @@ frp_moments_layer <-
     median_value <- median(numbers) %>% round(., 2)
     mode_result <- calculate_mode(as.numeric(numbers))
     mode_value <- mode_result["value"] %>% round(., 2)
-    mode_frequency <- mode_result["frequency"]
+    mode_prop <- paste0(round((mode_result["frequency"]/N)*100,2), "%")
     iqr_value <- IQR(numbers) %>% round(., 2)
     min_value <- min(numbers) %>% round(., 2)
     max_value <- max(numbers) %>% round(., 2)
     q1_value <- quantile(numbers, 0.25) %>% round(., 2)
     q3_value <- quantile(numbers, 0.75) %>% round(., 2)
-    min_frequency <- sum(numbers == min(numbers))
+    min_prop <- paste0(round((sum(numbers == min(numbers))/N)*100,2), "%")
 
     # Create a dataframe with the results
     result <- data.frame(
-      `Minimum (n)` = paste0(min_value, " (", min_frequency, ")"),
+      `Minimum (%)` = paste0(min_value, " (", min_prop, ")"),
       Mean = mean_value,
       Median = median_value,
-      `Mode (n)` = paste0(mode_value, " (", mode_frequency, ")"),
+      `Mode (%)` = paste0(mode_value, " (", mode_prop, ")"),
       Maximum = max_value,
       Q1 = q1_value,
       Q3 = q3_value,

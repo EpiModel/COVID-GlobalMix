@@ -1,7 +1,7 @@
 # Note: the purpose of this script is to calculate the forward-reachable path (FRP) under different scenarios. 
 # The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
 # network = "Rural"/"Urban"
-# est_apch = "sto_apoxy"/"mcmle"
+# est_apch = "mcmle"/"sto_apoxy"/
 # layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, where "ALL" means all 4 layers
 # percent_target_pop = 0.1/0.4/1
 # nodes - the number of nodes with edges whose FRPs are calculated, the default setting is NULL, that FRPs for all nodes are calculated
