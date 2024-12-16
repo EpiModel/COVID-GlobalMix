@@ -1,13 +1,24 @@
-# process data frame of FRP length
+# process data frame of FRP length to represent FRP as proportion of population reached
 frp_length_df_process <- 
   function(attr, frp_length, denom){
+    frp_length_crude <- 
     attr %>% select(node_id, node.age.grp) %>% 
       left_join(., 
                 frp_length %>% data.frame()%>% rownames_to_column(var = "node_id"),
                 by = "node_id"
-      ) %>% # the NA's in the data frame till here are of node doesn't have any edges, we recode those NA's to 1
-      mutate(across(everything(), ~ replace_na(., 1))) %>% 
+      ) %>% # the NA's in the data frame till here are of node doesn't have any edges (frp length =1), we recode those NA's to 1
+      mutate(across(everything(), ~ replace_na(., 1))) 
+    
+    frp_length_prop <- 
+    frp_length_crude %>% 
       mutate(across(where(is.numeric), ~ . / denom))
+    
+    frp_length <- list()
+    
+    frp_length$crude <-  frp_length_crude 
+    frp_length$prop <-  frp_length_prop
+    
+    frp_length
   }
 
 
@@ -40,9 +51,9 @@ frp_length_plot <-
   }
 
 
-# table showing statistical moments of FRP length in %
+# Function producing table showing statistical moments of FRP length in % on day 0, 1, 183, 365
 frp_moments_layer <-
-  function(frp_length_layer, per_n_people, layer, d_365, N){
+  function(frp_length_layer, per_n_people, layer, N){
 
   frp_length_layer <- frp_length_layer %>%
     mutate(across(where(is.numeric), ~ . * per_n_people)) # multiple per_n_people to proportion to get the value per n people
@@ -98,9 +109,10 @@ frp_moments_layer <-
   )
   }
 
-
+# Function producing table showing statistical moments of FRP length in % on day 365
 frp_moments_365_layer <-
   function(frp_length_layer, per_n_people){
+    
     
     frp_length_layer <- 
       frp_length_layer %>%
@@ -133,6 +145,25 @@ frp_moments_365_layer <-
   
   }
 
+# Function to calculate the proportion of non-isolated nodes in a layer
+prop_non_isolate <-
+  function(frp_crude_vec){
+    
+    frp_crude_vec %>% table
+    
+    # proportion corresponds to frp length =1
+    prop_frp <- prop.table(table(frp_crude_vec==1)) # T - isolates; F - non-isolates
+    
+    # convert proportion to percentage
+    percentages <- round(prop_frp * 100, 2)
+    
+    
+    
+   paste0(percentages[names(percentages)=="FALSE"], "%")
+   
+    
+  }
+
 
 # Define a function to summarize formation statistics
 form_stats <- function(tar_stats, summary_stats){
@@ -163,30 +194,44 @@ form_stats <- function(tar_stats, summary_stats){
   ## mean degree, converted from "edge" target statistics
   
   summary_stat_tb <- 
-    c(
-      tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum()/n_r,
-      paste0(tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% sum()/n_r, " (",
-             summary_stats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day %>% filter(association == "s_by_w")%>% pull(other_layer.1), ")"
+    c( # rural
+      2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum()/n_r,
+      
+      paste0(2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% sum()/n_r, " (",
+             tar_stats$targetstats_x.layer$rural %>% 
+               filter(association == "s_by_w") %>% 
+               pull(md_other_layer_1), 
+             ")"
       ),
       paste0(
-        tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work %>% sum()/n_r, " (",
-        summary_stats$formation$formation_stats_rural$layer_assoc_rural$mean_deg_1day %>% filter(association == "w_by_s") %>% pull(other_layer.1), ")"
+        2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work %>% sum()/n_r, " (",
+        tar_stats$targetstats_x.layer$rural %>% 
+          filter(association == "w_by_s") %>% 
+          pull(md_other_layer_1), 
+        ")"
       ),
-      tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome %>% sum()/n_r
+      
+      2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome %>% sum()/n_r
     ) %>% cbind(., 
-                c(
-                  tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Home %>% sum()/n_u,
-                  paste0(tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School %>% sum()/n_u, " (",
-                         summary_stats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day %>% filter(association == "s_by_w")%>% pull(other_layer.1), ")"
+                c( # urban
+                  2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Home %>% sum()/n_u,
+                  paste0(2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School %>% sum()/n_u, " (",
+                         tar_stats$targetstats_x.layer$urban %>% 
+                           filter(association == "s_by_w") %>% 
+                           pull(md_other_layer_1), 
+                         ")"
                   ),
                   paste0(
-                    tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work %>% sum()/n_u, " (",
-                    summary_stats$formation$formation_stats_urban$layer_assoc_urban$mean_deg_1day %>% filter(association == "w_by_s") %>% pull(other_layer.1), ")"
+                    2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work %>% sum()/n_u, " (",
+                    tar_stats$targetstats_x.layer$urban %>% 
+                      filter(association == "w_by_s") %>% 
+                      pull(md_other_layer_1), 
+                    ")"
                   ),
-                  tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome %>% sum()/n_u
+                  2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome %>% sum()/n_u
                 ),
                 layers[-1]
-    ) %>% data.frame() %>% round_df(df=.) %>% select(3,1,2) %>% rename(layer=1, `Rural`=2, `Urban`=3)
+    ) %>% data.frame() %>% round_df(df=.) %>% select(3,1,2) %>% rename(contact_location=1, `Rural`=2, `Urban`=3)
   
   summary_stat_tb
 }
