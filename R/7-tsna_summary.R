@@ -9,7 +9,7 @@ nodes =NULL# the number of nodes with edges whose FRPs are calculated, the defau
 
 
 
-# Load network stats to retrieve the number of node at each network
+# Load network stats to retrieve the number of nodes at each network
 ## Target stats
 tar_stats <- 
 readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats__", percent_target_pop, ".Rds"))
@@ -232,6 +232,28 @@ frp_length_h_r$crude$step_365 %>% table %>% data.frame()
 
 ?weighted.mean
 tar_stats$node_hh_assign$node_hh_assign_validation
+
+
+## Check component size at home
+nw_h_r <- 
+readRDS("./data/netest_outputs/deterministic_Home__Rural__0.1.Rds")
+
+nw_h_u <- 
+  readRDS("./data/netest_outputs/deterministic_Home__Urban__0.1.Rds")
+
+
+component_h_r <- sna::component.dist(nw_h_r); component_h_u<- sna::component.dist(nw_h_u)
+
+component_h_r$csize %>% summary; component_h_u$csize %>% summary
+
+### tabulate FRP with component size
+frp_length_h_r_365 <- 
+frp_length_h_r$crude %>% select(node_id, step_365)
+
+frp_length_h_r_365$component_node_id <- component_h_r$membership
+
+component_h_r$csize %>% unique %>% sort
+frp_length_h_r_365$step_365 %>% unique %>% sort
 
 
 
