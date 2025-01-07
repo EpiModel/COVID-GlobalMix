@@ -30,8 +30,29 @@ ests$Nonhome <-
 # Dynamic network simulation
 ## Load function for dynamic network simulation
 source("R/sim_network.R") 
-## Simulate network
-nw_sim <- sim_network(est = ests, nsteps = 365)
+
+nw_sim <- list() # define a list item to store simulated networks over 100 iterations
+
+for (i in 1:100) {
+## Simulate network, one iteration
+nw_sim[[i]] <- sim_network(est = ests, nsteps = 365)
+
+}
+
+# The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
+out_dir <- "data/netsim_outputs"
+if (!dir_exists(out_dir)) dir_create(out_dir)
+
+# Create lists to save results 
+edge_list_School <- edge_list_Work <- edge_list_Nonhome <- list()
+
+# Concert networkDynamics items from the 100 run to edgelists
+for(i in 1:100){
+  edge_list_School[[i]] <- as_cumulative_edgelist(nw_sim[[i]]$School)
+  edge_list_Work[[i]] <-  as_cumulative_edgelist(nw_sim[[i]]$Work)
+  edge_list_Nonhome[[i]] <-  as_cumulative_edgelist(nw_sim[[i]]$Nonhome)
+  
+}
 
 # The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
 out_dir <- "data/netsim_outputs"
@@ -43,16 +64,15 @@ file.name <-
          network,"__", est_apch,"__", percent_target_pop, ".Rds")
 
 
-# Transforming "networkDynamic" into a "cumulative edgelist" and save
-saveRDS(as_cumulative_edgelist(nw_sim$School), file.name[1])
-saveRDS(as_cumulative_edgelist(nw_sim$Work), file.name[2])
-saveRDS(as_cumulative_edgelist(nw_sim$Nonhome), file.name[3])
-
+# Output the edgelist items
+saveRDS(edge_list_School, file.name[1]) # school
+saveRDS(edge_list_Work, file.name[2]) # work
+saveRDS(edge_list_Nonhome, file.name[3]) #nonhome
 # Saving "networkDynamic" for diagnosis
-saveRDS(nw_sim, 
-        paste0("data/netsim_outputs/networkdynamic__", 
-               network,"__", est_apch,"__", percent_target_pop, ".Rds")
-        )
+# saveRDS(nw_sim, 
+#         paste0("data/netsim_outputs/networkdynamic__", 
+#                network,"__", est_apch,"__", percent_target_pop, ".Rds")
+#         )
 
 
 

@@ -24,6 +24,7 @@ file.name_out <- paste0(
 
 source("R/reachable.R")
 
+
 # Loading edgelist
 if (layer == "Home") {
   # manually convert to cumulative edgelist
@@ -36,6 +37,8 @@ if (layer == "Home") {
     ) %>% data.frame() %>%  rename(tail=.tail, head=.head ) %>% select(head, tail) %>% mutate(start=1, stop=2)
   
 } else if (layer %in%  c("School", "Work", "Nonhome")) {
+  
+  
   el_cuml <- readRDS(  paste0("data/netsim_outputs/el_cuml__", layer, "__", 
                               network,"__", est_apch,"__", percent_target_pop, ".Rds")
                      )
@@ -57,10 +60,16 @@ if (layer == "Home") {
   el_cuml_nonhome <- readRDS(file.name_in[3])
   
   # combining edgelists of different layers
-  el_all <- dplyr::bind_rows(el_cuml_home, el_cuml_school, el_cuml_work, el_cuml_nonhome)
+  el_all <- el_cuml <- list()
   
-  # deduplicating edges
-  el_cuml <- dedup_cumulative_edgelist(el = el_all)
+  for (i in 1:100) {
+    el_all[[i]] <- dplyr::bind_rows(el_cuml_home, el_cuml_school[[i]], el_cuml_work[[i]], el_cuml_nonhome[[i]])
+    # deduplicating edges
+    el_cuml[[i]] <- dedup_cumulative_edgelist(el = el_all[[i]])
+  }
+  
+  
+
 }
 
 
@@ -73,17 +82,32 @@ nodes <- sample(node_set, nodes)
 
 
 # Calculating FRP length for each node and time step
-frp_lengths <- 
+frp_lengths <- list()
+if (layer == "Home") { # for home layer, we calculate the FRP for once
+  frp_lengths <- 
+    progressr::with_progress(
+      get_forward_reachable(
+        el_cuml, 
+        from_step=1, 
+        to_step=365,
+        nodes = nodes
+      )
+    )
+  
+} else{  # for all, school, work, and nonhome layers, we calculate the FRP for all simulations
+
+for (i in 1:100) {
+frp_lengths[[i]] <- 
 progressr::with_progress(
   get_forward_reachable(
-  el_cuml, 
+  el_cuml[[i]], 
   from_step=1, 
   to_step=365,
   nodes = nodes
   )
 )
-
-
+}
+}
 # The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
 out_dir <- "data/frp_outputs"
 if (!dir_exists(out_dir)) dir_create(out_dir)
