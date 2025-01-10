@@ -50,6 +50,19 @@ frp_w_u <- readRDS(file.name_u[4])
 frp_nh_u <- readRDS(file.name_u[5])
 
 
+# Extract FRP length dataframe
+frp_length_all_r <- frp_length_s_r <- frp_length_w_r <- frp_length_nh_r <- 
+  frp_length_all_u <- frp_length_s_u <- frp_length_w_u <- frp_length_nh_u <- list()
+
+## rural
+for (i in 1:100) {
+  #frp_length_all_r[[i]] <- frp_all_r[[i]]$lengths
+  frp_length_s_r[[i]] <- frp_s_r[[i]]$lengths
+  frp_length_w_r[[i]] <- frp_w_r[[i]]$lengths
+  #frp_length_nh_r[[i]] <- frp_nh_r[[i]]$lengths
+}
+
+
 # Process identifiers of nodal attribute in target statistics
 tar_stats$attr$rural <- tar_stats$attr$rural %>% rownames_to_column(var = "node_id") %>% mutate(node_id = paste0("node_", node_id))
 tar_stats$attr$urban <- tar_stats$attr$urban %>% rownames_to_column(var = "node_id") %>% mutate(node_id = paste0("node_", node_id))
@@ -61,14 +74,6 @@ source("./R/result_helper_functions.R")
 
 # Process FRP data
 ## rural
-frp_length_all_r <-
-  frp_length_df_process(
-    attr = tar_stats$attr$rural,
-    frp_length = frp_all_r$lengths,
-    denom = n_r
-  )
-
-
 frp_length_h_r <-
   frp_length_df_process(
     attr = tar_stats$attr$rural,
@@ -77,19 +82,32 @@ frp_length_h_r <-
   )
 
 
-frp_length_s_r <-
+frp_length_all_r <-
   frp_length_df_process(
-    attr = tar_stats$attr$rural, 
-    frp_length = frp_s_r$lengths,
+    attr = tar_stats$attr$rural,
+    frp_length = frp_all_r$lengths,
     denom = n_r
   )
 
-frp_length_w_r <-
+
+for (i in 1:100) {
+  
+
+frp_length_s_r[[i]] <-
   frp_length_df_process(
     attr = tar_stats$attr$rural, 
-    frp_length = frp_w_r$lengths,
+    frp_length = frp_length_s_r[[i]],
     denom = n_r
   )
+
+frp_length_w_r[[i]] <-
+  frp_length_df_process(
+    attr = tar_stats$attr$rural, 
+    frp_length = frp_length_w_r[[i]],
+    denom = n_r
+  )
+
+}
 
 frp_length_nh_r <-
   frp_length_df_process(
@@ -142,6 +160,44 @@ rm(list=
        paste0("frp_", c("all", "h", "s", "w", "nh"), "_u")
      )
    )
+
+
+
+
+# characterize uncertainty
+frp365_s_r <- frp365_w_r <- list()
+
+for (i in 1:100) {
+frp365_s_r[[i]] <- 
+frp_moments_365_layer(frp_length_layer = frp_length_s_r[[i]]$prop %>% select(node.age.grp,node_id, step_365),
+                      per_n_people = 10000) 
+frp365_w_r[[i]] <- 
+frp_moments_365_layer(frp_length_layer = frp_length_w_r[[i]]$prop %>% select(node.age.grp,node_id, step_365),
+                      per_n_people = 10000) 
+
+}
+
+frp365_s_r <- bind_rows(frp365_s_r, .id = "i")
+frp365_w_r <- bind_rows(frp365_w_r, .id = "i")
+
+mean_frp365_s_r <- 
+frp365_s_r %>% filter(node.age.grp == "Overall") %>% pull(Mean) 
+mean_frp365_w_r <- 
+  frp365_w_r %>% filter(node.age.grp == "Overall") %>% pull(Mean) 
+
+# 95% CI and point estimate of the mean across 100 simulations
+df <- 
+rbind(
+quantile(mean_frp365_s_r, probs = c(0.5, 0.025, 0.975)) ,
+quantile(mean_frp365_w_r, probs = c( 0.5, 0.025, 0.975))
+) %>% data.frame %>% rename(`Median of means`=1, "2.5%"=2, "97.5%"=3) %>% mutate(layer = c("rural, school", "rural, work"))
+
+df
+
+# distribution
+par(mfrow = c(1,2))
+hist(mean_frp365_s_r, main = "School, rural");hist(mean_frp365_w_r, main = "Work, rural")
+
 
 # One-year FRP by age
 ## rural
