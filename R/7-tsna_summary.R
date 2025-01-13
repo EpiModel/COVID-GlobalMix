@@ -37,17 +37,17 @@ file.name_u <- paste0(
 
 
 
-frp_all_r <- readRDS(file.name_r[1])
+# frp_all_r <- readRDS(file.name_r[1])
 frp_h_r <- readRDS(file.name_r[2])
 frp_s_r <- readRDS(file.name_r[3])
 frp_w_r <- readRDS(file.name_r[4])
-frp_nh_r <- readRDS(file.name_r[5])
+# frp_nh_r <- readRDS(file.name_r[5])
  
-frp_all_u <- readRDS(file.name_u[1])
-frp_h_u <- readRDS(file.name_u[2])
-frp_s_u <- readRDS(file.name_u[3])
-frp_w_u <- readRDS(file.name_u[4])
-frp_nh_u <- readRDS(file.name_u[5])
+# frp_all_u <- readRDS(file.name_u[1])
+# frp_h_u <- readRDS(file.name_u[2])
+# frp_s_u <- readRDS(file.name_u[3])
+# frp_w_u <- readRDS(file.name_u[4])
+# frp_nh_u <- readRDS(file.name_u[5])
 
 
 # Extract FRP length dataframe
@@ -72,7 +72,7 @@ source("./R/result_helper_functions.R")
 
 
 
-# Process FRP data
+# Process FRP data, converting FRP length to proportion
 ## rural
 frp_length_h_r <-
   frp_length_df_process(
@@ -82,12 +82,12 @@ frp_length_h_r <-
   )
 
 
-frp_length_all_r <-
-  frp_length_df_process(
-    attr = tar_stats$attr$rural,
-    frp_length = frp_all_r$lengths,
-    denom = n_r
-  )
+# frp_length_all_r <-
+#   frp_length_df_process(
+#     attr = tar_stats$attr$rural,
+#     frp_length = frp_all_r$lengths,
+#     denom = n_r
+#   )
 
 
 for (i in 1:100) {
@@ -109,50 +109,50 @@ frp_length_w_r[[i]] <-
 
 }
 
-frp_length_nh_r <-
-  frp_length_df_process(
-    attr = tar_stats$attr$rural, 
-    frp_length = frp_nh_r$lengths,
-    denom = n_r
-  )
-
-## urban
-frp_length_all_u <-
-  frp_length_df_process(
-    attr = tar_stats$attr$urban,
-    frp_length = frp_all_u$lengths,
-    denom = n_u
-  )
-
-
-frp_length_h_u <-
-  frp_length_df_process(
-    attr = tar_stats$attr$urban,
-    frp_length = frp_h_u$lengths,
-    denom = n_u
-  )
-
-
-frp_length_s_u <-
-  frp_length_df_process(
-    attr = tar_stats$attr$urban, 
-    frp_length = frp_s_u$lengths,
-    denom = n_u
-  )
-
-frp_length_w_u <-
-  frp_length_df_process(
-    attr = tar_stats$attr$urban, 
-    frp_length = frp_w_u$lengths,
-    denom = n_u
-  )
-
-frp_length_nh_u <-
-  frp_length_df_process(
-    attr = tar_stats$attr$urban, 
-    frp_length = frp_nh_u$lengths,
-    denom = n_u
-  )
+# frp_length_nh_r <-
+#   frp_length_df_process(
+#     attr = tar_stats$attr$rural, 
+#     frp_length = frp_nh_r$lengths,
+#     denom = n_r
+#   )
+# 
+# ## urban
+# frp_length_all_u <-
+#   frp_length_df_process(
+#     attr = tar_stats$attr$urban,
+#     frp_length = frp_all_u$lengths,
+#     denom = n_u
+#   )
+# 
+# 
+# frp_length_h_u <-
+#   frp_length_df_process(
+#     attr = tar_stats$attr$urban,
+#     frp_length = frp_h_u$lengths,
+#     denom = n_u
+#   )
+# 
+# 
+# frp_length_s_u <-
+#   frp_length_df_process(
+#     attr = tar_stats$attr$urban, 
+#     frp_length = frp_s_u$lengths,
+#     denom = n_u
+#   )
+# 
+# frp_length_w_u <-
+#   frp_length_df_process(
+#     attr = tar_stats$attr$urban, 
+#     frp_length = frp_w_u$lengths,
+#     denom = n_u
+#   )
+# 
+# frp_length_nh_u <-
+#   frp_length_df_process(
+#     attr = tar_stats$attr$urban, 
+#     frp_length = frp_nh_u$lengths,
+#     denom = n_u
+#   )
 
 # Remove large outputs to save memory
 rm(list=
@@ -162,11 +162,10 @@ rm(list=
    )
 
 
-
-
-# characterize uncertainty
+# Statistical moments of FRP per 10K on day 365 under each simulation
 frp365_s_r <- frp365_w_r <- list()
 
+## Normalize to per 10K population
 for (i in 1:100) {
 frp365_s_r[[i]] <- 
 frp_moments_365_layer(frp_length_layer = frp_length_s_r[[i]]$prop %>% select(node.age.grp,node_id, step_365),
@@ -177,26 +176,75 @@ frp_moments_365_layer(frp_length_layer = frp_length_w_r[[i]]$prop %>% select(nod
 
 }
 
+## convert lists to dataframes
 frp365_s_r <- bind_rows(frp365_s_r, .id = "i")
 frp365_w_r <- bind_rows(frp365_w_r, .id = "i")
 
-mean_frp365_s_r <- 
-frp365_s_r %>% filter(node.age.grp == "Overall") %>% pull(Mean) 
-mean_frp365_w_r <- 
-  frp365_w_r %>% filter(node.age.grp == "Overall") %>% pull(Mean) 
+## distribution for the mean FRP of the each layers across simulation
 
-# 95% CI and point estimate of the mean across 100 simulations
+library(dplyr)
+
+age_group_quantiles <- function(data, age.grp = c("Overall", "0-9y", "10-19y", "20-29y", "30-39y", "40-59y", "60+y")) {
+  # Create an empty data frame to store results
+  results <- data.frame(age.grp = character(),
+                        median = numeric(),
+                        lower_95_CI = numeric(),
+                        upper_95_CI = numeric(),
+                        result_string = character(),
+                        stringsAsFactors = FALSE)
+  
+  # Loop through each age group
+  for(ag in age.grp) {
+    # Filter and extract the Mean values for the current age group
+    mean_vals <- data %>% 
+      filter(node.age.grp == ag) %>% 
+      pull(Mean)
+  
+    
+    # Compute the quantiles: median, lower 2.5% and upper 97.5%
+    qs <- quantile(mean_vals, probs = c(0.5, 0.025, 0.975))
+    
+    # Create a result string combining the quantiles
+    result_string <- paste0( qs[1],
+                            " (", qs[2],
+                            ", ", qs[3], ")")
+    
+    # Append the results to the data frame
+    results <- rbind(results, data.frame(
+      age.grp = ag,
+      median = qs[1],
+      lower_95_CI = qs[2],
+      upper_95_CI = qs[3],
+      result_string = result_string,
+      stringsAsFactors = FALSE
+    ))
+  }
+  
+  return(results)
+}
+
+### rural, school
+frp365_s_r_grps <- age_group_quantiles(frp365_s_r)
+
+### rural, work
+frp365_w_r_grps <- age_group_quantiles(frp365_w_r)
+
+
+
 df <- 
-rbind(
-quantile(mean_frp365_s_r, probs = c(0.5, 0.025, 0.975)) ,
-quantile(mean_frp365_w_r, probs = c( 0.5, 0.025, 0.975))
-) %>% data.frame %>% rename(`Median of means`=1, "2.5%"=2, "97.5%"=3) %>% mutate(layer = c("rural, school", "rural, work"))
+cbind(
+  frp365_s_r_grps %>% select(age.grp, result_string),
+  frp365_w_r_grps$result_string
+) %>% data.frame %>% rename("rural, school" =2, "rural, work"=3)
 
 df
 
 # distribution
+
+
 par(mfrow = c(1,2))
-hist(mean_frp365_s_r, main = "School, rural");hist(mean_frp365_w_r, main = "Work, rural")
+hist(mean_frp365_s_r, main = "School, rural", xlab = "Standardized FRP length"); abline(v = s_r_365_tile[2], col = "red", lty = 2); abline(v = s_r_365_tile[3], col = "red", lty = 2)
+hist(mean_frp365_w_r, main = "Work, rural", xlab = "Standardized FRP length"); abline(v = w_r_365_tile[2], col = "red", lty = 2); abline(v = w_r_365_tile[3], col = "red", lty = 2)
 
 
 # One-year FRP by age
