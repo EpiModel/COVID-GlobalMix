@@ -39,7 +39,6 @@ node_attribute_target_stats$targetstats_age.grp$formation_stats_rural$edge_ct_ma
 model_input_items <- 
 model_inputs(node_attribute_target_stats = node_attribute_target_stats, dissolution = netstats$dissolution, layer = layer)
 
-if(layer %in% c("School", "Work", "Nonhome")){
 ############## Model estimation  ##############
 # Define control argument, "sto_apoxy" is for stochastic approximation, "mcmle" is for MCMLE
 control.args <-  
@@ -78,15 +77,7 @@ file.name <- paste0(
   "data/netest_outputs/netest_",
   layer, "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
 )
-} else{ # Home layer
-  est <- model_input_items$initiate_nw[[network]]$nw_h
-  
-  file.name <- paste0(
-    "data/netest_outputs/deterministic_",
-    layer, "__", network,"__",  percent_target_pop, ".Rds"
-  )
-  
-}
+
 
 # The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
 out_dir <- "data/netest_outputs"

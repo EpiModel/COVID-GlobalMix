@@ -212,6 +212,6 @@ network_stats$formation <- list(formation_stats_rural=formation_stats_rural, for
 network_stats$dissolution <- known_dur_8_layers 
 
 ## Proportion of household memeber of each age group
-network_stats$prop_hh_members <- list(prop_hh_members_rural =prop_hh_members_rural, prop_hh_members_urban=prop_hh_members_urban)
+network_stats$prop_hh_members <- list(Rural =prop_hh_members_rural, Urban=prop_hh_members_urban)
 
 saveRDS(network_stats, file = "data/network_stats_attributes/network_params.Rds")

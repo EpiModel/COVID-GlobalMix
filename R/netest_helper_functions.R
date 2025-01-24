@@ -23,25 +23,6 @@ initiate_nw <-
                                       value= node_attribute_target_stats$attr[[network]]$node.age
     )
     
-    # Adding edges to the home layer (i=1 in the loop)
-    ## A vector of heads and tails of each edge 
-    head_vec = node_attribute_target_stats$node_hh_assign$edgelist[[network]]$head.node.ids
-    tail_vec = node_attribute_target_stats$node_hh_assign$edgelist[[network]]$tail.node.ids
-    
-    
-    ## Assign the heads and tails to the home layer item by node id
-    ### note: node.id serve as a global id which are unique across the whole network
-    ### the edges by head and tail are added using the global node ids - there's no need to add household ids as the edges of the same households are inherently grouped together
-    ### hence, the edge adding is independent of household ids and solely depends on the node ids
-    nw_h <- network::add.edges(
-      nw,
-      head_vec, tail_vec) 
-    
-    # Assign household id to each node at home layer
-    ### note: although we assign hh.id attribute here, the adding of edge to nodes is completely independent from hh.id, detailed explanation is in below
-    output$nw_h <- set_vertex_attribute(nw_h, "hh.id", node_attribute_target_stats$attr$rural$hh.ids)
-    
-
     
     # Adding the nodal contact status of the conditioned layer for the conditioning x-layer effect
     ## For school as the conditioned layer (i=2 in the loop)
@@ -96,12 +77,11 @@ nmix_tar_lex <-
 
 # sub-function to define layer-specific target statistics and model formula
 ## Note the function reads the list of target statistics from the environment. The following explains the meaning of each argument 
-### layer - 1 of the 4 layers: "Home", "School", "Work", "Nonhome"
+### layer - 1 of the 4 layers: "School", "Work", "Nonhome"
 ### site - 1 of the 2 sites: "Rural", "Urban"
-### form_model - 1 of the following 3 formation models of interest. Note: fst_gt0_edge is the 1st lexicographic location whose target statistic isn't 0
-#### 1) nmix_saturate_hh_id_deg0+: ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge)+ nodefactor(\"no.contact\")
-#### 2) nmix_saturate_deg0:  ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge) + nodefactor(\"no.contact\")
-#### 3) nmix_saturate_xlayer_deg0:  ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge)+nodefactor("nmix_saturate_xlayer", levels =-1) + nodefactor(\"no.contact\")
+### form_model - 1 of the following 2 formation models of interest. Note: fst_gt0_edge is the 1st lexicographic location whose target statistic isn't 0
+#### 1) nmix_saturate_deg0:  ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge) + nodefactor(\"no.contact\") for nonhome layer
+#### 2) nmix_saturate_xlayer:  ~edges+ nodemix("age.grp", levels2 = -fst_gt0_edge)+nodefactor(\"deg.x_layer\", levels =-1) for school and work layers
 formula_tarstats <- 
   function(layer, 
            form_model,
@@ -124,21 +104,7 @@ formula_tarstats <-
     fst_gt0_edge <- which(target_nmix_vec_layer$target_nmix_vec != 0)[1]
     
     ## Define the formula of formation model
-    if (form_model == "nmix_saturate_hh_id"){
-      ### Fully saturate model for age mixing without x-layer effect. For age mixing, we use the 1st non-zero lexicographic term as the reference group
-      frmn_fm <- 
-        paste0(
-          "~edges +",
-          "nodemix(\"age.grp\", levels2 =  -",   fst_gt0_edge, ")"
-        )
-      frmn_fm <- as.formula(frmn_fm)
-      
-      ### Target statistics correspond to the formation model
-      tstat <- c(target_nmix_vec_layer$target_nmix_vec %>% sum(), # total edge
-                 target_nmix_vec_layer$target_nmix_vec[- fst_gt0_edge]  #  edges counts from nodemix, excluding the first non-zero edge
-      )
-      
-    } else if (form_model == "nmix_saturate_deg0"){
+   if (form_model == "nmix_saturate_deg0"){
       ### Fully saturate model for age mixing without x-layer effect and with the dummy nodefactor term. For age mixing, we use the 1st non-zero lexicographic term as the reference group
       frmn_fm <- 
         paste0(
@@ -195,12 +161,10 @@ model_inputs <- function(node_attribute_target_stats, dissolution, layer){
   
   nw_urban <- initiate_nw(node_attribute_target_stats = node_attribute_target_stats, network = "urban")
   
-  if(layer %in% c("School", "Work", "Nonhome")
-     ){
+
   ############## Arrange target statistics for age mixing in lexicographic order  ##############
-  # Note: Some of the nodes below were for the original modeling of the home layer using T-ERGM. 
-  # We leave those nodes here for context even though we decided to deterministically assign edges to the home layer
-  # we treat the 1st non-zero age group as reference group for nodemix -
+
+  # we treat the 1st age group with non-zero edge count as reference group for nodemix -
   # for the home, nonhome, and school layers, it's the edge of "0-9y-0-9y"
   # for the work layer, it's the edge of "20-29y-20-29y"
   
@@ -218,11 +182,11 @@ model_inputs <- function(node_attribute_target_stats, dissolution, layer){
   formula_tarstats_rural <- formula_tarstats_urban <- list()
   
   ## Argument specifications for each layer 
-  layers <- c("Home", "School", "Work", "Nonhome") 
-  form_model_types <- c("nmix_saturate_hh_id", "nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate_deg0")
+  layers <- c( "School", "Work", "Nonhome") 
+  form_model_types <- c("nmix_saturate_xlayer", "nmix_saturate_xlayer", "nmix_saturate_deg0")
   
-  for (i in 2:4) { # i starts from 2 to skip the home layer 
-    formula_tarstats_rural[[i-1]] <- # i-1 here is to have the list order of the school, work, and nonhome layers correspond to 1,2, and 3
+  for (i in 1:3) { # i starts from 2 to skip the home layer 
+    formula_tarstats_rural[[i]] <- # i here is to have the list order of the school, work, and nonhome layers correspond to 1,2, and 3
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
@@ -231,7 +195,7 @@ model_inputs <- function(node_attribute_target_stats, dissolution, layer){
         dissolution_value = dissolution  %>% filter(study_site =="Rural") %>% filter(contact_location == layers[i]) %>% pull(know_contact_duration)
       )
     
-    formula_tarstats_urban[[i-1]] <- # i-1 here is to have the list order of the school, work, and nonhome layers correspond to 1,2, and 3
+    formula_tarstats_urban[[i]] <- # i here is to have the list order of the school, work, and nonhome layers correspond to 1,2, and 3
       formula_tarstats(
         layer = layers[i],
         form_model = form_model_types[i],
@@ -241,15 +205,14 @@ model_inputs <- function(node_attribute_target_stats, dissolution, layer){
       )
     
   }
-  names(formula_tarstats_rural) <- names(formula_tarstats_urban) <- layers[-1] # we use "-1" to skip the home layer
-  }
+  names(formula_tarstats_rural) <- names(formula_tarstats_urban) <- layers 
+  
   # Output all things 
   output <- list()
   output$initiate_nw$Rural <- nw_rural; output$initiate_nw$Urban <- nw_urban
-  if(layer %in% c("School", "Work", "Nonhome")
-  ){
+ 
   output$formula_tarstats$Rural <- formula_tarstats_rural; output$formula_tarstats$Urban <- formula_tarstats_urban
-  }
+  
   output
   
 }
