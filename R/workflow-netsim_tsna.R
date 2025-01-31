@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netsim_frp_r_0.1_0107", override = TRUE)
+wf <- make_em_workflow("netsim_frp_r_0.1_0131_2nd_try", override = TRUE)
 
 
 # netsim
@@ -46,7 +46,7 @@ wf <- add_workflow_step(
       network = "Rural",
       est_apch = "mcmle",
       percent_target_pop = "0.1",
-      nodes = NULL,
+      n_cores = est_cores,
       n_reps = 100
     ),
     setup_lines = hpc_node_setup

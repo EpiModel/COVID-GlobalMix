@@ -7,7 +7,7 @@
 #   layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, whith: "ALL" = 4 layers
 #   percent_target_pop = 0.1/0.4/1
 #   n_reps = 100, number of simulation to run
-#   n_cores, number of HPC core to use
+#   n_cores =10, number of HPC core to use
 
 
 # Packages
