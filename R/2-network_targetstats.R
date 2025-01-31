@@ -14,7 +14,7 @@ indiv_summary_stats <- readRDS("data/network_stats_attributes/network_params.Rds
 source("R/node_attrib_target_pop.R") # source functions for calculation target statistics
 
 
-pct = 0.1 # proportion of modeled population relative to target population E.g., 0.001 corresponds to 0.1%, 0.1 corresponds to 10%, 1 corresponds to 100%
+pct = 1 # proportion of modeled population relative to target population E.g.,0.1 corresponds to 10%, 1 corresponds to 100%
 
 # Defining categories of age and layer variables to be used inside functions
 target_age_grp <-  c("0-9y",   "10-19y", "20-29y", "30-39y", "40-59y", "60+y") %>% factor() # the six age group

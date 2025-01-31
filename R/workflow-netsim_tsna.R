@@ -18,10 +18,14 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_do_call_script(
     r_script = "R/5-network_sim.R",
-    args = list(hpc_context = TRUE,
-                network="Rural",
-                est_apch="mcmle",
-                percent_target_pop="0.1"),
+    args = list(
+      hpc_context = TRUE,
+      network = "Rural",
+      est_apch = "mcmle",
+      percent_target_pop = "0.1",
+      n_cores = est_cores,
+      n_reps = 100
+    ),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
@@ -36,12 +40,15 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/6-tsna.R",
-    layer=c("All", "Home", "School", "Work", "Nonhome"),
-    MoreArgs = list(hpc_context = TRUE,
-                    network="Rural",
-                    est_apch="mcmle",
-                    percent_target_pop="0.1",
-                    nodes=NULL), 
+    layer = c("All", "Home", "School", "Work", "Nonhome"),
+    MoreArgs = list(
+      hpc_context = TRUE,
+      network = "Rural",
+      est_apch = "mcmle",
+      percent_target_pop = "0.1",
+      nodes = NULL,
+      n_reps = 100
+    ),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
@@ -50,7 +57,3 @@ wf <- add_workflow_step(
     "mem" = "0"
   )
 )
-
-
-
-

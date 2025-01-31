@@ -1,31 +1,49 @@
-# Note: the purpose of this script is to simulate networks from the school, work, and nonhome layers, as well as the edgelists of the home layers of each network
-# The following are arguments to be passed from the workflow to the HPC job, so not defined in this file
-# network = "Urban"/"Rural"
-# est_apch = "mcmle"/"sto_apoxy"
-# percent_target_pop = "0.1"/"0.4"/"1"
+# Note: the purpose of this script is to simulate networks from the school, 
+# work, and nonhome layers of each network, which are outputted as edgelists
+# The following are arguments to be passed from the workflow to the HPC job, 
+# so not defined in this file:
+#   network = "Rural"/"Urban
+#   est_apch = "mcmle"/"sto_apoxy"
+#   percent_target_pop = "0.1"/"0.4"/"1"
+#   n_cores = 10
+#   n_reps = 100
 
 # Packages
-suppressMessages(library(dplyr))
-suppressMessages(library(EpiModel))
-suppressMessages(library(fs))
+library(dplyr)
+library(EpiModel)
+library(fs)
+library(gbp)
+library(tidyr)
+library(future.apply)
+future::plan("multicore", workers = n_cores)
+
+# Dynamic network simulation for school, work, and nonhome layers, 
+# and simulate household ids and edgelists for home layer for n_reps times
+## Load functions 
+source("R/sim_network.R") 
 
 # Load Data 
 ## Load netest-estimated items for school, work, and nonhome layers
 layers <- c("Home", "School", "Work", "Nonhome")
 
-file.name_in <- 
-    paste0("data/netest_outputs/netest_",
-           layers[-1], "__", network,"__", est_apch,"__", percent_target_pop, ".Rds"
+est_files_path <- 
+    paste0(
+      "data/netest_outputs/netest_",
+      layers[-1], "__", 
+      network,"__", 
+      est_apch,"__", 
+      percent_target_pop, ".Rds"
            )
 
-ests <- list()
+names(est_files_path) <- layers[-1]
 
-ests$School <- 
-  readRDS(file.name_in[1]) 
-ests$Work <- 
-  readRDS(file.name_in[2]) 
-ests$Nonhome <- 
-  readRDS(file.name_in[3]) 
+ests <- 
+  list(
+    School = readRDS(est_files_path[["School"]]),
+    Work = readRDS(est_files_path[["Work"]]),
+    Nonhome = readRDS(est_files_path[["Nonhome"]])
+  )
+
 
 ## Load necessary statistics to simulate edgelist for the home layer
 ### Observed proportions and frequency of different type of household members
@@ -37,12 +55,7 @@ mean_deg_home <-
   readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", percent_target_pop, ".Rds"))$node_hh_assign$mean_deg_home[[network]]
 
 
-
-# Dynamic network simulation for school, work, and nonhome layers, and simulate household ids and edgelists for home layer for 100 times
-## Load functions 
-source("R/sim_network.R") 
-
-## Load initial age group of each node and recode them into 3 categories for simulating houshold ids
+### Load initial age group of each node and recode them into 3 categories for simulating houshold ids
 init_node.age.grp <- 
 recode(get_vertex_attribute(ests$School$newnetwork,"age.grp"), # recode 6-category age groups to 3-category age groups consist of "0-19y", 20-59y", and "60-100y" for simulating household ids
        `0-9y` = "0-19y",
@@ -52,13 +65,44 @@ recode(get_vertex_attribute(ests$School$newnetwork,"age.grp"), # recode 6-catego
        `40-59y` = "20-59y",
        `60+y` = "60+y")
 
-## define 1) a list item to store simulated networks over 100 iterations, 2) edgelists which 1) will be converted, 3) lists to save items related to household id for home
-nw_sim <- edge_list_School <- edge_list_Work <- edge_list_Nonhome <- 
-  hh_id_edgelist <- edge_list_Home <- hh_id_attr <-  hh_id_validation <- hh_id_attr_validation  <- list() 
 
 set.seed(20250114) 
 
-for (i in 1:100) {
+# Network simulation for school, work, and nonhome
+## Run the simulations in parallel and store the 3 cumulative edge_lists for school, work, and nonhome
+el_cumls <- future_replicate(
+  n_reps,
+  {
+    ## Simulate network for school, work, and nonhome layers from day 1 to 365, for n_reps times
+    sim <- sim_network(est = ests, nsteps = 365)
+    ## Convert to edgelists
+    list(
+      School = as_cumulative_edgelist(sim$School),
+      Work = as_cumulative_edgelist(sim$Work),
+      Nonhome = as_cumulative_edgelist(sim$Nonhome)
+    )
+  },
+  future.seed = TRUE
+)
+
+# Make an empty list - a list[3] with list[n_reps]
+edge_lists <- list(
+  School = vector(mode = "list", length = n_reps),
+  Work = vector(mode = "list", length = n_reps),
+  Nonhome = vector(mode = "list", length = n_reps)
+)
+
+for (i in seq_len(n_reps)) {
+  edge_list$School[[i]] <- el_cumls[[i]]$School
+  edge_list$Work[[i]] <- el_cumls[[i]]$Work
+  edge_list$Nonhome[[i]] <- el_cumls[[i]]$Nonhome
+}
+
+
+# Network simulation for home
+## define empty lists to store things 
+hh_id_edgelist <- edge_list_Home <- hh_id_attr <-  hh_id_validation <- hh_id_attr_validation  <- list() 
+for (i in 1:n_reps) {
   
 ## Simulate edgelist and household IDs for home layer for each iteration i
 hh_id_edgelist[[i]] <-
@@ -77,7 +121,6 @@ hh_id_edgelist[[i]] <-
       age.grp= init_node.age.grp
     )
   
-  
   ### save home edgelist of each simulation
   edge_list_Home[[i]] <- hh_id_edgelist[[i]]$edgelist %>% 
     rename(head=head.node.ids, tail=tail.node.ids ) %>% select(head, tail) %>% mutate(start=1, stop=2) # rename to the variable names used in the FRP function and adding time
@@ -88,16 +131,6 @@ hh_id_edgelist[[i]] <-
   ### save validation result of each simulation
   hh_id_validation[[i]] <- hh_id_edgelist[[i]]$validation
   
-  
-## Simulate network for school, work, and nonhome layers from day 1 to 365, for each iteration i
-nw_sim[[i]] <- sim_network(est = ests, nsteps = 365)
-
-### Convert networkDynamics items from each run to edgelists
-edge_list_School[[i]] <- as_cumulative_edgelist(nw_sim[[i]]$School)
-edge_list_Work[[i]] <-  as_cumulative_edgelist(nw_sim[[i]]$Work)
-edge_list_Nonhome[[i]] <-  as_cumulative_edgelist(nw_sim[[i]]$Nonhome)
-  
-
 }
 
 hh_id_attr_validation$attr <- hh_id_attr; hh_id_attr_validation$validation <- hh_id_validation
@@ -108,17 +141,23 @@ out_dir <- "data/netsim_outputs"
 if (!dir_exists(out_dir)) dir_create(out_dir)
 
 ## Create file names to be saved for cumulative edgelist
-file.name <- 
-  paste0("data/netsim_outputs/el_cuml__", layers, "__", 
-         network,"__",  percent_target_pop, ".Rds")
+el_file_path <- 
+  paste0(
+    "data/netsim_outputs/el_cuml__", 
+    layers, "__", 
+    network,"__",  
+    percent_target_pop, ".Rds"
+    )
+
+names(el_file_path) <- layers
 
 ## Output the edgelist items
-saveRDS(edge_list_Home, file.name[1]) # home
-saveRDS(edge_list_School, file.name[2]) # school
-saveRDS(edge_list_Work, file.name[3]) # work
-saveRDS(edge_list_Nonhome, file.name[4]) #nonhome
+saveRDS(edge_list_Home, el_file_path[["Home"]]) # home
+saveRDS(edge_list$School, el_file_path[["School"]]) # school
+saveRDS(edge_list$Work, el_file_path[["Work"]]) # work
+saveRDS(edge_list$Nonhome, el_file_path[["Nonhome"]]) #nonhome
 
-## Output houhold id attribute and validation result for houshold id simulation
+## Output household id attribute and validation result for household id simulation
 saveRDS(hh_id_attr_validation,  paste0("data/netsim_outputs/hh_id_attr_validation__", 
                                        network,"__",  percent_target_pop, ".Rds")
         )
