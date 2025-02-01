@@ -5,8 +5,10 @@
 #   network = "Rural"/"Urban
 #   est_apch = "mcmle"/"sto_apoxy"
 #   percent_target_pop = "0.1"/"0.4"/"1"
-#   n_cores = 10
+#   n_cores, number of HPC cores to use
 #   n_reps = 100
+
+options(future.globals.maxSize = 600 * 1024^2)  # sets limit to 600 MiB
 
 # Packages
 library(dplyr)
