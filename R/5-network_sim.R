@@ -88,7 +88,7 @@ el_cumls <- future_replicate(
 )
 
 # Make an empty list - a list[3] with list[n_reps]
-edge_lists <- list(
+edge_list <- list(
   School = vector(mode = "list", length = n_reps),
   Work = vector(mode = "list", length = n_reps),
   Nonhome = vector(mode = "list", length = n_reps)
