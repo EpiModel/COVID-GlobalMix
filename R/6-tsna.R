@@ -56,8 +56,6 @@ file.name_out <- paste0(
   el_cuml_nonhome <- readRDS(file.name_in[["Nonhome"]])
   
   # combining edgelists of different layers
-  el_all <- el_cuml <- list()
-  
   el_cuml <- future_lapply(seq_len(n_reps), \(i) {
     dedup_cumulative_edgelist(dplyr::bind_rows(
       el_cuml_home[[i]],
