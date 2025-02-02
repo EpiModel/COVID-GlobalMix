@@ -1,4 +1,4 @@
-## HPC Workflow: Network simulation
+## HPC Workflow: Network simulation & FRP calculation
 
 
 # Setup ------------------------------------------------------------------------

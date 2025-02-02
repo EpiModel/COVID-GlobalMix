@@ -87,6 +87,9 @@ el_cumls <- future_replicate(
   future.seed = TRUE
 )
 
+## transpose the output from future_replicate to make the layer's names to be listed in the columns
+el_cumls <- t(el_cumls)
+
 # Make an empty list - a list[3] with list[n_reps]
 edge_list <- list(
   School = vector(mode = "list", length = n_reps),
@@ -95,9 +98,9 @@ edge_list <- list(
 )
 
 for (i in seq_len(n_reps)) {
-  edge_list$School[[i]] <- el_cumls[[i]]$School
-  edge_list$Work[[i]] <- el_cumls[[i]]$Work
-  edge_list$Nonhome[[i]] <- el_cumls[[i]]$Nonhome
+  edge_list$School[[i]] <- el_cumls[i,"School"]$School
+  edge_list$Work[[i]] <- el_cumls[i,"Work"]$Work
+  edge_list$Nonhome[[i]] <- el_cumls[i,"Nonhome"]$Nonhome
 }
 
 
