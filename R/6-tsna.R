@@ -15,7 +15,7 @@ library(tsna)
 library(EpiModel)
 library(fs)
 library(dplyr)
-library(future.lapply)
+library(future.apply)
 future::plan("multicore", workers = n_cores)
 
 source("R/reachable.R")
