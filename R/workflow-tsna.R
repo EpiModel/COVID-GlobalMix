@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("frp_r_0.1_0202_2nd_try", override = TRUE)
+wf <- make_em_workflow("frp_r_0.1_0204_1st_try", override = TRUE)
 
 
 
@@ -19,7 +19,7 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/6-tsna.R",
-    layer = c("All", "Home", "School", "Work", "Nonhome"),
+    layer = c("All"),
     MoreArgs = list(
       hpc_context = TRUE,
       network = "Rural",
