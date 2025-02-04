@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("frp_r_0.1_0204_1st_try", override = TRUE)
+wf <- make_em_workflow("frp_r_0.1_0204_2nd_try", override = TRUE)
 
 
 
