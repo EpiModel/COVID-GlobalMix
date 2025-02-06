@@ -957,8 +957,8 @@ node_attrib_target_pop <-
     output$degrange$rural <- deg_tstat_r; output$degrange$urban <- deg_tstat_u
     
     # home mean degrees for household assignment
-    output$node_hh_assign$mean_deg_home$Rural <-  mean_deg_rural_home
-    output$node_hh_assign$mean_deg_home$Urban  <- mean_deg_urban_home
+    output$mean_deg_home$Rural <-  mean_deg_rural_home
+    output$mean_deg_home$Urban  <- mean_deg_urban_home
 
    
     output

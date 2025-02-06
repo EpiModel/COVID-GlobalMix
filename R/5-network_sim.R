@@ -8,7 +8,7 @@
 #   n_cores, number of HPC cores to use
 #   n_reps = 100
 
-options(future.globals.maxSize = 600 * 1024^2)  # sets limit to 600 MiB
+options(future.globals.maxSize = Inf)  # sets limit to 600 MiB
 
 # Packages
 library(dplyr)
@@ -54,7 +54,7 @@ hh_member_stat <- readRDS("data/network_stats_attributes/network_params.Rds")$pr
 
 ### Mean deg at home, calculated as (total edge count)/(total nodes)
 mean_deg_home <- 
-  readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", percent_target_pop, ".Rds"))$node_hh_assign$mean_deg_home[[network]]
+  readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", percent_target_pop, ".Rds"))$mean_deg_home[[network]]
 
 
 ### Load initial age group of each node and recode them into 3 categories for simulating houshold ids

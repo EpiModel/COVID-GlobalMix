@@ -9,7 +9,7 @@
 #   n_reps = 100, number of simulation to run
 #   n_cores, number of HPC core to use
 
-options(future.globals.maxSize = 700 * 1024^2)  # sets limit to 700 MiB
+options(future.globals.maxSize = Inf)  # sets limit to 700 MiB
 
 # Packages
 library(tsna)
