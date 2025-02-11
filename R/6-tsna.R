@@ -3,13 +3,10 @@
 # The following are arguments to be passed from the workflow to the HPC job,
 # so not defined in this file:
 #   network = "Rural"/"Urban"
-#   est_apch = "mcmle"/"sto_apoxy"/
-#   layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, whith: "ALL" = 4 layers
+#   layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, which: "ALL" = 4 layers
 #   percent_target_pop = 0.1/0.4/1
 #   n_reps = 100, number of simulation to run
 #   n_cores, number of HPC core to use
-
-# options(future.globals.maxSize = Inf)  # sets limit to 700 MiB
 
 # Packages
 library(tsna)
@@ -33,7 +30,7 @@ file.name_out <- paste0(
 )
 
 frp_lengths <- future_lapply(seq_len(n_reps), \(i) {
-  els_path <- paste0("data/netsim_outputs__", i, ".rds")
+  els_path <- paste0("data/netsim_outputs/outputs_by_reps/netsim_outputs__", i, ".rds")
   els <- readRDS(els_path)
 
   if (layer %in%  layers) { # when the analysis is conducted for each layer individually
@@ -43,7 +40,7 @@ frp_lengths <- future_lapply(seq_len(n_reps), \(i) {
   }
 
   get_forward_reachable(
-    el_cuml[[i]],
+    el_cuml,
     from_step = 1,
     to_step = 365,
     nodes = NULL # the number of nodes with edges whose FRPs are calculated, the default setting is NULL, which means FRPs for all nodes are calculated
