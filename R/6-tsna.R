@@ -13,10 +13,13 @@ library(tsna)
 library(EpiModel)
 library(fs)
 library(dplyr)
-library(future.apply)
-future::plan("multicore", workers = n_cores)
 
 source("R/reachable.R")
+
+network <- "Rural"
+est_apch <- "mcmle"
+layer <- "All"
+percent_target_pop <- 1
 
 layers <- c("Home", "School", "Work", "Nonhome")
 
@@ -29,23 +32,23 @@ file.name_out <- paste0(
   percent_target_pop, ".Rds"
 )
 
-frp_lengths <- future_lapply(seq_len(n_reps), \(i) {
-  els_path <- paste0("data/netsim_outputs/outputs_by_reps/netsim_outputs__", i, ".rds")
-  els <- readRDS(els_path)
+i <- 1
 
-  if (layer %in%  layers) { # when the analysis is conducted for each layer individually
-    el_cuml <- els[[layer]]
-  } else if (layer == "All") {
-    el_cuml <- dedup_cumulative_edgelist(dplyr::bind_rows(els))
-  }
+els_path <- paste0("data/netsim_outputs/outputs_by_reps/netsim_outputs__", i, ".rds")
+els <- readRDS(els_path)
 
-  get_forward_reachable(
-    el_cuml,
-    from_step = 1,
-    to_step = 365,
-    nodes = NULL # the number of nodes with edges whose FRPs are calculated, the default setting is NULL, which means FRPs for all nodes are calculated
-  )$lengths #outputting the FRP length data frame
-})
+if (layer %in%  layers) { # when the analysis is conducted for each layer individually
+  el_cuml <- els[[layer]]
+} else if (layer == "All") {
+  el_cuml <- dedup_cumulative_edgelist(dplyr::bind_rows(els))
+}
+
+get_forward_reachable(
+  el_cuml,
+  from_step = 1,
+  to_step = 365,
+  nodes = NULL # the number of nodes with edges whose FRPs are calculated, the default setting is NULL, which means FRPs for all nodes are calculated
+)$lengths #outputting the FRP length data frame
 
 # The following script is for github, which creates an folder at HPC when the corresponding folder at local is empty
 out_dir <- "data/frp_outputs"
