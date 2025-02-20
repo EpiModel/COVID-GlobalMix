@@ -14,7 +14,7 @@ library(EpiModel)
 library(fs)
 library(dplyr)
 library(future.apply)
-future::plan("multicore", workers = n_cores)
+future::plan("sequential")
 
 source("R/reachable.R")
 
@@ -30,6 +30,9 @@ file.name_out <- paste0(
 )
 
 frp_lengths <- future_lapply(seq_len(n_reps), \(i) {
+  print("debug info:")
+  print(i)
+  print(layer)
   els_path <- paste0("data/netsim_outputs/outputs_by_reps/netsim_outputs__", i, ".rds")
   els <- readRDS(els_path)
 

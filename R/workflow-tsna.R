@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("frp_r_1_0211_1st_try", override = TRUE)
+wf <- make_em_workflow("frp_r_1_0212_adrien_request", override = TRUE)
 
 
 
@@ -23,7 +23,7 @@ wf <- add_workflow_step(
       hpc_context = TRUE,
       network = "Rural",
       percent_target_pop = "1",
-      n_reps = 100
+      n_reps = 2
     ),
     setup_lines = hpc_node_setup
   ),
@@ -46,7 +46,7 @@ wf <- add_workflow_step(
       est_apch = "mcmle",
       percent_target_pop = "1",
       n_cores = est_cores,
-      n_reps = 100
+      n_reps = 2
     ),
     setup_lines = hpc_node_setup
   ),

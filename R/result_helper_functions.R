@@ -166,74 +166,142 @@ prop_non_isolate <-
 
 
 # Define a function to summarize formation statistics
-form_stats <- function(tar_stats, summary_stats){
+network_stats <- function(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp){
   
-  round_df <- function(df) {
-    # Define a helper function to round character values
-    round_char_values <- function(value) {
-      if (grepl("\\(", value)) {
-        # Extract numbers from the value
-        numbers <- unlist(regmatches(value, gregexpr("[0-9.]+", value)))
-        # Round each number to 3 digits
-        rounded_numbers <- sapply(numbers, function(x) sprintf("%.3f", as.numeric(x)))
-        # Reconstruct the value with rounded numbers
-        rounded_value <- paste(rounded_numbers[1], "(", rounded_numbers[2], ")", sep = "")
-        return(rounded_value)
-      } else if (grepl("^[0-9.]+$", value)) {
-        return(sprintf("%.3f", as.numeric(value)))
-      } else {
-        return(value)
-      }
-    }
+  md_age <- function(edge_ct_m, n_age_grp) {
+    md_age <- 
+    c(
+    2*sum(edge_ct_m[1,])/n_age_grp[1], #0-9y 
+    2*(sum(edge_ct_m[2,])+sum(edge_ct_m[,2])-edge_ct_m[2,2] # 10-19y 
+       )/n_age_grp[2],
+    2*(sum(edge_ct_m[3,])+sum(edge_ct_m[,3])-edge_ct_m[3,3] # 20-29y 
+    )/n_age_grp[3],
+    2*(sum(edge_ct_m[4,])+sum(edge_ct_m[,4])-edge_ct_m[4,4] # 30-39y
+    )/n_age_grp[4],
+    2*(sum(edge_ct_m[5,])+sum(edge_ct_m[,5])-edge_ct_m[5,5] # 40-59y    
+    )/n_age_grp[5],
+    2*sum(edge_ct_m[,6])/n_age_grp[6] # 60+y
+    ) %>% round(., 2)
     
-    # Apply the helper function to character columns in the data frame
-    df %>% mutate(across(where(is.character), ~sapply(.x, round_char_values)))
+    data.frame(md_age)
   }
   
   
-  ## mean degree, converted from "edge" target statistics
+  # overall mean degree
   
-  summary_stat_tb <- 
-    c( # rural
-      2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum()/n_r,
+ overall_md <- 
+    c( 
+      (2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home %>% sum()/n_r) %>% round(., 2), # home, rural
+      (2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Home %>% sum()/n_u) %>% round(., 2),# home, urban
       
-      paste0(2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% sum()/n_r, " (",
+      paste0((2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School %>% sum()/n_r) %>% round(., 2), " (", # school, rural
+             
              tar_stats$targetstats_x.layer$rural %>% 
                filter(association == "s_by_w") %>% 
-               pull(md_other_layer_1), 
+               pull(md_other_layer_1)%>% round(., 2), 
              ")"
       ),
-      paste0(
-        2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work %>% sum()/n_r, " (",
-        tar_stats$targetstats_x.layer$rural %>% 
-          filter(association == "w_by_s") %>% 
-          pull(md_other_layer_1), 
-        ")"
+      paste0((2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School %>% sum()/n_u) %>% round(., 2), " (",# school, urban
+             tar_stats$targetstats_x.layer$urban %>% 
+               filter(association == "s_by_w") %>% 
+               pull(md_other_layer_1)%>% round(., 2), 
+             ")"
       ),
       
-      2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome %>% sum()/n_r
-    ) %>% cbind(., 
-                c( # urban
-                  2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Home %>% sum()/n_u,
-                  paste0(2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School %>% sum()/n_u, " (",
-                         tar_stats$targetstats_x.layer$urban %>% 
-                           filter(association == "s_by_w") %>% 
-                           pull(md_other_layer_1), 
-                         ")"
-                  ),
-                  paste0(
-                    2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work %>% sum()/n_u, " (",
-                    tar_stats$targetstats_x.layer$urban %>% 
-                      filter(association == "w_by_s") %>% 
-                      pull(md_other_layer_1), 
-                    ")"
-                  ),
-                  2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome %>% sum()/n_u
-                ),
-                layers[-1]
-    ) %>% data.frame() %>% round_df(df=.) %>% select(3,1,2) %>% rename(contact_location=1, `Rural`=2, `Urban`=3)
+      paste0( 
+        (2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work %>% sum()/n_r) %>% round(., 2), " (", # work, rural
+        tar_stats$targetstats_x.layer$rural %>% 
+          filter(association == "w_by_s") %>% 
+          pull(md_other_layer_1)%>% round(., 2), 
+        ")"
+      ),
+      paste0(
+        (2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work %>% sum()/n_u) %>% round(., 2), " (",# work, urban
+        tar_stats$targetstats_x.layer$urban %>% 
+          filter(association == "w_by_s") %>% 
+          pull(md_other_layer_1)%>% round(., 2), 
+        ")"
+      ),
+       (2*tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome %>% sum()/n_r) %>% round(., 2), # nonhome, rural
+      (2*tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome %>% sum()/n_u) %>% round(., 2)  # nonhome, rural
+    ) %>% t() %>%  data.frame() 
+ 
+   # age-specific mean degree
+ age_spec_md <- 
+ cbind(
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Home,
+         n_age_grp = n_r_age_grp),
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Home,
+         n_age_grp = n_u_age_grp),
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School,
+         n_age_grp = n_r_age_grp),
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School,
+         n_age_grp = n_u_age_grp),
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work,
+         n_age_grp = n_r_age_grp),
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work,
+         n_age_grp = n_u_age_grp),
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome,
+         n_age_grp = n_r_age_grp),
+  md_age(edge_ct_m = tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome,
+         n_age_grp = n_u_age_grp)
+ )
+ 
+ # proportion of contact
+ prop_contact <- 
+ c(
+   rep("-",6),
+   paste0(
+ (tar_stats$attr$rural$contact_attribute_Nonhome %>% table() %>% prop.table() %>% data.frame() %>% filter(.==1) %>% pull(Freq)*100) %>% round(.,2), "%"
+   ),
+   paste0(                                                                                                 
+ (tar_stats$attr$urban$contact_attribute_Nonhome %>% table() %>% prop.table() %>% data.frame() %>% filter(.==1) %>% pull(Freq)*100) %>% round(.,2), "%"
+   )
+ )%>% t() %>%  data.frame() 
+ 
+ # within-age mixing proportion
+ assort_prop <- 
+ cbind(
+ summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Home$Home_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag(),
+ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Home$Home_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag(),
+ 
+ summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag(),
+ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$School$School_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag(),
+ 
+ summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Work$Work_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag(),
+ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag(),
+ 
+ summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Nonhome$Nonhome_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag(),
+ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Nonhome$Nonhome_mix_prop_matrix_2d_glm %>% as.matrix()%>% diag()
+ )%>% data.frame() %>% 
+   mutate(across(everything(), ~ ifelse(is.na(.), 0, .)),
+          across(everything(), ~ paste0(round(. * 100, 2), "%"))
+          )
+ 
+ # contact duration
+ dur <- 
+ c(rep("-",2),
+ summary_stats$dissolution %>%
+   mutate(contact_location = factor(contact_location, levels = c( "School", "Work", "Nonhome"))) %>%
+   arrange(contact_location) %>% pull(know_contact_duration) %>% round(., 2)
+ ) %>% t() %>%  data.frame() 
+ 
+ 
+ 
+ colnames(overall_md) <- colnames(age_spec_md) <- colnames(prop_contact) <- colnames(assort_prop) <- colnames(dur) <-    c("h_r", "h_u", "s_r", "s_u", "w_r", "w_u", "nh_r", "nh_u")
+ 
+ summary_stat_tb <- 
+ bind_rows( overall_md %>% mutate(across(everything(), as.character)) , 
+        age_spec_md %>% mutate(across(everything(), as.character)), 
+        prop_contact %>% mutate(across(everything(), as.character)),
+        assort_prop%>% mutate(across(everything(), as.character)),
+        dur%>% mutate(across(everything(), as.character))
+        )
+ 
+ row.names(summary_stat_tb) <- c("Mean degree (conditioned)", "Mean deg, 0-9y", "Mean deg, 10-19y", "Mean deg, 20-29y", "Mean deg, 30-39y", "Mean deg, 40-59y", "Mean deg, 60+y",
+                                 "having contact %", "assort %, 0-9y", "assort %, 10-19y", "assort %, 20-29y", "assort %, 30-39y", "assort %, 40-59y", "assort %, 60+y", "dur")
   
-  summary_stat_tb
+ summary_stat_tb
 }
 
 
