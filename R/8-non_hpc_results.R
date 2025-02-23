@@ -4,7 +4,7 @@ library(dplyr); library(tidyr); library(tibble); library(ggplot2); library(ggpub
 network = c("Rural", "Urban")
 est_apch = "mcmle"#/"sto_apoxy"/
 layers = c("All","Home","School","Work","Nonhome")
-percent_target_pop =  1 #/1/0.1
+percent_target_pop =  0.5 #/1/0.1
 
 
 
@@ -30,8 +30,6 @@ n_u_age_grp <- table(tar_stats$attr$urban$node.age.grp)
 
 
 source("./R/result_helper_functions.R")
-
-
 
 # Summary statistics table, table 1
 network_stats_tb <- 

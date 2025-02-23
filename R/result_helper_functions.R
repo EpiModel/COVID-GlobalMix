@@ -171,16 +171,18 @@ network_stats <- function(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp){
   md_age <- function(edge_ct_m, n_age_grp) {
     md_age <- 
     c(
-    2*sum(edge_ct_m[1,])/n_age_grp[1], #0-9y 
-    2*(sum(edge_ct_m[2,])+sum(edge_ct_m[,2])-edge_ct_m[2,2] # 10-19y 
+    2*
+      (sum(edge_ct_m[1,c(2:6)]) +edge_ct_m[1,1]/2) /
+      n_age_grp[1], #0-9y 
+    2*(sum(edge_ct_m[2,-2])+sum(edge_ct_m[-2,2])+edge_ct_m[2,2]/2 # 10-19y 
        )/n_age_grp[2],
-    2*(sum(edge_ct_m[3,])+sum(edge_ct_m[,3])-edge_ct_m[3,3] # 20-29y 
+    2*(sum(edge_ct_m[3,-3])+sum(edge_ct_m[-3,3])+edge_ct_m[3,3]/2 # 20-29y 
     )/n_age_grp[3],
-    2*(sum(edge_ct_m[4,])+sum(edge_ct_m[,4])-edge_ct_m[4,4] # 30-39y
+    2*(sum(edge_ct_m[4,-4])+sum(edge_ct_m[-4,4])+edge_ct_m[4,4]/2 # 30-39y
     )/n_age_grp[4],
-    2*(sum(edge_ct_m[5,])+sum(edge_ct_m[,5])-edge_ct_m[5,5] # 40-59y    
+    2*(sum(edge_ct_m[5,-5])+sum(edge_ct_m[-5,5])+edge_ct_m[5,5]/2 # 40-59y    
     )/n_age_grp[5],
-    2*sum(edge_ct_m[,6])/n_age_grp[6] # 60+y
+    2*(sum(edge_ct_m[c(1:5),6])+edge_ct_m[6,6]/2)/n_age_grp[6] # 60+y
     ) %>% round(., 2)
     
     data.frame(md_age)

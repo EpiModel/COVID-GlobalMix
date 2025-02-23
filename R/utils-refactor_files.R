@@ -1,5 +1,5 @@
 #   network = "Rural"/"Urban"
-#   percent_target_pop = 0.1/0.4/1
+#   percent_target_pop = 0.1/0.5
 #   n_reps = 100, number of simulation to run
 library(fs)
 
@@ -23,7 +23,7 @@ out_dir <- "data/netsim_outputs/outputs_by_reps"
 if (!dir_exists(out_dir)) dir_create(out_dir)
 
 for (i in seq_len(n_reps)) {
-  els_path <- paste0("data/netsim_outputs/outputs_by_reps/netsim_outputs__", i, ".rds")
+  els_path <- paste0("data/netsim_outputs/outputs_by_reps/netsim_outputs__", percent_target_pop, "__", i, ".rds")
   els <- list(
     Home    = el_cuml_home[[i]],
     School  = el_cuml_school[[i]],

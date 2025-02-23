@@ -373,36 +373,9 @@ post_stratification <-
   }
 
 
-# Function to calculate proportion of having contact by age group and layer using the signle-day weighted degree
-# 
-# contact_prop_age_layer <- 
-#   function(degree_2d, wai){
-#     
-#     # Calculate weighted degree
-#     weighted_degree <- 
-#     degree_2d %>% left_join(., wai, by = "participant_age") %>% 
-#       mutate(weighted_deg = n_contacts*weight) # note that although the weight is included here, the proportion without adjust for it is the same
-#     
-#     # Summarizing the data to calculate proportion of having any contact by contact_location and participant_age
-#     contact_summary <- weighted_degree %>%
-#       mutate(contact_status = ifelse(weighted_deg > 0, 1, 0)) %>%
-#       group_by(contact_location, participant_age, contact_status) %>%
-#       summarize(count = n()) %>% ungroup %>% 
-#       group_by(contact_location, participant_age) %>%
-#       mutate(proportion = count / sum(count)) %>%
-#       ungroup()
-#     
-#     
-#     wt_deg.age.layer.dist_2days <- contact_summary %>% select(-count) %>% 
-#       pivot_wider(names_from = c(participant_age), values_from = proportion) %>% 
-#       select(`0-9y`, `10-19y`, `20-29y`, `30-39y`, `40-59y`,  `60+y`, contact_status, contact_location) %>%
-#       mutate(across(everything(), ~ replace_na(., 0))) %>% as.data.frame() %>% rename(layer = contact_location )
-#     
-#     wt_deg.age.layer.dist_2days 
-#   }
 
 
-# function characterizing pre-requisites for the cross layer effect, using post-stratification weighted degree 
+# function characterizing pre-requisites for the cross layer effect, using post-stratification weighted 2-day degree 
 assoc_btw_layers <- function(degree_2d, wai){
   
   # Calculate weighted degree
@@ -739,7 +712,6 @@ deg_target_stats <-
   
   # target statistics
   data.frame(deg_dist*N_nodes) %>% rownames_to_column(var= "deg_range_5cat")
-  
   
 }
 

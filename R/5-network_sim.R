@@ -4,11 +4,11 @@
 # so not defined in this file:
 #   network = "Rural"/"Urban
 #   est_apch = "mcmle"/"sto_apoxy"
-#   percent_target_pop = "0.1"/"0.4"/"1"
+#   percent_target_pop = "0.1"/"0.5"
 #   n_cores, number of HPC cores to use
 #   n_reps = 100
 
-options(future.globals.maxSize = Inf)  # sets limit to 600 MiB
+options(future.globals.maxSize = Inf) 
 
 # Packages
 library(dplyr)
@@ -28,7 +28,7 @@ source("R/sim_network.R")
 ## Load netest-estimated items for school, work, and nonhome layers
 layers <- c("Home", "School", "Work", "Nonhome")
 
-est_files_path <- 
+est_files_path <- # files for "School", "Work", "Nonhome"
     paste0(
       "data/netest_outputs/netest_",
       layers[-1], "__", 
@@ -52,7 +52,7 @@ ests <-
 hh_member_stat <- readRDS("data/network_stats_attributes/network_params.Rds")$prop_hh_members[[network]]
 
 
-### Mean deg at home, calculated as (total edge count)/(total nodes)
+### Mean deg at home, calculated as 2*(total edge count)/(total nodes)
 mean_deg_home <- 
   readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats", "__", percent_target_pop, ".Rds"))$mean_deg_home[[network]]
 
@@ -90,7 +90,7 @@ el_cumls <- future_replicate(
 ## transpose the output from future_replicate to make the layer's names to be listed in the columns
 el_cumls <- t(el_cumls)
 
-# Make an empty list - a list[3] with list[n_reps]
+# Make an empty list - a list of 3 elements, each element with list[n_reps]
 edge_list <- list(
   School = vector(mode = "list", length = n_reps),
   Work = vector(mode = "list", length = n_reps),
