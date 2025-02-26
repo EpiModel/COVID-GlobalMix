@@ -8,14 +8,14 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netest_dx_0.5_u_0220", override = TRUE)
+wf <- make_em_workflow("netest_dx_0.5_nh_u_0225", override = TRUE)
 
 # netest
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/3-network_est.R",
-    layer=c("School", "Work", "Nonhome"),
+    layer=c( "Nonhome"),
     
     MoreArgs = list(
                 hpc_context = TRUE,
@@ -26,7 +26,7 @@ wf <- add_workflow_step(
   ),
   sbatch_opts = list(
     "cpus-per-task" = est_cores,
-    "time" = "120:00:00",
+    "time" = "240:00:00",
     "mem" = "0"
   )
 )
@@ -36,7 +36,7 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/4-network_dx.R",
-    layer=c("School", "Work", "Nonhome"),
+    layer=c( "Nonhome"),
     MoreArgs = list(
       hpc_context = TRUE,
       network=c("Urban"),

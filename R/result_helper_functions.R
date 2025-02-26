@@ -1,24 +1,22 @@
 # process data frame of FRP length to represent FRP as proportion of population reached
 frp_length_df_process <- 
-  function(attr, frp_length, denom){
+  function(attr, frp_length){
     frp_length_crude <- 
-    attr %>% select(node_id, node.age.grp) %>% 
+    attr  %>% 
       left_join(., 
                 frp_length %>% data.frame()%>% rownames_to_column(var = "node_id"),
                 by = "node_id"
       ) %>% # the NA's in the data frame till here are of node doesn't have any edges (frp length =1), we recode those NA's to 1
       mutate(across(everything(), ~ replace_na(., 1))) 
     
+    denom <- nrow(attr)
+    
     frp_length_prop <- 
     frp_length_crude %>% 
       mutate(across(where(is.numeric), ~ . / denom))
     
-    frp_length <- list()
+    frp_length_prop
     
-    frp_length$crude <-  frp_length_crude 
-    frp_length$prop <-  frp_length_prop
-    
-    frp_length
   }
 
 
@@ -168,22 +166,40 @@ prop_non_isolate <-
 # Define a function to summarize formation statistics
 network_stats <- function(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp){
   
+  n_r = sum(n_r_age_grp); n_r= sum(n_u_age_grp)
+  
   md_age <- function(edge_ct_m, n_age_grp) {
+    
+    edge_ct_age <- function(edge_ct_m, a){
+      (1/2)*(sum(edge_ct_m[a,]) + sum(edge_ct_m[,a])
+      )
+    }
+    
+    
+    # calculate age-specific edge count 
+    edge_ct_1 <-edge_ct_age(edge_ct_m, a=1)
+    edge_ct_2 <-edge_ct_age(edge_ct_m, a=2)
+    edge_ct_3 <-edge_ct_age(edge_ct_m, a=3)
+    edge_ct_4 <-edge_ct_age(edge_ct_m, a=4)
+    edge_ct_5 <-edge_ct_age(edge_ct_m, a=5)
+    edge_ct_6 <-edge_ct_age(edge_ct_m, a=6)
+    
+    
     md_age <- 
-    c(
-    2*
-      (sum(edge_ct_m[1,c(2:6)]) +edge_ct_m[1,1]/2) /
-      n_age_grp[1], #0-9y 
-    2*(sum(edge_ct_m[2,-2])+sum(edge_ct_m[-2,2])+edge_ct_m[2,2]/2 # 10-19y 
-       )/n_age_grp[2],
-    2*(sum(edge_ct_m[3,-3])+sum(edge_ct_m[-3,3])+edge_ct_m[3,3]/2 # 20-29y 
-    )/n_age_grp[3],
-    2*(sum(edge_ct_m[4,-4])+sum(edge_ct_m[-4,4])+edge_ct_m[4,4]/2 # 30-39y
-    )/n_age_grp[4],
-    2*(sum(edge_ct_m[5,-5])+sum(edge_ct_m[-5,5])+edge_ct_m[5,5]/2 # 40-59y    
-    )/n_age_grp[5],
-    2*(sum(edge_ct_m[c(1:5),6])+edge_ct_m[6,6]/2)/n_age_grp[6] # 60+y
-    ) %>% round(., 2)
+      c(
+        2*(edge_ct_1
+        )/n_age_grp[1], #0-9y 
+        2*(edge_ct_2
+        )/n_age_grp[2],
+        2*(edge_ct_3
+        )/n_age_grp[3],
+        2*(edge_ct_4
+        )/n_age_grp[4],
+        2*(edge_ct_5
+        )/n_age_grp[5],
+        2*(edge_ct_6
+        )/n_age_grp[6] # 60+y
+      ) %>% round(., 2)
     
     data.frame(md_age)
   }

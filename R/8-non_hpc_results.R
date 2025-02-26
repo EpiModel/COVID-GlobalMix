@@ -3,8 +3,8 @@ library(dplyr); library(tidyr); library(tibble); library(ggplot2); library(ggpub
 # The following are the analytical scenarios
 network = c("Rural", "Urban")
 est_apch = "mcmle"#/"sto_apoxy"/
-layers = c("All","Home","School","Work","Nonhome")
-percent_target_pop =  0.5 #/1/0.1
+layers = c("Home","School","Work","Nonhome")
+percent_target_pop =  0.5 
 
 
 
@@ -18,13 +18,20 @@ tar_stats <-
 summary_stats <- 
   readRDS("data/network_stats_attributes/network_params.Rds")
 
-## Number of nodes
-n_r <- nrow(tar_stats$attr$rural)
-n_u <- nrow(tar_stats$attr$urban)
+# Load FRP outputs
+file.name_frp_r <- paste0(
+  "data/frp_outputs/frp_length_",
+  layers, "__",
+  network[1],"__",
+  percent_target_pop, ".Rds"
+)
 
-## Number of nodes, age-specific
-n_r_age_grp <- table(tar_stats$attr$rural$node.age.grp)
-n_u_age_grp <- table(tar_stats$attr$urban$node.age.grp)
+
+frp_h_r <- readRDS(file.name_frp_r[1])
+frp_s_r <- readRDS(file.name_frp_r[2])
+# frp_w_r <- readRDS(file.name_frp_r[3])
+# frp_nh_r <- readRDS(file.name_frp_r[4])
+
 
 
 
@@ -32,13 +39,127 @@ n_u_age_grp <- table(tar_stats$attr$urban$node.age.grp)
 source("./R/result_helper_functions.R")
 
 # Summary statistics table, table 1
+## Number of nodes, age-specific
+n_r_age_grp <- table(tar_stats$attr$rural$node.age.grp)
+n_u_age_grp <- table(tar_stats$attr$urban$node.age.grp)
+
 network_stats_tb <- 
   network_stats(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp)
 
-write.csv(
-network_stats_tb,
-"netstats.tb.csv"
-)
+# write.csv(
+# network_stats_tb,
+# "netstats.tb.csv"
+# )
+
+network_stats_tb
+
+# Table 2, proportion of population reached
+## Create a variable of nodal ID
+tar_stats$attr$rural <- tar_stats$attr$rural %>% rownames_to_column(var = "node_id") %>% mutate(node_id = paste0("node_", node_id))
+tar_stats$attr$urban <- tar_stats$attr$urban %>% rownames_to_column(var = "node_id") %>% mutate(node_id = paste0("node_", node_id))
+
+
+prop_reached_h_r <- prop_reached_s_r <- prop_reached_w_r <- prop_reached_nh_r <- 
+  prop_reached_h_u <- prop_reached_s_u <- prop_reached_w_u <- prop_reached_nh_u <- list()
+
+## Calaulate proportion of popoulation for each node
+n_reps=10
+
+for (i in 1:n_reps) {
+  
+  prop_reached_h_r[[i]] <-
+    frp_length_df_process(
+      attr = tar_stats$attr$rural %>% select(node_id, node.age.grp), 
+      frp_length = frp_h_r[[i]]
+    )
+  
+  prop_reached_s_r[[i]] <-
+    frp_length_df_process(
+      attr = tar_stats$attr$rural %>% select(node_id, node.age.grp), 
+      frp_length = frp_s_r[[i]]
+    )
+  
+}
+
+## For each n_reps, calculate the mean proportion of population reached at day 30, 180, and 365
+prop_reached_h_r_df <- bind_rows(prop_reached_h_r, .id = "n_reps") %>% 
+  select(n_reps, node_id, node.age.grp, step_30, step_180, step_365) %>% 
+  mutate(n_reps = as.numeric(n_reps)
+         )
+
+prop_reached_h_r_overall <- 
+prop_reached_h_r_df %>% 
+  group_by(n_reps) %>% 
+  # calculate mean under each n_reps
+  summarize(step_30_avg = mean(step_30),
+            step_180_avg = mean(step_180),
+            step_365_avg = mean(step_365)
+            ) %>% 
+  ungroup() %>% 
+  # get the ntile across n_reps
+  summarize(
+    step_30_2.5 = quantile(step_30_avg, probs = 0.025),
+    step_30_50  = quantile(step_30_avg, probs = 0.5),
+    step_30_97.5 = quantile(step_30_avg, probs = 0.975),
+    step_180_2.5 = quantile(step_180_avg, probs = 0.025),
+    step_180_50  = quantile(step_180_avg, probs = 0.5),
+    step_180_97.5 = quantile(step_180_avg, probs = 0.975),
+    step_365_2.5 = quantile(step_365_avg, probs = 0.025),
+    step_365_50  = quantile(step_365_avg, probs = 0.5),
+    step_365_97.5 = quantile(step_365_avg, probs = 0.975)
+  ) %>% 
+  # covert estimates to publication format
+  mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
+  mutate(est_30 = paste0(step_30_50, " (", step_30_2.5, ", ", step_30_97.5, ")"),
+         est_180 = paste0(step_180_50, " (", step_180_2.5, ", ", step_180_97.5, ")"),
+         est_365 = paste0(step_365_50, " (", step_365_2.5, ", ", step_365_97.5, ")")
+  ) %>% 
+  mutate(node.age.grp ="Overall") %>% 
+  select(node.age.grp, est_30, est_180, est_365)
+
+prop_reached_h_r_age_spec <- 
+  prop_reached_h_r_df %>% group_by(n_reps, node.age.grp) %>% 
+  # calculate mean under each n_reps and node.age.grp
+  summarize(step_30_avg = mean(step_30),
+            step_180_avg = mean(step_180),
+            step_365_avg = mean(step_365)
+  ) %>% 
+  ungroup() %>% 
+  # get the ntile across n_reps for each age group
+  group_by(node.age.grp) %>% 
+  summarize(
+    step_30_2.5 = quantile(step_30_avg, probs = 0.025),
+    step_30_50  = quantile(step_30_avg, probs = 0.5),
+    step_30_97.5 = quantile(step_30_avg, probs = 0.975),
+    step_180_2.5 = quantile(step_180_avg, probs = 0.025),
+    step_180_50  = quantile(step_180_avg, probs = 0.5),
+    step_180_97.5 = quantile(step_180_avg, probs = 0.975),
+    step_365_2.5 = quantile(step_365_avg, probs = 0.025),
+    step_365_50  = quantile(step_365_avg, probs = 0.5),
+    step_365_97.5 = quantile(step_365_avg, probs = 0.975)
+  ) %>% 
+  ungroup() %>% 
+# covert estimates to publication format
+  mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
+  mutate(est_30 = paste0(step_30_50, " (", step_30_2.5, ", ", step_30_97.5, ")"),
+         est_180 = paste0(step_180_50, " (", step_180_2.5, ", ", step_180_97.5, ")"),
+         est_365 = paste0(step_365_50, " (", step_365_2.5, ", ", step_365_97.5, ")")
+         ) %>% 
+  select(node.age.grp, est_30, est_180, est_365)
+  
+
+rbind(prop_reached_h_r_overall, prop_reached_h_r_age_spec)
+
+
+
+
+# do this for each age group
+
+# should denominator in the age-spcific analysis be the size of the age grp?
+
+
+
+
 
 
 ## Check component size at home
@@ -54,6 +175,8 @@ component_h_r <- sna::component.dist(nw_h_r); component_h_u<- sna::component.dis
 component_h_r$csize %>% summary; component_h_u$csize %>% summary
 
 ### tabulate FRP with component size
+
+
 frp_length_h_r_365 <- 
   frp_length_h_r$crude %>% select(node_id, step_365)
 
