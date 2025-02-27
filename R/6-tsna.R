@@ -3,8 +3,8 @@
 # The following are arguments to be passed from the workflow to the HPC job,
 # so not defined in this file:
 #   network = "Rural"/"Urban"
-#   layer = "All"/"Home"/"School"/"Work"/"Nonhome"/, which: "ALL" = 4 layers
-#   percent_target_pop = 0.1/0.4/1
+#   layer = "Home"/"School"/"Work"/"Nonhome"
+#   percent_target_pop = 0.1/0.5/1
 #   n_reps = 100, number of simulation to run
 #   n_cores, number of HPC core to use
 

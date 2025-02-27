@@ -7,7 +7,9 @@ frp_length_df_process <-
                 frp_length %>% data.frame()%>% rownames_to_column(var = "node_id"),
                 by = "node_id"
       ) %>% # the NA's in the data frame till here are of node doesn't have any edges (frp length =1), we recode those NA's to 1
-      mutate(across(everything(), ~ replace_na(., 1))) 
+      mutate(across(everything(),~replace_na(.,1)
+                    )
+             ) 
     
     denom <- nrow(attr)
     
@@ -18,6 +20,150 @@ frp_length_df_process <-
     frp_length_prop
     
   }
+
+
+# proportion of population reached at a layer, overall and age-specific on day 30, 180, and 365
+prop_table_layer <- 
+  function(prop_reached){
+    ## For each n_reps, calculate the mean proportion of population reached at day 30, 180, and 365
+    prop_reached_df <- bind_rows(prop_reached, .id = "n_reps") %>% 
+      select(n_reps, node_id, node.age.grp, step_30, step_180, step_365) %>% 
+      mutate(n_reps = as.numeric(n_reps)
+      )
+    
+    prop_reached_overall <- 
+      prop_reached_df %>% 
+      group_by(n_reps) %>% 
+      # calculate mean under each n_reps
+      summarize(step_30_avg = mean(step_30),
+                step_180_avg = mean(step_180),
+                step_365_avg = mean(step_365)
+      ) %>% 
+      ungroup() %>% 
+      # get the ntile across n_reps
+      summarize(
+        step_30_2.5 = quantile(step_30_avg, probs = 0.025),
+        step_30_50  = quantile(step_30_avg, probs = 0.5),
+        step_30_97.5 = quantile(step_30_avg, probs = 0.975),
+        step_180_2.5 = quantile(step_180_avg, probs = 0.025),
+        step_180_50  = quantile(step_180_avg, probs = 0.5),
+        step_180_97.5 = quantile(step_180_avg, probs = 0.975),
+        step_365_2.5 = quantile(step_365_avg, probs = 0.025),
+        step_365_50  = quantile(step_365_avg, probs = 0.5),
+        step_365_97.5 = quantile(step_365_avg, probs = 0.975)
+      ) %>% 
+      # covert estimates to publication format
+      mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
+      mutate(est_30 = paste0(step_30_50, "% (", step_30_2.5, "%, ", step_30_97.5, "%)"),
+             est_180 = paste0(step_180_50, "% (", step_180_2.5, "%, ", step_180_97.5, "%)"),
+             est_365 = paste0(step_365_50, "% (", step_365_2.5, "%, ", step_365_97.5, "%)")
+      ) %>% 
+      mutate(node.age.grp ="Overall") %>% 
+      select(node.age.grp, est_30, est_180, est_365)
+    
+    prop_reached_age_spec <- 
+      prop_reached_df %>% group_by(n_reps, node.age.grp) %>% 
+      # calculate mean under each n_reps and node.age.grp
+      summarize(step_30_avg = mean(step_30),
+                step_180_avg = mean(step_180),
+                step_365_avg = mean(step_365)
+      ) %>% 
+      ungroup() %>% 
+      # get the ntile across n_reps for each age group
+      group_by(node.age.grp) %>% 
+      summarize(
+        step_30_2.5 = quantile(step_30_avg, probs = 0.025),
+        step_30_50  = quantile(step_30_avg, probs = 0.5),
+        step_30_97.5 = quantile(step_30_avg, probs = 0.975),
+        step_180_2.5 = quantile(step_180_avg, probs = 0.025),
+        step_180_50  = quantile(step_180_avg, probs = 0.5),
+        step_180_97.5 = quantile(step_180_avg, probs = 0.975),
+        step_365_2.5 = quantile(step_365_avg, probs = 0.025),
+        step_365_50  = quantile(step_365_avg, probs = 0.5),
+        step_365_97.5 = quantile(step_365_avg, probs = 0.975)
+      ) %>% 
+      ungroup() %>% 
+      # covert estimates to publication format
+      mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
+      mutate(est_30 = paste0(step_30_50, "% (", step_30_2.5, ", ", step_30_97.5, "%)"),
+             est_180 = paste0(step_180_50, "% (", step_180_2.5, ", ", step_180_97.5, "%)"),
+             est_365 = paste0(step_365_50, "% (", step_365_2.5, ", ", step_365_97.5, "%)")
+      ) %>% 
+      select(node.age.grp, est_30, est_180, est_365)
+    
+    
+    rbind(prop_reached_overall, prop_reached_age_spec)
+  }
+
+
+# proportion of population reached at a layer, overall and age-specific on all days 
+prop_figure_layer <- 
+  function(prop_reached){
+    
+    prop_reached_df <- bind_rows(prop_reached, .id = "n_reps") %>% 
+      mutate(n_reps = as.factor( as.numeric(n_reps))
+      )
+    
+    ## For each n_reps, calculate the mean overall proportion of population reached for every time step
+    prop_reached_overall <- 
+    prop_reached_df %>% 
+      group_by(n_reps) %>% 
+      summarize(across(where(is.numeric), mean, .names = "{.col}_avg")) %>% 
+      ungroup()
+    
+    prop_reached_overall_tile <- 
+    prop_reached_overall %>% 
+      pivot_longer(
+        cols = ends_with("_avg"),
+        names_to = "step",
+        names_pattern = "(step_[0-9]+)_avg",
+        values_to = "avg_value"
+      ) %>% 
+      group_by(step) %>% 
+      summarize(
+        quantile_2.5 = quantile(avg_value, probs = 0.025),
+        quantile_50  = quantile(avg_value, probs = 0.5),
+        quantile_97.5 = quantile(avg_value, probs = 0.975)
+      ) %>% ungroup()
+    
+    
+    ## For each n_reps, calculate the mean age-specific proportion of population reached for every time step
+    prop_reached_age_spec <- 
+      prop_reached_df %>% group_by(n_reps, node.age.grp) %>% 
+      # calculate mean under each n_reps and node.age.grp
+      summarize(across(where(is.numeric), mean, .names = "{.col}_avg")) %>% 
+      ungroup() 
+    
+    prop_reached_age_spec_tile <- 
+      # get the ntile across n_reps for each age group
+      prop_reached_age_spec %>% 
+      pivot_longer(
+        cols = ends_with("_avg"),
+        names_to = "step",
+        names_pattern = "(step_[0-9]+)_avg",
+        values_to = "avg_value"
+      ) %>%
+      group_by(node.age.grp, step) %>%
+      summarize(
+        quantile_2.5 = quantile(avg_value, probs = 0.025),
+        quantile_50  = quantile(avg_value, probs = 0.5),
+        quantile_97.5 = quantile(avg_value, probs = 0.975)
+      ) %>%
+      ungroup()
+    
+    prop_reached_tile <- 
+    rbind(prop_reached_overall_tile %>% 
+            mutate(node.age.grp = "Overall") %>% 
+            select(node.age.grp, step, quantile_2.5, quantile_50, quantile_97.5), 
+          prop_reached_age_spec_tile
+          )%>%
+      mutate(step = as.numeric(gsub("step_", "", step)))%>%
+      arrange(step)
+    
+    
+    prop_reached_tile 
+  }
+
 
 
 # line plot for FRP length
