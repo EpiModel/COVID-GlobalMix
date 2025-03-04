@@ -1,6 +1,4 @@
-## HPC Workflow: Network simulation & FRP calculation
-
-
+## HPC Workflow: a workflow to run the estimation and diagnostics of the network models
 # Setup ------------------------------------------------------------------------
 library(slurmworkflow)
 library(future.apply)
@@ -10,21 +8,20 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("frp_hs_r_0227", override = TRUE)
+wf <- make_em_workflow("netdx_0.5_s_w_u_0303", override = TRUE)
 
-# Process FRP outputs
+
+# netdx
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
-    r_script = "R/7-hpc_results_processing.R",
-    layer = c("Home", "School"),
+    r_script = "R/4-network_dx.R",
+    layer=c( "School", "Work"),
     MoreArgs = list(
       hpc_context = TRUE,
-      network = "Rural",
-      percent_target_pop = "0.5",
-      n_cores = est_cores,
-      n_reps = 100
-    ),
+      network=c("Urban"),
+      est_apch="mcmle",
+      percent_target_pop="0.5"),
     setup_lines = hpc_node_setup
   ),
   sbatch_opts = list(
@@ -33,3 +30,4 @@ wf <- add_workflow_step(
     "mem" = "0"
   )
 )
+

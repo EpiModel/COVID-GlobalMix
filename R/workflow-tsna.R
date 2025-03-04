@@ -10,8 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("frp_r_1_0212_adrien_request", override = TRUE)
-
+wf <- make_em_workflow("frp_r_0.5_w_nh", override = TRUE)
 
 
 # Refactor netsim files to avert file-loading issues
@@ -22,7 +21,7 @@ wf <- add_workflow_step(
     args = list(
       hpc_context = TRUE,
       network = "Rural",
-      percent_target_pop = "1",
+      percent_target_pop = "0.5",
       n_reps = 100
     ),
     setup_lines = hpc_node_setup
@@ -39,12 +38,11 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
     r_script = "R/6-tsna.R",
-    layer = c("Home", "School", "Work", "Nonhome"),
+    layer = c("Work", "Nonhome"),
     MoreArgs = list(
       hpc_context = TRUE,
       network = "Rural",
-      est_apch = "mcmle",
-      percent_target_pop = "1",
+      percent_target_pop = "0.5",
       n_cores = est_cores,
       n_reps = 100
     ),
@@ -52,7 +50,7 @@ wf <- add_workflow_step(
   ),
   sbatch_opts = list(
     "cpus-per-task" = est_cores,
-    "time" = "120:00:00",
+    "time" = "360:00:00",
     "mem" = "0"
   )
 )
