@@ -48,6 +48,7 @@ data/netest_outputs/
 data/netsim_outputs/
 data/raw_data/
 data/frp_outputs/
+data/frp_outputs_processed/
 data/frp_summaries/
 workflows/
 
