@@ -8,7 +8,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netest_dx_0.1_r_0304", override = TRUE)
+wf <- make_em_workflow("netest_dx_0.1_r_0305_2ndtry", override = TRUE)
 
 # netest
 wf <- add_workflow_step(
@@ -26,7 +26,7 @@ wf <- add_workflow_step(
   ),
   sbatch_opts = list(
     "cpus-per-task" = est_cores,
-    "time" = "240:00:00",
+    "time" = "120:00:00",
     "mem" = "0"
   )
 )
