@@ -4,7 +4,7 @@ library(dplyr); library(tidyr); library(tibble); library(ggplot2); library(ggpub
 network = c("Rural", "Urban")
 est_apch = "mcmle"#/"sto_apoxy"/
 layers = c("Home","School","Work","Nonhome")
-percent_target_pop =  0.5 
+percent_target_pop =  0.1
 n_reps=100
 
 
@@ -19,6 +19,7 @@ summary_stats <-
   readRDS("data/network_stats_attributes/network_params.Rds")
 
 # Load processed FRP outputs
+## Rural
 file.name_frp_r <- paste0(
   "data/frp_outputs_processed/frp_processed_",
   layers, "__",
@@ -27,10 +28,25 @@ file.name_frp_r <- paste0(
   n_reps,".Rds"
 )
 
- frp_h_r <- readRDS(file.name_frp_r[1])
- frp_s_r <- readRDS(file.name_frp_r[2])
-# frp_w_r <- readRDS(file.name_frp_r[3])
-# frp_nh_r <- readRDS(file.name_frp_r[4])
+frp_h_r <- readRDS(file.name_frp_r[1])
+frp_s_r <- readRDS(file.name_frp_r[2])
+frp_w_r <- readRDS(file.name_frp_r[3])
+frp_nh_r <- readRDS(file.name_frp_r[4])
+
+## Urban
+file.name_frp_u <- paste0(
+  "data/frp_outputs_processed/frp_processed_",
+  layers, "__",
+  network[2],"__",
+  percent_target_pop, "__",
+  n_reps,".Rds"
+)
+
+frp_h_u <- readRDS(file.name_frp_u[1])
+frp_s_u <- readRDS(file.name_frp_u[2])
+frp_w_u <- readRDS(file.name_frp_u[3])
+frp_nh_u <- readRDS(file.name_frp_u[4])
+
  
 
 # Load netdx outputs
@@ -85,7 +101,9 @@ network_stats_tb
 # Table 2, proportion of population reached
 cbind(
 frp_h_r$prop_tb,
-frp_s_r$prop_tb %>% select(-node.age.grp)
+frp_s_r$prop_tb %>% select(-node.age.grp),
+frp_w_r$prop_tb %>% select(-node.age.grp),
+frp_nh_r$prop_tb %>% select(-node.age.grp)
 )
 
 
@@ -153,7 +171,15 @@ write.csv(tar_stats_tb, "~/Desktop/test.csv")
 frp_layers <- 
 rbind(
 frp_h_r$prop_figure_df %>% mutate(layer = "Rural home"), # unit: proportion
-frp_s_r$prop_figure_df %>% mutate(layer = "Rural school")
+frp_s_r$prop_figure_df %>% mutate(layer = "Rural school"),
+frp_w_r$prop_figure_df %>% mutate(layer = "Rural work"),
+frp_nh_r$prop_figure_df %>% mutate(layer = "Rural nonhome"),
+
+frp_h_u$prop_figure_df %>% mutate(layer = "Urban home"), # unit: proportion
+frp_s_u$prop_figure_df %>% mutate(layer = "Urban school"),
+frp_w_u$prop_figure_df %>% mutate(layer = "Urban work")#,
+#frp_nh_u$prop_figure_df %>% mutate(layer = "Urban nonhome")
+
 ) %>% 
   mutate(quantile_2.5 = quantile_2.5*100, # convert to percentile
          quantile_50 = quantile_50*100,
@@ -161,7 +187,8 @@ frp_s_r$prop_figure_df %>% mutate(layer = "Rural school")
          ) 
 
 
-ggplot(frp_layers, aes(x = step, y = quantile_50, color = node.age.grp, group = node.age.grp)) +
+ggplot(frp_layers %>% filter(layer== "Rural nonhome"),
+       aes(x = step, y = quantile_50, color = node.age.grp, group = node.age.grp)) +
   geom_line(size = 0.7) +
   geom_ribbon(aes(ymin = quantile_2.5, ymax = quantile_97.5, fill = node.age.grp), alpha = 0.1, color = NA) +
   facet_wrap(~ layer, , scales = "free_y") +
@@ -169,7 +196,16 @@ ggplot(frp_layers, aes(x = step, y = quantile_50, color = node.age.grp, group = 
   labs(x = "Day", y = "Percentile")+
   theme(plot.title = element_text(hjust = 0.5)) # change y axis to %
 
+# diagnose nonhome rural FRP
+frp_nh_r_raw <- readRDS("./data/frp_outputs/frp_length_Nonhome__Rural__0.1.Rds")
 
+frp_nh_r_raw_1_iterat <- data.frame(frp_nh_r_raw[[1]])
+frp_nh_r_raw_1_iterat_1 <- 
+(frp_nh_r_raw_1_iterat/sum(n_r_age_grp))*100
+
+frp_nh_r_raw_1_iterat_1[,31]%>% summary()
+# compare to function-processed
+frp_nh_r$prop_tb
 
 
 

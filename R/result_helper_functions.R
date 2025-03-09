@@ -312,7 +312,7 @@ prop_non_isolate <-
 # Define a function to summarize formation statistics
 network_stats <- function(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp){
   
-  n_r = sum(n_r_age_grp); n_r= sum(n_u_age_grp)
+  n_r = sum(n_r_age_grp); n_u= sum(n_u_age_grp)
   
   md_age <- function(edge_ct_m, n_age_grp) {
     
