@@ -165,147 +165,56 @@ prop_figure_layer <-
   }
 
 
+# Function producing table showing statistical moments from 1 simulation
+prop_table_layer_1_iter <- 
+  function(prop_reached){
+    
+    prop_reached_summary <- 
+      prop_reached %>% 
+      # calculate mean over all nodes
+      summarize(step_30_avg = mean(step_30),
+                step_180_avg = mean(step_180),
+                step_365_avg = mean(step_365),
+                
+                step_30_sd = sd(step_30),
+                step_180_sd = sd(step_180),
+                step_365_sd = sd(step_365),
+                
+                step_30_median = median(step_30),
+                step_180_median = median(step_180),
+                step_365_median = median(step_365),
+                
+                step_30_25_percentile = quantile(step_30, probs = 0.25),
+                step_180_25_percentile = quantile(step_180, probs = 0.25),
+                step_365_25_percentile = quantile(step_365, probs = 0.25),
+                
+                step_30_75_percentile = quantile(step_30, probs = 0.75),
+                step_180_75_percentile = quantile(step_180, probs = 0.75),
+                step_365_75_percentile = quantile(step_365, probs = 0.75)
 
-# line plot for FRP length
-frp_length_plot <- 
-  function(frp_length, title){
-    ## Define the color palette
-    palv6 <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00") # a color-blind friendly palette
+      ) %>% 
+      # covert estimates to publication format
+      mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
+      mutate( mean_sd_30 = paste0(step_30_avg, "% (", step_30_sd, ")"),
+              median_quantiles_30 = paste0(step_30_median, "% (", step_30_25_percentile, "%", ",", step_30_75_percentile, "%", ")"),
+              
+              mean_sd_180 = paste0(step_180_avg, "% (", step_180_sd, ")"),
+              median_quantiles_180 = paste0(step_180_median, "% (", step_180_25_percentile, "%", ",", step_180_75_percentile, "%", ")"),
+              
+              mean_sd_365 = paste0(step_365_avg, "% (", step_365_sd, ")"),
+              median_quantiles_365 = paste0(step_365_median, "% (", step_365_25_percentile, "%", ",", step_365_75_percentile, "%", ")")
+              
+              
+              )
     
-    ## Map the categories to the corresponding colors
-    color_mapping <- setNames(palv6, c("0-9y",  "10-19y", "20-29y", "30-39y", "40-59y", "60+y"))
+    rbind(prop_reached_summary %>% select(mean_sd_30, median_quantiles_30) %>% rename(mean_sd =1, median_quantiles=2) %>% mutate(d = 30),
+          prop_reached_summary %>% select(mean_sd_180, median_quantiles_180)  %>% rename(mean_sd =1, median_quantiles=2) %>% mutate(d = 180),
+          prop_reached_summary %>% select(mean_sd_365, median_quantiles_365)  %>% rename(mean_sd =1, median_quantiles=2) %>% mutate(d = 365)
+          )
     
-    ## Custom function to format y-axis labels as percentages and round to two decimal places
-    percent_format <- function(x) {
-      paste0(round(x, 2), "%")
-    }
     
-    ## Plot using ggplot2
-    frp_length %>% 
-      # Reshape the data from wide to long format
-      pivot_longer(cols = starts_with("step_"), names_to = "time", values_to = "frp_length") %>%
-      mutate(time = as.numeric(gsub("step_", "", time))) %>% 
-      ggplot(aes(x = time, y = frp_length * 100, group = node_id, color = node.age.grp)) + # Multiply frp_length by 100
-      geom_line(linewidth = 0.2, alpha = 0.6) +
-      scale_color_manual(values = color_mapping) +
-      scale_y_continuous(labels = function(x) percent_format(x)) + # Format y-axis using custom function
-      labs(title = title, x = "", y = "FRP length/N") + # Update y-axis label
-      theme_classic() +
-      theme(legend.position = "right")
-  }
+    
 
-
-# Function producing table showing statistical moments of FRP length in % on day 0, 1, 183, 365
-frp_moments_layer <-
-  function(frp_length_layer, per_n_people, layer, N){
-
-  frp_length_layer <- frp_length_layer %>%
-    mutate(across(where(is.numeric), ~ . * per_n_people)) # multiple per_n_people to proportion to get the value per n people
-
-  frp_moments <- function(numbers, scenario) {
-    # Define the function to calculate mode
-    calculate_mode <- function(numbers) {
-      freq_table <- table(numbers)
-      mode_value <- as.numeric(names(freq_table)[which.max(freq_table)])
-      mode_frequency <- as.numeric(max(freq_table))
-      return(c(value = mode_value, frequency = mode_frequency))
-    }
-
-    mean_value <- mean(numbers) %>% round(., 2)
-    median_value <- median(numbers) %>% round(., 2)
-    mode_result <- calculate_mode(as.numeric(numbers))
-    mode_value <- mode_result["value"] %>% round(., 2)
-    mode_prop <- paste0(round((mode_result["frequency"]/N)*100,2), "%")
-    iqr_value <- IQR(numbers) %>% round(., 2)
-    min_value <- min(numbers) %>% round(., 2)
-    max_value <- max(numbers) %>% round(., 2)
-    q1_value <- quantile(numbers, 0.25) %>% round(., 2)
-    q3_value <- quantile(numbers, 0.75) %>% round(., 2)
-    min_prop <- paste0(round((sum(numbers == min(numbers))/N)*100,2), "%")
-
-    # Create a dataframe with the results
-    result <- data.frame(
-      `Minimum (%)` = paste0(min_value, " (", min_prop, ")"),
-      Mean = mean_value,
-      Median = median_value,
-      `Mode (%)` = paste0(mode_value, " (", mode_prop, ")"),
-      Maximum = max_value,
-      Q1 = q1_value,
-      Q3 = q3_value,
-      IQR = iqr_value,
-      check.names = FALSE
-    )
-    rownames(result) <- scenario
-
-    return(result)
-  }
-
-  ### Number of nodes with different FRP lengths at specific time points
-  t <- c(0, seq(from = 1, to = 365, length.out = 3))
-  t_name <- paste0("step_", t)
-  scenario <- paste0(layer, "_", "step_", t)
-
-  rbind(
-    frp_moments(numbers = frp_length_layer[, t_name[1]], scenario = scenario[1]), # t=0
-    frp_moments(numbers = frp_length_layer[, t_name[2]], scenario = scenario[2]), # t=1
-    frp_moments(numbers = frp_length_layer[, t_name[3]], scenario = scenario[3]), # t=183
-    frp_moments(numbers = frp_length_layer[, t_name[4]], scenario = scenario[4])  # t=365
-  )
-  }
-
-# Function producing table showing statistical moments of FRP length in % on day 365
-frp_moments_365_layer <-
-  function(frp_length_layer, per_n_people){
-    
-    
-    frp_length_layer <- 
-      frp_length_layer %>%
-      mutate(across(where(is.numeric), ~ . * per_n_people)) # multiple per_n_people to proportion to get the value per n people
-    
-    summary_overall <- 
-     frp_length_layer %>% summarize(Mean =mean(step_365) %>% round(.,2), 
-                                   Median =median(step_365) %>% round(.,2), 
-                                   IQR = paste0(
-                                     quantile(step_365, 0.25)%>% round(.,2), ", ",
-                                     quantile(step_365, 0.75)%>% round(.,2)
-                                     )
-                                   ) %>% 
-      as.data.frame() %>% mutate(node.age.grp = "Overall") %>% select(4,1:3)
-    
-    summary_age_spec <- 
-    frp_length_layer %>% 
-      group_by(node.age.grp) %>% 
-      summarize(Mean =mean(step_365) %>% round(.,2), 
-                                   Median =median(step_365) %>% round(.,2), 
-                                   IQR = paste0(
-                                     quantile(step_365, 0.25)%>% round(.,2), ", ",
-                                     quantile(step_365, 0.75)%>% round(.,2)
-                                   ))%>% 
-      as.data.frame()
-    
-    rbind(
-      summary_overall, summary_age_spec
-    )
-  
-  }
-
-# Function to calculate the proportion of non-isolated nodes in a layer
-prop_non_isolate <-
-  function(frp_crude_vec){
-    
-    frp_crude_vec %>% table
-    
-    # proportion corresponds to frp length =1
-    prop_frp <- prop.table(table(frp_crude_vec==1)) # T - isolates; F - non-isolates
-    
-    # convert proportion to percentage
-    percentages <- round(prop_frp * 100, 2)
-    
-    
-    
-   paste0(percentages[names(percentages)=="FALSE"], "%")
-   
-    
   }
 
 
@@ -468,7 +377,45 @@ network_stats <- function(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp){
  summary_stat_tb
 }
 
-
+# heat map for mixing proportions
+plot_heatmap_df <- function(df) {
+  data_long <- pivot_longer(df, cols = starts_with("contact"), 
+                            names_to = "contact", values_to = "value") 
+  
+  data_long <- 
+    data_long  %>%
+    mutate(ego = recode(ego,
+                        "ego_0-9y"   = "0-9",
+                        "ego_10-19y" = "10-19",
+                        "ego_20-29y" = "20-29",
+                        "ego_30-39y" = "30-39",
+                        "ego_40-59y" = "40-59",
+                        "ego_60+y"   = "60+"),
+           contact = recode(contact,
+                            "contact_0-9y"   = "0-9",
+                            "contact_10-19y" = "10-19",
+                            "contact_20-29y" = "20-29",
+                            "contact_30-39y" = "30-39",
+                            "contact_40-59y" = "40-59",
+                            "contact_60+y"   = "60+")
+           
+    )
+  
+  low_color = "blue"; high_color = "red"
+  
+  p <- ggplot(data_long, aes(x = contact, y = ego, fill = value)) +
+    geom_tile() +
+    scale_fill_gradient(low = low_color, high = high_color,  limits = c(0, 1)) +
+    labs(x = "Contact Age Group (years)", y = "Participant Age Group (years)", fill = "Proportion") +
+    facet_wrap(~ layer,
+               nrow = 2, ncol = 4) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+  
+  p
+  
+}
 
 
 

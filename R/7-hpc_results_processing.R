@@ -3,7 +3,7 @@
 # so not defined in this file:
 #   network = "Rural"/"Urban"
 #   layer = "Home"/"School"/"Work"/"Nonhome"
-#   percent_target_pop = 0.5
+#   percent_target_pop = 0.1
 #   n_reps = 100, number of simulation ran
 
 # Packages
@@ -72,6 +72,8 @@ output$prop_tb <- prop_table_layer(prop_reached = prop_reached)
 # Data frame for Figure 1 (Percentages of populations reached over a 1-year period)
 output$prop_figure_df <- 
 prop_figure_layer(prop_reached = prop_reached)
+
+
 
 
 out_dir <- "data/frp_outputs_processed"
