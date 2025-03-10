@@ -184,17 +184,26 @@ frp_w_u$prop_figure_df %>% mutate(layer = "Urban work")#,
   mutate(quantile_2.5 = quantile_2.5*100, # convert to percentile
          quantile_50 = quantile_50*100,
          quantile_97.5 = quantile_97.5*100
-         ) 
+         ) %>% 
+  mutate(layer = factor(layer, levels = c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work"   )
+                        )
+         )
 
 
-ggplot(frp_layers %>% filter(layer== "Rural nonhome"),
+ggplot(frp_layers ,
        aes(x = step, y = quantile_50, color = node.age.grp, group = node.age.grp)) +
   geom_line(size = 0.7) +
-  geom_ribbon(aes(ymin = quantile_2.5, ymax = quantile_97.5, fill = node.age.grp), alpha = 0.1, color = NA) +
-  facet_wrap(~ layer, , scales = "free_y") +
+  geom_ribbon(aes(ymin = quantile_2.5, ymax = quantile_97.5, fill = node.age.grp), alpha = 0.1, 
+              color = NA, show.legend = F) +
+  facet_wrap(~ layer, , scales = "free_y",
+             nrow = 2, ncol = 4,) +
   theme_classic() +
-  labs(x = "Day", y = "Percentile")+
-  theme(plot.title = element_text(hjust = 0.5)) # change y axis to %
+  labs(x = "Day", y = "Percentile", color = "Age group")+
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
+  guides(color = guide_legend(nrow = 1),
+         fill = guide_legend(nrow = 1))+
+  scale_color_viridis_d() +    
+  scale_fill_viridis_d() 
 
 # diagnose nonhome rural FRP
 frp_nh_r_raw <- readRDS("./data/frp_outputs/frp_length_Nonhome__Rural__0.1.Rds")
