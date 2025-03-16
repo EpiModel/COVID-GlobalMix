@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("netsim_frp_u_0307_0.1", override = TRUE)
+wf <- make_em_workflow("netsim_frp_r_0310_5e-04", override = TRUE)
 
 
 # Network simulation
@@ -20,11 +20,11 @@ wf <- add_workflow_step(
     r_script = "R/5-network_sim.R",
     args = list(
       hpc_context = TRUE,
-      network = "Urban",
+      network = "Rural",
       est_apch = "mcmle",
-      percent_target_pop = "0.1",
+      percent_target_pop = "5e-04",
       n_cores = est_cores,
-      n_reps = 100
+      n_reps = 1
     ),
     setup_lines = hpc_node_setup
   ),
@@ -43,9 +43,9 @@ wf <- add_workflow_step(
     r_script = "./R/utils-refactor_files.R",
     args = list(
       hpc_context = TRUE,
-      network = "Urban",
-      percent_target_pop = "0.1",
-      n_reps = 100
+      network = "Rural",
+      percent_target_pop = "5e-04",
+      n_reps = 1
     ),
     setup_lines = hpc_node_setup
   ),
@@ -64,10 +64,10 @@ wf <- add_workflow_step(
     layer = c("Home", "School", "Work", "Nonhome"),
     MoreArgs = list(
       hpc_context = TRUE,
-      network = "Urban",
-      percent_target_pop = "0.1",
+      network = "Rural",
+      percent_target_pop = "5e-04",
       n_cores = est_cores,
-      n_reps = 100
+      n_reps = 1
     ),
     setup_lines = hpc_node_setup
   ),

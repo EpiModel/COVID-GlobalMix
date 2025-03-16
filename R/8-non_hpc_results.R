@@ -353,45 +353,6 @@ ggplot(frp_layers ,
 
 
 # Figure S1 (Proportion of mixing)
-plot_heatmap_df <- function(df) {
-    data_long <- pivot_longer(df, cols = starts_with("contact"), 
-                              names_to = "contact", values_to = "value") 
-      
-    data_long <- 
-    data_long  %>%
-      mutate(ego = recode(ego,
-                          "ego_0-9y"   = "0-9",
-                          "ego_10-19y" = "10-19",
-                          "ego_20-29y" = "20-29",
-                          "ego_30-39y" = "30-39",
-                          "ego_40-59y" = "40-59",
-                          "ego_60+y"   = "60+"),
-             contact = recode(contact,
-                                 "contact_0-9y"   = "0-9",
-                                 "contact_10-19y" = "10-19",
-                                 "contact_20-29y" = "20-29",
-                                 "contact_30-39y" = "30-39",
-                                 "contact_40-59y" = "40-59",
-                                 "contact_60+y"   = "60+")
-                
-             )
-  
-  low_color = "blue"; high_color = "red"
-    
-  p <- ggplot(data_long, aes(x = contact, y = ego, fill = value)) +
-    geom_tile() +
-    scale_fill_gradient(low = low_color, high = high_color,  limits = c(0, 1)) +
-    labs(x = "Contact Age Group (years)", y = "Participant Age Group (years)", fill = "Proportion") +
-    facet_wrap(~ layer,
-               nrow = 2, ncol = 4) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)
-          )
-  
-  p
-  
-}
-
 
 df <- 
   rbind(
@@ -408,97 +369,37 @@ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Nonhome$Nonh
 )%>%
   mutate(across(everything(), ~ replace_na(.x, 0)))
 
+plot_heatmap_df(df= df)
+
+
+# Figure S2 
 
 
 
 
+# ## Check component size at home
+# nw_h_r <- 
+#   readRDS("./data/netest_outputs/deterministic_Home__Rural__0.1.Rds")
+# 
+# nw_h_u <- 
+#   readRDS("./data/netest_outputs/deterministic_Home__Urban__0.1.Rds")
+# 
+# 
+# component_h_r <- sna::component.dist(nw_h_r); component_h_u<- sna::component.dist(nw_h_u)
+# 
+# component_h_r$csize %>% summary; component_h_u$csize %>% summary
+# 
+# ### tabulate FRP with component size
+# 
+# 
+# 
+# frp_length_h_r_365 <- 
+#   frp_length_h_r$crude %>% select(node_id, step_365)
+# 
+# frp_length_h_r_365$component_node_id <- component_h_r$membership
+# 
+# component_h_r$csize %>% unique %>% sort
+# frp_length_h_r_365$step_365 %>% unique %>% sort
 
-## Check component size at home
-nw_h_r <- 
-  readRDS("./data/netest_outputs/deterministic_Home__Rural__0.1.Rds")
-
-nw_h_u <- 
-  readRDS("./data/netest_outputs/deterministic_Home__Urban__0.1.Rds")
-
-
-component_h_r <- sna::component.dist(nw_h_r); component_h_u<- sna::component.dist(nw_h_u)
-
-component_h_r$csize %>% summary; component_h_u$csize %>% summary
-
-### tabulate FRP with component size
-
-
-
-frp_length_h_r_365 <- 
-  frp_length_h_r$crude %>% select(node_id, step_365)
-
-frp_length_h_r_365$component_node_id <- component_h_r$membership
-
-component_h_r$csize %>% unique %>% sort
-frp_length_h_r_365$step_365 %>% unique %>% sort
-
-
-
-# FRP length per n people at different time steps
-## rural
-rbind(
-  frp_moments_layer(frp_length_layer = frp_length_all_r, per_n_people = 10000, layer = "rural_all", N= n_r),
-  frp_moments_layer(frp_length_layer = frp_length_h_r, per_n_people = 10000, layer = "rural_home", N= n_r),
-  frp_moments_layer(frp_length_layer = frp_length_s_r, per_n_people = 10000, layer = "rural_school", N= n_r),
-  frp_moments_layer(frp_length_layer = frp_length_w_r, per_n_people = 10000, layer = "rural_work", N= n_r),
-  frp_moments_layer(frp_length_layer = frp_length_nh_r, per_n_people = 10000, layer = "rural_nonhome", N= n_r)
-) %>% 
-  kbl() %>% 
-  kable_classic()
-
-## urban
-rbind(
-  frp_moments_layer(frp_length_layer = frp_length_all_u, per_n_people = 10000, layer = "urban_all", N=n_u),
-  frp_moments_layer(frp_length_layer = frp_length_h_u, per_n_people = 10000, layer = "urban_home", N=n_u),
-  frp_moments_layer(frp_length_layer = frp_length_s_u, per_n_people = 10000, layer = "urban_school", N=n_u),
-  frp_moments_layer(frp_length_layer = frp_length_w_u, per_n_people = 10000, layer = "urban_work", N=n_u),
-  frp_moments_layer(frp_length_layer = frp_length_nh_u, per_n_people = 10000, layer = "urban_nonhome", N=n_u)
-) %>% 
-  kbl() %>% 
-  kable_classic()
-
-(1/n_r)*1e4
-
-
-# Visualize FRP length, supplementary material
-## rural
-frp_all_r_plot <- frp_length_plot(frp_length =frp_length_all_r, title = "All, rural")
-frp_h_r_plot <- frp_length_plot(frp_length =frp_length_h_r, title = "Home, rural")
-frp_s_r_plot <- frp_length_plot(frp_length =frp_length_s_r, title = "School, rural")
-frp_w_r_plot <- frp_length_plot(frp_length =frp_length_w_r, title = "Work, rural")
-frp_nh_r_plot <- frp_length_plot(frp_length =frp_length_nh_r, title = "Nonhome, rural")
-
-## urban
-frp_all_u_plot <- frp_length_plot(frp_length =frp_length_all_u, title = "All, urban")
-frp_h_u_plot <- frp_length_plot(frp_length =frp_length_h_u, title = "Home, urban")
-frp_s_u_plot <- frp_length_plot(frp_length =frp_length_s_u, title = "School, urban")
-frp_w_u_plot <- frp_length_plot(frp_length =frp_length_w_u, title = "Work, urban")
-frp_nh_u_plot <- frp_length_plot(frp_length =frp_length_nh_u, title = "Nonhome, urban")
-
-frp_plot <- 
-  ggarrange(
-    frp_all_r_plot,
-    frp_h_r_plot,
-    frp_s_r_plot,
-    frp_w_r_plot,
-    frp_nh_r_plot,
-    frp_all_u_plot,
-    frp_h_u_plot,
-    frp_s_u_plot,
-    frp_w_u_plot,
-    frp_nh_u_plot,
-    
-    ncol = 5, nrow = 2,
-    common.legend = TRUE, 
-    legend = "bottom"
-  )
-
-
-frp_plot
 
 
