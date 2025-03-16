@@ -165,6 +165,39 @@ prop_figure_layer <-
   }
 
 
+# proportion of population reached at a layer, overall and age-specific on day 180
+prop_table_layer_d180 <- 
+  function(prop_reached){
+    ## For each n_reps, calculate the mean proportion of population reached at day 30, 180, and 365
+    prop_reached_df <- bind_rows(prop_reached, .id = "n_reps") %>% 
+      select(n_reps, node_id, node.age.grp, step_180) %>% 
+      mutate(n_reps = as.numeric(n_reps)
+      )
+    
+    prop_reached_overall <- 
+      prop_reached_df %>% 
+      group_by(n_reps) %>% 
+      # calculate mean under each n_reps
+      summarize(
+                step_180_avg = mean(step_180)
+      ) %>% 
+      ungroup() %>% 
+      mutate(node.age.grp ="Overall") %>% 
+      select(n_reps, node.age.grp, step_180_avg )
+    
+    prop_reached_age_spec <- 
+      prop_reached_df %>% group_by(n_reps, node.age.grp) %>% 
+      # calculate mean under each n_reps and node.age.grp
+      summarize(
+                step_180_avg = mean(step_180)
+      ) %>% 
+      ungroup() %>% 
+      select(n_reps, node.age.grp, step_180_avg )
+    
+    
+    rbind(prop_reached_overall, prop_reached_age_spec)
+  }
+
 # Function producing table showing statistical moments from 1 simulation
 prop_table_layer_1_iter <- 
   function(prop_reached){

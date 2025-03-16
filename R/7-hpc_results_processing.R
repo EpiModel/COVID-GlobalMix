@@ -25,7 +25,6 @@ file.name_frp <- paste0(
   percent_target_pop, ".Rds"
 )
 
-
 frp_layer_network <- readRDS(file.name_frp)
 
 # file name of the output file
@@ -72,6 +71,11 @@ output$prop_tb <- prop_table_layer(prop_reached = prop_reached)
 # Data frame for Figure 1 (Percentages of populations reached over a 1-year period)
 output$prop_figure_df <- 
 prop_figure_layer(prop_reached = prop_reached)
+
+
+# Data frame of FRP at day 180
+output$prop_d180_df <- 
+prop_table_layer_d180(prop_reached = prop_reached)
 
 
 

@@ -65,32 +65,33 @@ node_id_age_r <-
   mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
 
 frp_unprocess_h_r <- 
-  readRDS(file.name_frp_unprocess_r[1])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_r[1]) %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
   
 frp_unprocess_s_r <- 
-  readRDS(file.name_frp_unprocess_r[2])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_r[2]) %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
 
 frp_unprocess_w_r <- 
-  readRDS(file.name_frp_unprocess_r[3])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_r[3]) %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
 
 frp_unprocess_nh_r <- 
-  readRDS(file.name_frp_unprocess_r[4])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_r[4]) %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
+
 
 ## Urban
 file.name_frp_unprocess_u <- paste0(
@@ -106,28 +107,28 @@ node_id_age_u <-
   mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
 
 frp_unprocess_h_u <- 
-  readRDS(file.name_frp_unprocess_u[1])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_u[1]) %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
 
 frp_unprocess_s_u <- 
-  readRDS(file.name_frp_unprocess_u[2])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_u[2]) %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
   
 frp_unprocess_w_u <- 
-  readRDS(file.name_frp_unprocess_u[3])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_u[3]) %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
   
 frp_unprocess_nh_u <- 
-  readRDS(file.name_frp_unprocess_u[4])[[2]] %>% 
+  readRDS(file.name_frp_unprocess_u[4]) %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
@@ -184,7 +185,7 @@ network_stats_tb <-
 network_stats_tb
 
 # Table 2, proportion of population reached
-tb2 <- 
+prop_reach <- 
 cbind(
 frp_h_r$prop_tb %>% rename(est_30_h = est_30, est_180_h =est_180, est_365_h = est_365),
 frp_s_r$prop_tb %>% select(-node.age.grp)%>% rename(est_30_s = est_30, est_180_s =est_180, est_365_s = est_365),
@@ -200,7 +201,7 @@ cbind(
 ) %>% mutate(network = "u")
 )
 
-write.csv(tb2, "~/Desktop/tb2.csv")
+#write.csv(prop_reach, "~/Desktop/prop_reach.csv")
 
 
 # Table S1. Percentage of population reached from 1 network simulation
