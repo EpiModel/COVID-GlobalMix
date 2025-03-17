@@ -64,29 +64,29 @@ node_id_age_r <-
   rownames_to_column(var = "node_id") %>% 
   mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
 
-frp_unprocess_h_r <- 
-  readRDS(file.name_frp_unprocess_r[1])[[2]] %>% 
+frp_1sim_h_r <- 
+  readRDS(file.name_frp_unprocess_r[1])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
   
-frp_unprocess_s_r <- 
-  readRDS(file.name_frp_unprocess_r[2])[[2]] %>% 
+frp_1sim_s_r <- 
+  readRDS(file.name_frp_unprocess_r[2])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
 
-frp_unprocess_w_r <- 
-  readRDS(file.name_frp_unprocess_r[3])[[2]] %>% 
+frp_1sim_w_r <- 
+  readRDS(file.name_frp_unprocess_r[3])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
 
-frp_unprocess_nh_r <- 
-  readRDS(file.name_frp_unprocess_r[4])[[2]] %>% 
+frp_1sim_nh_r <- 
+  readRDS(file.name_frp_unprocess_r[4])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
@@ -106,29 +106,29 @@ node_id_age_u <-
   rownames_to_column(var = "node_id") %>% 
   mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
 
-frp_unprocess_h_u <- 
-  readRDS(file.name_frp_unprocess_u[1])[[2]] %>% 
+frp_1sim_h_u <- 
+  readRDS(file.name_frp_unprocess_u[1])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
 
-frp_unprocess_s_u <- 
-  readRDS(file.name_frp_unprocess_u[2])[[2]] %>% 
+frp_1sim_s_u <- 
+  readRDS(file.name_frp_unprocess_u[2])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
   
-frp_unprocess_w_u <- 
-  readRDS(file.name_frp_unprocess_u[3])[[2]] %>% 
+frp_1sim_w_u <- 
+  readRDS(file.name_frp_unprocess_u[3])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
   
-frp_unprocess_nh_u <- 
-  readRDS(file.name_frp_unprocess_u[4])[[2]] %>% 
+frp_1sim_nh_u <- 
+  readRDS(file.name_frp_unprocess_u[4])[[4]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
@@ -207,30 +207,30 @@ cbind(
 # Table S1. Percentage of population reached from 1 network simulation
 ## rural
 tbs1 <- 
-prop_table_layer_1_iter(prop_reached = frp_unprocess_h_r) %>% 
+prop_table_layer_1_iter(prop_reached = frp_1sim_h_r) %>% 
   select(d, mean_sd,  median_quantiles) %>% rename(mean_sd_h = mean_sd, median_quantiles_h = median_quantiles) %>% 
   cbind(
-    prop_table_layer_1_iter(prop_reached = frp_unprocess_s_r) %>% select(-d)  %>% rename(mean_sd_s = mean_sd, median_quantiles_s = median_quantiles)
+    prop_table_layer_1_iter(prop_reached = frp_1sim_s_r) %>% select(-d)  %>% rename(mean_sd_s = mean_sd, median_quantiles_s = median_quantiles)
 ) %>% 
   cbind(
-    prop_table_layer_1_iter(prop_reached = frp_unprocess_w_r) %>% select(-d) %>% rename(mean_sd_w = mean_sd, median_quantiles_w = median_quantiles)
+    prop_table_layer_1_iter(prop_reached = frp_1sim_w_r) %>% select(-d) %>% rename(mean_sd_w = mean_sd, median_quantiles_w = median_quantiles)
   ) %>% 
   cbind(
-    prop_table_layer_1_iter(prop_reached = frp_unprocess_nh_r) %>% select(-d) %>% rename(mean_sd_nh = mean_sd, median_quantiles_nh = median_quantiles)
+    prop_table_layer_1_iter(prop_reached = frp_1sim_nh_r) %>% select(-d) %>% rename(mean_sd_nh = mean_sd, median_quantiles_nh = median_quantiles)
   ) %>% mutate(network = "r") %>% rbind(.,
 
 
 ## urban
-prop_table_layer_1_iter(prop_reached = frp_unprocess_h_u) %>% 
+prop_table_layer_1_iter(prop_reached = frp_1sim_h_u) %>% 
   select(d, mean_sd,  median_quantiles) %>% rename(mean_sd_h = mean_sd, median_quantiles_h = median_quantiles) %>% 
   cbind(
-    prop_table_layer_1_iter(prop_reached = frp_unprocess_s_u) %>% select(-d)  %>% rename(mean_sd_s = mean_sd, median_quantiles_s = median_quantiles)
+    prop_table_layer_1_iter(prop_reached = frp_1sim_s_u) %>% select(-d)  %>% rename(mean_sd_s = mean_sd, median_quantiles_s = median_quantiles)
   ) %>% 
   cbind(
-    prop_table_layer_1_iter(prop_reached = frp_unprocess_w_u) %>% select(-d) %>% rename(mean_sd_w = mean_sd, median_quantiles_w = median_quantiles)
+    prop_table_layer_1_iter(prop_reached = frp_1sim_w_u) %>% select(-d) %>% rename(mean_sd_w = mean_sd, median_quantiles_w = median_quantiles)
   ) %>% 
   cbind(
-    prop_table_layer_1_iter(prop_reached = frp_unprocess_nh_u) %>% select(-d) %>% rename(mean_sd_nh = mean_sd, median_quantiles_nh = median_quantiles)
+    prop_table_layer_1_iter(prop_reached = frp_1sim_nh_u) %>% select(-d) %>% rename(mean_sd_nh = mean_sd, median_quantiles_nh = median_quantiles)
   ) %>% mutate(network = "u")
 )
 
@@ -373,28 +373,29 @@ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Nonhome$Nonh
 plot_heatmap_df(df= df)
 
 
-# Figure - boxplot of FRP at day 180
+# Figure - boxplot of FRP at day 180 over 100 simulations
 frp_layers_d180 <- 
   bind_rows(
     frp_h_r$prop_d180_df %>% mutate(layer = "Home", network = "Rural", layer_network = "Rural home"), # unit: proportion
     frp_s_r$prop_d180_df %>% mutate(layer = "School", network = "Rural", layer_network = "Rural school"),
     frp_w_r$prop_d180_df %>% mutate(layer = "Work", network = "Rural",  layer_network = "Rural work"),
-    frp_nh_r$prop_d180_df %>% mutate(layer = "Nonhome", network = "Rural",  layer_network = "Rural nonhome"),
+    frp_nh_r$prop_d180_df %>% mutate(layer = "Other", network = "Rural",  layer_network = "Rural other"),
     
     frp_h_u$prop_d180_df %>% mutate(layer = "Home", network = "Urban", layer_network = "Urban home"), # unit: proportion
     frp_s_u$prop_d180_df %>% mutate(layer = "School", network = "Urban", layer_network = "Urban school"),
     frp_w_u$prop_d180_df %>% mutate(layer = "Work", network = "Urban", layer_network = "Urban work"),
-    frp_nh_u$prop_d180_df %>% mutate(layer = "Nonhome", network = "Urban", layer_network = "Urban nonhome")
+    frp_nh_u$prop_d180_df %>% mutate(layer = "Other", network = "Urban", layer_network = "Urban other")
     
   ) %>% mutate(step_180_avg = step_180_avg*100,
                network = factor(network, levels = c("Rural", "Urban")),
-               layer = factor(layer, levels = c("Home", "School", "Work", "Nonhome")),
-               layer_network = factor(layer_network, c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work", "Urban nonhome"   )
+               layer = factor(layer, levels = c("Home", "School", "Work", "Other")),
+               layer_network = factor(layer_network, c( "Rural home",    "Rural school",  "Rural work",    "Rural other", "Urban home"  ,  "Urban school" , "Urban work", "Urban other"   )
                                       )
                )
 
-#box plot
-# layer as top hirarchy
+
+
+## layer as top hirarchy
 ggplot(frp_layers_d180 , 
        aes(x = network, y = step_180_avg, fill = node.age.grp)) +
   geom_boxplot(position = position_dodge(width = 0.8)) +
@@ -406,9 +407,73 @@ ggplot(frp_layers_d180 ,
   ) +
   theme_minimal()
 
-# each layer as a single panel
+## each layer as a single panel
 ggplot(frp_layers_d180 , 
        aes(x = node.age.grp, y = step_180_avg )) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  facet_wrap(~ layer_network, ncol = 4, nrow =2, scales = "free_y") +
+  labs(
+    x = "Age group",
+    y = "Percentage of population reached (%)",
+    fill = "Age group"
+  ) +
+  theme_minimal()
+
+
+# Figure - boxplot of FRP at day 180 from 1 simulation
+
+frp_layers_d180_1_sim <- # age-specific FRP
+  bind_rows(
+    frp_1sim_h_r %>% mutate(layer = "Home", network = "Rural", layer_network = "Rural home"), # unit: proportion
+    frp_1sim_s_r %>% mutate(layer = "School", network = "Rural", layer_network = "Rural school"),
+    frp_1sim_w_r %>% mutate(layer = "Work", network = "Rural",  layer_network = "Rural work"),
+    frp_1sim_nh_r %>% mutate(layer = "Other", network = "Rural",  layer_network = "Rural other"),
+    
+    frp_1sim_h_u %>% mutate(layer = "Home", network = "Urban", layer_network = "Urban home"), # unit: proportion
+    frp_1sim_s_u %>% mutate(layer = "School", network = "Urban", layer_network = "Urban school"),
+    frp_1sim_w_u %>% mutate(layer = "Work", network = "Urban", layer_network = "Urban work"),
+    frp_1sim_nh_u %>% mutate(layer = "Other", network = "Urban", layer_network = "Urban other")
+    
+  ) %>%
+  select(node_id, node.age.grp, step_180, layer, network, layer_network) %>% 
+  mutate(step_180 = step_180*100,
+               network = factor(network, levels = c("Rural", "Urban")),
+               layer = factor(layer, levels = c("Home", "School", "Work", "Other")),
+               layer_network = factor(layer_network, c( "Rural home",    "Rural school",  "Rural work",    "Rural other", "Urban home"  ,  "Urban school" , "Urban work", "Urban other"   )
+               )
+  )
+
+
+frp_layers_d180_1_sim_overallage <- # overall FRP
+  frp_layers_d180_1_sim %>% mutate(node.age.grp = "overall")
+  
+## layer as top hirarchy
+ggplot(
+  
+  bind_rows(
+    frp_layers_d180_1_sim_overallage, 
+    frp_layers_d180_1_sim
+            
+            ), 
+       aes(x = network, y = step_180, fill = node.age.grp)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  facet_wrap(~ layer, ncol = 2, scales = "free_y") +
+  labs(
+    x = "Network",
+    y = "Percentage of population reached (%)",
+    fill = "Age group"
+  ) +
+  theme_minimal()
+
+## each layer as a single panel
+ggplot(
+  
+  bind_rows(
+    frp_layers_d180_1_sim_overallage, 
+    frp_layers_d180_1_sim
+    
+  ) , 
+       aes(x = node.age.grp, y = step_180 )) +
   geom_boxplot(position = position_dodge(width = 0.8)) +
   facet_wrap(~ layer_network, ncol = 4, nrow =2, scales = "free_y") +
   labs(
