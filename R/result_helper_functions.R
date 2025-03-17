@@ -53,7 +53,7 @@ prop_table_layer <-
         step_365_97.5 = quantile(step_365_avg, probs = 0.975)
       ) %>% 
       # covert estimates to publication format
-      mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
+      mutate(across(where(is.numeric), ~ round(.x * 100, 1))) %>% # convert proportion to percentile
       mutate(est_30 = paste0(step_30_50, "% (", step_30_2.5, "%, ", step_30_97.5, "%)"),
              est_180 = paste0(step_180_50, "% (", step_180_2.5, "%, ", step_180_97.5, "%)"),
              est_365 = paste0(step_365_50, "% (", step_365_2.5, "%, ", step_365_97.5, "%)")
@@ -84,10 +84,10 @@ prop_table_layer <-
       ) %>% 
       ungroup() %>% 
       # covert estimates to publication format
-      mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
-      mutate(est_30 = paste0(step_30_50, "% (", step_30_2.5, ", ", step_30_97.5, "%)"),
-             est_180 = paste0(step_180_50, "% (", step_180_2.5, ", ", step_180_97.5, "%)"),
-             est_365 = paste0(step_365_50, "% (", step_365_2.5, ", ", step_365_97.5, "%)")
+      mutate(across(where(is.numeric), ~ round(.x * 100, 1))) %>% # convert proportion to percentile
+      mutate(est_30 = paste0(step_30_50, "% (", step_30_2.5, "%, ", step_30_97.5, "%)"),
+             est_180 = paste0(step_180_50, "% (", step_180_2.5, "%, ", step_180_97.5, "%)"),
+             est_365 = paste0(step_365_50, "% (", step_365_2.5, "%, ", step_365_97.5, "%)")
       ) %>% 
       select(node.age.grp, est_30, est_180, est_365)
     
@@ -227,7 +227,7 @@ prop_table_layer_1_iter <-
 
       ) %>% 
       # covert estimates to publication format
-      mutate(across(where(is.numeric), ~ round(.x * 100, 2))) %>% # convert proportion to percentile
+      mutate(across(where(is.numeric), ~ round(.x * 100, 1))) %>% # convert proportion to percentile
       mutate( mean_sd_30 = paste0(step_30_avg, "% (", step_30_sd, ")"),
               median_quantiles_30 = paste0(step_30_median, "% (", step_30_25_percentile, "%", ",", step_30_75_percentile, "%", ")"),
               

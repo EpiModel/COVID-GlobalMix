@@ -10,7 +10,7 @@ hpc_context <- TRUE
 source("R/hpc_configs.R", local = TRUE)
 
 # Process ----------------------------------------------------------------------
-wf <- make_em_workflow("frp_u_0.1_0310", override = TRUE)
+wf <- make_em_workflow("frp_r_0.1_0316", override = TRUE)
 
 # Process FRP outputs
 wf <- add_workflow_step(
@@ -20,7 +20,7 @@ wf <- add_workflow_step(
     layer = c("Home", "School", "Work", "Nonhome"),
     MoreArgs = list(
       hpc_context = TRUE,
-      network = "Urban",
+      network = "Rural",
       percent_target_pop = "0.1",
       n_cores = est_cores,
       n_reps = 100

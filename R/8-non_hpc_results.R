@@ -65,28 +65,28 @@ node_id_age_r <-
   mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
 
 frp_unprocess_h_r <- 
-  readRDS(file.name_frp_unprocess_r[1]) %>% 
+  readRDS(file.name_frp_unprocess_r[1])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
   
 frp_unprocess_s_r <- 
-  readRDS(file.name_frp_unprocess_r[2]) %>% 
+  readRDS(file.name_frp_unprocess_r[2])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
 
 frp_unprocess_w_r <- 
-  readRDS(file.name_frp_unprocess_r[3]) %>% 
+  readRDS(file.name_frp_unprocess_r[3])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
   )
 
 frp_unprocess_nh_r <- 
-  readRDS(file.name_frp_unprocess_r[4]) %>% 
+  readRDS(file.name_frp_unprocess_r[4])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_r, 
     frp_length = .
@@ -107,28 +107,28 @@ node_id_age_u <-
   mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
 
 frp_unprocess_h_u <- 
-  readRDS(file.name_frp_unprocess_u[1]) %>% 
+  readRDS(file.name_frp_unprocess_u[1])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
 
 frp_unprocess_s_u <- 
-  readRDS(file.name_frp_unprocess_u[2]) %>% 
+  readRDS(file.name_frp_unprocess_u[2])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
   
 frp_unprocess_w_u <- 
-  readRDS(file.name_frp_unprocess_u[3]) %>% 
+  readRDS(file.name_frp_unprocess_u[3])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
   )
   
 frp_unprocess_nh_u <- 
-  readRDS(file.name_frp_unprocess_u[4]) %>% 
+  readRDS(file.name_frp_unprocess_u[4])[[2]] %>% 
   frp_length_df_process(
     attr = node_id_age_u, 
     frp_length = .
@@ -315,26 +315,26 @@ tar_stats_tb%>%
 write.csv(tar_stats_tb, "~/Desktop/test.csv")
 
 # Figure 1 (Percentages of populations reached over a 1-year period)
-frp_layers <- 
-rbind(
-frp_h_r$prop_figure_df %>% mutate(layer = "Rural home"), # unit: proportion
-frp_s_r$prop_figure_df %>% mutate(layer = "Rural school"),
-frp_w_r$prop_figure_df %>% mutate(layer = "Rural work"),
-frp_nh_r$prop_figure_df %>% mutate(layer = "Rural nonhome"),
-
-frp_h_u$prop_figure_df %>% mutate(layer = "Urban home"), # unit: proportion
-frp_s_u$prop_figure_df %>% mutate(layer = "Urban school"),
-frp_w_u$prop_figure_df %>% mutate(layer = "Urban work"),
-frp_nh_u$prop_figure_df %>% mutate(layer = "Urban nonhome")
-
-) %>% 
-  mutate(quantile_2.5 = quantile_2.5*100, # convert to percentile
-         quantile_50 = quantile_50*100,
-         quantile_97.5 = quantile_97.5*100
-         ) %>% 
-  mutate(layer = factor(layer, levels = c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work", "Urban nonhome"   )
-                        )
-         )
+# frp_layers <- 
+# rbind(
+# frp_h_r$prop_figure_df %>% mutate(layer = "Home", network = "Rural"), # unit: proportion
+# frp_s_r$prop_figure_df %>% mutate(layer = "School", network = "Rural"),
+# frp_w_r$prop_figure_df %>% mutate(layer = "Work", network = "Rural"),
+# frp_nh_r$prop_figure_df %>% mutate(layer = "Nonhome", network = "Rural"),
+# 
+# frp_h_u$prop_figure_df %>% mutate(layer = "Home", network = "Urban"), # unit: proportion
+# frp_s_u$prop_figure_df %>% mutate(layer = "School", network = "Urban"),
+# frp_w_u$prop_figure_df %>% mutate(layer = "Work", network = "Urban"),
+# frp_nh_u$prop_figure_df %>% mutate(layer = "Nonhome", network = "Urban")
+# 
+# ) %>% 
+#   mutate(quantile_2.5 = quantile_2.5*100, # convert to percentile
+#          quantile_50 = quantile_50*100,
+#          quantile_97.5 = quantile_97.5*100
+#          ) %>% 
+#   mutate(layer = factor(layer, levels = c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work", "Urban nonhome"   )
+#                         )
+#          )
 
 
 ggplot(frp_layers ,
@@ -373,9 +373,50 @@ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Nonhome$Nonh
 plot_heatmap_df(df= df)
 
 
-# Figure S2 
+# Figure - boxplot of FRP at day 180
+frp_layers_d180 <- 
+  bind_rows(
+    frp_h_r$prop_d180_df %>% mutate(layer = "Home", network = "Rural", layer_network = "Rural home"), # unit: proportion
+    frp_s_r$prop_d180_df %>% mutate(layer = "School", network = "Rural", layer_network = "Rural school"),
+    frp_w_r$prop_d180_df %>% mutate(layer = "Work", network = "Rural",  layer_network = "Rural work"),
+    frp_nh_r$prop_d180_df %>% mutate(layer = "Nonhome", network = "Rural",  layer_network = "Rural nonhome"),
+    
+    frp_h_u$prop_d180_df %>% mutate(layer = "Home", network = "Urban", layer_network = "Urban home"), # unit: proportion
+    frp_s_u$prop_d180_df %>% mutate(layer = "School", network = "Urban", layer_network = "Urban school"),
+    frp_w_u$prop_d180_df %>% mutate(layer = "Work", network = "Urban", layer_network = "Urban work"),
+    frp_nh_u$prop_d180_df %>% mutate(layer = "Nonhome", network = "Urban", layer_network = "Urban nonhome")
+    
+  ) %>% mutate(step_180_avg = step_180_avg*100,
+               network = factor(network, levels = c("Rural", "Urban")),
+               layer = factor(layer, levels = c("Home", "School", "Work", "Nonhome")),
+               layer_network = factor(layer_network, c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work", "Urban nonhome"   )
+                                      )
+               )
 
+#box plot
+# layer as top hirarchy
+ggplot(frp_layers_d180 , 
+       aes(x = network, y = step_180_avg, fill = node.age.grp)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  facet_wrap(~ layer, ncol = 2, scales = "free_y") +
+  labs(
+    x = "Network",
+    y = "Percentage of population reached (%)",
+    fill = "Age group"
+  ) +
+  theme_minimal()
 
+# each layer as a single panel
+ggplot(frp_layers_d180 , 
+       aes(x = node.age.grp, y = step_180_avg )) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  facet_wrap(~ layer_network, ncol = 4, nrow =2, scales = "free_y") +
+  labs(
+    x = "Age group",
+    y = "Percentage of population reached (%)",
+    fill = "Age group"
+  ) +
+  theme_minimal()
 
 
 # ## Check component size at home
