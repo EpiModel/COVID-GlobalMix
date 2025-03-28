@@ -50,7 +50,7 @@ frp_w_u <- readRDS(file.name_frp_u[3])
 frp_nh_u <- readRDS(file.name_frp_u[4])
 
 
-# Load unprocessed FRP outputs
+# Load unprocessed FRP outputs (1 simuation)
 ## Rural
 file.name_frp_unprocess_r <- paste0(
   "data/frp_outputs/frp_length_",
@@ -174,6 +174,9 @@ dx_nh_u <- readRDS(file.name_dx_u[3])
 n_r_age_grp <- table(tar_stats$attr$rural$node.age.grp)
 n_u_age_grp <- table(tar_stats$attr$urban$node.age.grp)
 
+sum(n_r_age_grp)
+sum(n_u_age_grp)
+
 network_stats_tb <- 
   network_stats(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp)
 
@@ -234,7 +237,7 @@ prop_table_layer_1_iter(prop_reached = frp_1sim_h_u) %>%
   ) %>% mutate(network = "u")
 )
 
-write.csv(tbs1, "~/Desktop/tbs1.csv")
+#write.csv(tbs1, "~/Desktop/tbs1.csv")
 
 
 # Table S2, Target statistics and dx
@@ -311,30 +314,31 @@ tar_stats_tb <-
 tar_stats_tb%>% 
   slice(c(1:23, 25, 24))
 
+tar_stats_tb 
 
-write.csv(tar_stats_tb, "~/Desktop/test.csv")
+#write.csv(tar_stats_tb, "~/Desktop/test.csv")
 
 # Figure 1 (Percentages of populations reached over a 1-year period)
-# frp_layers <- 
-# rbind(
-# frp_h_r$prop_figure_df %>% mutate(layer = "Home", network = "Rural"), # unit: proportion
-# frp_s_r$prop_figure_df %>% mutate(layer = "School", network = "Rural"),
-# frp_w_r$prop_figure_df %>% mutate(layer = "Work", network = "Rural"),
-# frp_nh_r$prop_figure_df %>% mutate(layer = "Nonhome", network = "Rural"),
-# 
-# frp_h_u$prop_figure_df %>% mutate(layer = "Home", network = "Urban"), # unit: proportion
-# frp_s_u$prop_figure_df %>% mutate(layer = "School", network = "Urban"),
-# frp_w_u$prop_figure_df %>% mutate(layer = "Work", network = "Urban"),
-# frp_nh_u$prop_figure_df %>% mutate(layer = "Nonhome", network = "Urban")
-# 
-# ) %>% 
-#   mutate(quantile_2.5 = quantile_2.5*100, # convert to percentile
-#          quantile_50 = quantile_50*100,
-#          quantile_97.5 = quantile_97.5*100
-#          ) %>% 
-#   mutate(layer = factor(layer, levels = c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work", "Urban nonhome"   )
-#                         )
-#          )
+frp_layers <-
+rbind(
+frp_h_r$prop_figure_df %>% mutate(layer = "Rural home"), # unit: proportion
+frp_s_r$prop_figure_df %>% mutate(layer = "Rural school"),
+frp_w_r$prop_figure_df %>% mutate(layer = "Rural work"),
+frp_nh_r$prop_figure_df %>% mutate(layer = "Rural nonhome"),
+
+frp_h_u$prop_figure_df %>% mutate(layer = "Urban home"), # unit: proportion
+frp_s_u$prop_figure_df %>% mutate(layer = "Urban school"),
+frp_w_u$prop_figure_df %>% mutate(layer = "Urban work"),
+frp_nh_u$prop_figure_df %>% mutate(layer = "Urban nonhome")
+
+) %>%
+  mutate(quantile_2.5 = quantile_2.5*100, # convert to percentile
+         quantile_50 = quantile_50*100,
+         quantile_97.5 = quantile_97.5*100
+         ) %>%
+  mutate(layer = factor(layer, levels = c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work", "Urban nonhome")
+                        )
+         )
 
 
 ggplot(frp_layers ,
@@ -419,6 +423,18 @@ ggplot(frp_layers_d180 ,
   ) +
   theme_minimal()
 
+### underlying distribution of the boxplots
+ggplot(frp_layers_d180, aes(x = step_180_avg)
+       ) +
+  geom_histogram(bins = 30) +
+  facet_grid(node.age.grp ~ layer_network, scales = "free") +
+  labs(
+    x = "step_180 (%)",
+    y = "Count"
+  ) +
+  theme_light()
+
+
 
 # Figure - boxplot of FRP at day 180 from 1 simulation
 
@@ -484,6 +500,21 @@ ggplot(
   theme_minimal()
 
 
+## distribution of underlying data
+frp_layers_d180_1_sim %>% str
+
+ggplot(frp_layers_d180_1_sim, aes(x = step_180)) +
+  geom_histogram(bins = 30) +
+  facet_grid(node.age.grp ~ layer_network, scales = "free") +
+  labs(
+    x = "step_180 (%)",
+    y = "Count"
+  ) +
+  theme_light()
+
+
+
+
 # ## Check component size at home
 # nw_h_r <- 
 #   readRDS("./data/netest_outputs/deterministic_Home__Rural__0.1.Rds")
@@ -507,6 +538,88 @@ ggplot(
 # 
 # component_h_r$csize %>% unique %>% sort
 # frp_length_h_r_365$step_365 %>% unique %>% sort
+
+
+# network components
+library(ergm)
+library(network)
+library(sna)
+
+set.seed(123)  # for reproducibility
+
+
+N           <- 50   # number of nodes
+mean_degree <- 1.21    # desired average degree
+# Total edges = (N * mean_degree) / 2
+target_edges <- (N * mean_degree) / 2
+
+g <- network.initialize(N, directed = FALSE)
+
+
+fit <- ergm(
+  g ~ edges,
+  target.stats = target_edges,
+  estimate     = "MPLE"  # or "CD" or "MLE", though "MPLE" is faster and often sufficient
+)
+
+
+sim_net <- simulate(fit, nsim = 1)
+
+
+summary(sim_net ~ edges)
+plot(sim_net, main = "")
+
+
+# graph representation each layer
+source("R/sim_network.R") 
+library(gbp)
+
+netstats <- 
+readRDS("./data/network_stats_attributes/network_params.Rds")
+
+tarstats5emin4 <- readRDS("./data/network_stats_attributes/node_attribute_target_stats__5e-04.Rds")
+
+
+
+
+hh_member_stat <- 
+netstats5emin4$prop_hh_members$Rural
+
+
+  ## Simulate edgelist and household IDs for home layer for each iteration i
+
+    node_hh_assign(
+      #observed proportions of households with children, adults, and elderly, respectively.
+      prop.hh.with.child = hh_member_stat$proportions %>% filter(prop_type == "prop_hh_w_child") %>% pull(proportion),
+      prop.hh.with.adult = hh_member_stat$proportions %>% filter(prop_type == "prop_hh_w_adult") %>% pull(proportion),
+      prop.hh.with.elderly = hh_member_stat$proportions %>% filter(prop_type == "prop_hh_w_elderly") %>% pull(proportion),
+      #observed proportions of children with adults.
+      prop.children.with.adult = hh_member_stat$proportions %>% filter(prop_type == "prop_child_w_adult") %>% pull(proportion),
+      #observed frequency if household only with children, not used in the calculation and for validation only
+      freq.hh.child.only = hh_member_stat$freq_hh_only_w_child,
+      # mean degree calculated from the age mixing matrix of edge count of the home layer of a network
+      mean.deg =  tarstats5emin4$mean_deg_home$Rural ,
+      # age group of each node in the modeled population
+      age.grp= recode(tarstats5emin4$attr$rural$node.age.grp, 
+                      `0-9y` = "0-19y",
+                      `10-19y` = "0-19y",
+                      `20-29y` = "20-59y",
+                      `30-39y` = "20-59y",
+                      `40-59y` = "20-59y",
+                      `60+y` = "60+y")
+
+    )
+  
+ 
+  
+  ### save validation result of each simulation
+  hh_id_validation[[i]] <- hh_id_edgelist[[i]]$validation
+  
+
+
+output$assignments
+
+rh_graph <- network.initialize(nrow(output$assignments), directed = FALSE)
 
 
 

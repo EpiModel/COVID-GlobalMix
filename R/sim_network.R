@@ -119,7 +119,7 @@ node_hh_assign <-
     
     sim_v_obs_dta <- 
       sim_v_obs_props %>% 
-      rbind(., c("prop_child_w_adult", children.in.hh.w.adult)) %>%  #simulated data
+      rbind(., data.frame("prop_child_w_adult", children.in.hh.w.adult) %>% rename(prop_type =1, pct.hh.simulated=2) ) %>%  #simulated data
       cbind(., pct.hh.observed = c(prop.hh.with.child, prop.hh.with.adult,prop.hh.with.elderly,prop.children.with.adult) #observed data
       )
     
@@ -132,10 +132,9 @@ node_hh_assign <-
     mean.hh.check2 <- round(mean(hh.check2$num.person), 2)
     
     sim_v_obs_dta <- 
-      sim_v_obs_dta %>% rbind(c("hh_size", 
-                                mean.hh.check2, 
-                                round(hh.size,2)
-      )
+      sim_v_obs_dta %>% 
+      rbind(data.frame("hh_size",  mean.hh.check2,    round(hh.size,2)
+      )%>% rename(data_type = 1, simulated = 2, observed = 3)
       )
     
     
@@ -143,7 +142,7 @@ node_hh_assign <-
     hh.check3 <- persons.by.hh %>% group_by(hh) %>% summarize(min.age.grp = min(age.grp), max.age.grp = max(age.grp))
     orphans_simulated <- nrow(hh.check3[hh.check3$min.age.grp == "0-19y" & hh.check3$max.age.grp == "0-19y", ]) # the number of houeholds having only children
     
-    orphans_simulated
+
     
     sim_v_obs_dta <- 
       sim_v_obs_dta %>% rbind(c("freq_hh_child_only", 
