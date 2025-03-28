@@ -372,7 +372,11 @@ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Nonhome$Nonh
 
 
 )%>%
-  mutate(across(everything(), ~ replace_na(.x, 0)))
+  mutate(across(everything(), ~ replace_na(.x, 0)),
+         layer = factor(layer, c( "Rural home", "Rural school",  "Rural work", "Rural nonhome", "Urban home", "Urban school", "Urban work", "Urban nonhome" )
+         )
+         ) 
+  
 
 plot_heatmap_df(df= df)
 
@@ -399,46 +403,27 @@ frp_layers_d180 <-
 
 
 
-## layer as top hirarchy
-ggplot(frp_layers_d180 , 
-       aes(x = network, y = step_180_avg, fill = node.age.grp)) +
-  geom_boxplot(position = position_dodge(width = 0.8)) +
-  facet_wrap(~ layer, ncol = 2, scales = "free_y") +
-  labs(
-    x = "Network",
-    y = "Percentage of population reached (%)",
-    fill = "Age group"
-  ) +
-  theme_minimal()
-
 ## each layer as a single panel
 ggplot(frp_layers_d180 , 
        aes(x = node.age.grp, y = step_180_avg )) +
   geom_boxplot(position = position_dodge(width = 0.8)) +
+  #geom_jitter(position = position_jitter(width = 0.2), alpha = 0.05) +
   facet_wrap(~ layer_network, ncol = 4, nrow =2, scales = "free_y") +
   labs(
     x = "Age group",
     y = "Percentage of population reached (%)",
     fill = "Age group"
   ) +
-  theme_minimal()
-
-### underlying distribution of the boxplots
-ggplot(frp_layers_d180, aes(x = step_180_avg)
-       ) +
-  geom_histogram(bins = 30) +
-  facet_grid(node.age.grp ~ layer_network, scales = "free") +
-  labs(
-    x = "step_180 (%)",
-    y = "Count"
-  ) +
-  theme_light()
+  theme_minimal()+
+  theme(strip.text = element_text(size = 10))
 
 
 
-# Figure - boxplot of FRP at day 180 from 1 simulation
 
-frp_layers_d180_1_sim <- # age-specific FRP
+
+# Figure - histogram of FRP at day 180 from 1 simulation
+
+frp_layers_1_sim <- # age-specific FRP
   bind_rows(
     frp_1sim_h_r %>% mutate(layer = "Home", network = "Rural", layer_network = "Rural home"), # unit: proportion
     frp_1sim_s_r %>% mutate(layer = "School", network = "Rural", layer_network = "Rural school"),
@@ -450,60 +435,23 @@ frp_layers_d180_1_sim <- # age-specific FRP
     frp_1sim_w_u %>% mutate(layer = "Work", network = "Urban", layer_network = "Urban work"),
     frp_1sim_nh_u %>% mutate(layer = "Other", network = "Urban", layer_network = "Urban other")
     
-  ) %>%
-  select(node_id, node.age.grp, step_180, layer, network, layer_network) %>% 
-  mutate(step_180 = step_180*100,
-               network = factor(network, levels = c("Rural", "Urban")),
-               layer = factor(layer, levels = c("Home", "School", "Work", "Other")),
-               layer_network = factor(layer_network, c( "Rural home",    "Rural school",  "Rural work",    "Rural other", "Urban home"  ,  "Urban school" , "Urban work", "Urban other"   )
-               )
+  )  %>%
+  select(node_id, node.age.grp, layer, network, layer_network, starts_with("step_")) %>% 
+  mutate(
+    across(matches("^step_\\d{1,3}$"), ~ . * 100),
+    network = factor(network, levels = c("Rural", "Urban")),
+    layer = factor(layer, levels = c("Home", "School", "Work", "Other")),
+    layer_network = factor(layer_network, levels = c("Rural home", "Rural school", "Rural work", "Rural other",
+                                                     "Urban home", "Urban school", "Urban work", "Urban other"))
   )
 
 
-frp_layers_d180_1_sim_overallage <- # overall FRP
-  frp_layers_d180_1_sim %>% mutate(node.age.grp = "overall")
+frp_layers_1_sim_overallage <- # overall FRP
+  frp_layers_1_sim %>% mutate(node.age.grp = "overall")
   
-## layer as top hirarchy
-ggplot(
-  
-  bind_rows(
-    frp_layers_d180_1_sim_overallage, 
-    frp_layers_d180_1_sim
-            
-            ), 
-       aes(x = network, y = step_180, fill = node.age.grp)) +
-  geom_boxplot(position = position_dodge(width = 0.8)) +
-  facet_wrap(~ layer, ncol = 2, scales = "free_y") +
-  labs(
-    x = "Network",
-    y = "Percentage of population reached (%)",
-    fill = "Age group"
-  ) +
-  theme_minimal()
-
-## each layer as a single panel
-ggplot(
-  
-  bind_rows(
-    frp_layers_d180_1_sim_overallage, 
-    frp_layers_d180_1_sim
-    
-  ) , 
-       aes(x = node.age.grp, y = step_180 )) +
-  geom_boxplot(position = position_dodge(width = 0.8)) +
-  facet_wrap(~ layer_network, ncol = 4, nrow =2, scales = "free_y") +
-  labs(
-    x = "Age group",
-    y = "Percentage of population reached (%)",
-    fill = "Age group"
-  ) +
-  theme_minimal()
 
 
-## distribution of underlying data
-frp_layers_d180_1_sim %>% str
-
-ggplot(frp_layers_d180_1_sim, aes(x = step_180)) +
+ggplot(frp_layers_1_sim, aes(x = step_180)) +
   geom_histogram(bins = 30) +
   facet_grid(node.age.grp ~ layer_network, scales = "free") +
   labs(
@@ -512,6 +460,25 @@ ggplot(frp_layers_d180_1_sim, aes(x = step_180)) +
   ) +
   theme_light()
 
+# Figure - line plot of the FRP of each node across all layers from 1 simulation
+frp_layers_1_sim %>%
+  pivot_longer(
+    cols = starts_with("step_"),
+    names_to = "step",
+    names_prefix = "step_",
+    values_to = "value"
+  ) %>%
+  mutate(step = as.integer(step)) %>% 
+ggplot(., aes(x = step, y = value, group = node_id, color = node.age.grp)) +
+  geom_line() +
+  facet_wrap(~ layer_network) +
+  labs(
+    title = "Trends for Each Node over Steps by Age Group",
+    x = "Step",
+    y = "Value",
+    color = "Node Age Group"
+  ) +
+  theme_minimal()
 
 
 
