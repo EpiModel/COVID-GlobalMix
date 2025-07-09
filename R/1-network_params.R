@@ -47,6 +47,9 @@ india_contact <-
 
 table(india_contact$hh_membership, india_contact$study_site )
 
+table(india_contact$study_site ) # reported number of contacts
+
+
 # Note - validated study_site (i.e., rural/urban) of participant is exactly the same as those in contact. Also, the number of rural and urban participants are both equal to 624
 
 # Merging participant and contact data and processing them

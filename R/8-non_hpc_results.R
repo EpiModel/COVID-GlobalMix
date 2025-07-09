@@ -10,17 +10,44 @@ n_reps=100
 
 source("./R/result_helper_functions.R")
 
+#------------------------------------------------------------------------------#
+# Loading and processing data
+#------------------------------------------------------------------------------#
 # Load network stats to retrieve the number of nodes at each network
 ## Target stats
 tar_stats <-  
   readRDS(paste0("data/network_stats_attributes/node_attribute_target_stats__", percent_target_pop, ".Rds"))
 
-
 ## Individual-level summary stats
 summary_stats <- 
   readRDS("data/network_stats_attributes/network_params.Rds")
 
-# Load processed FRP outputs
+# Load netdx outputs
+file.name_dx_r <- paste0(
+  "data/netdx_outputs/dx_",
+  layers[-1], "__",
+  network[1],"__",
+  "mcmle", "__",
+  percent_target_pop,".Rds"
+)
+
+file.name_dx_u <- paste0(
+  "data/netdx_outputs/dx_",
+  layers[-1], "__",
+  network[2],"__",
+  "mcmle", "__",
+  percent_target_pop,".Rds"
+)
+
+dx_s_r <- readRDS(file.name_dx_r[1])
+dx_w_r <- readRDS(file.name_dx_r[2])
+dx_nh_r <- readRDS(file.name_dx_r[3])
+
+dx_s_u <- readRDS(file.name_dx_u[1])
+dx_w_u <- readRDS(file.name_dx_u[2])
+dx_nh_u <- readRDS(file.name_dx_u[3])
+
+# Load processed FRP outputs—proportion of population reached (100 simulations)
 ## Rural
 file.name_frp_r <- paste0(
   "data/frp_outputs_processed/frp_processed_",
@@ -50,7 +77,7 @@ frp_w_u <- readRDS(file.name_frp_u[3])
 frp_nh_u <- readRDS(file.name_frp_u[4])
 
 
-# Load unprocessed FRP outputs (1 simuation)
+# Load unprocessed FRP outputs (1 simuation) from the 4th simulation among the 100 simulation
 ## Rural
 file.name_frp_unprocess_r <- paste0(
   "data/frp_outputs/frp_length_",
@@ -59,11 +86,28 @@ file.name_frp_unprocess_r <- paste0(
   percent_target_pop,".Rds"
 )
 
+
+### node id and age groups
 node_id_age_r <- 
   tar_stats$attr[[tolower(network[[1]])]] %>%
   rownames_to_column(var = "node_id") %>% 
   mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
 
+## Urban
+file.name_frp_unprocess_u <- paste0(
+  "data/frp_outputs/frp_length_",
+  layers, "__",
+  network[2],"__",
+  percent_target_pop,".Rds"
+)
+
+node_id_age_u <- 
+  tar_stats$attr[[tolower(network[[2]])]] %>%
+  rownames_to_column(var = "node_id") %>% 
+  mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
+
+# Processed the raw FRP outputs to proportion of population reached (1 simuation)
+## rural
 frp_1sim_h_r <- 
   readRDS(file.name_frp_unprocess_r[1])[[4]] %>% 
   frp_length_df_process(
@@ -92,20 +136,7 @@ frp_1sim_nh_r <-
     frp_length = .
   )
 
-
-## Urban
-file.name_frp_unprocess_u <- paste0(
-  "data/frp_outputs/frp_length_",
-  layers, "__",
-  network[2],"__",
-  percent_target_pop,".Rds"
-)
-
-node_id_age_u <- 
-  tar_stats$attr[[tolower(network[[2]])]] %>%
-  rownames_to_column(var = "node_id") %>% 
-  mutate(node_id = paste0("node_", node_id)) %>%  select(node_id, node.age.grp)
-
+## urban
 frp_1sim_h_u <- 
   readRDS(file.name_frp_unprocess_u[1])[[4]] %>% 
   frp_length_df_process(
@@ -134,41 +165,9 @@ frp_1sim_nh_u <-
     frp_length = .
   )
   
- 
-
-# Load netdx outputs
-file.name_dx_r <- paste0(
-   "data/netdx_outputs/dx_",
-   layers[-1], "__",
-   network[1],"__",
-   "mcmle", "__",
-   percent_target_pop,".Rds"
- )
-
-file.name_dx_u <- paste0(
-  "data/netdx_outputs/dx_",
-  layers[-1], "__",
-  network[2],"__",
-  "mcmle", "__",
-  percent_target_pop,".Rds"
-)
-
-dx_s_r <- readRDS(file.name_dx_r[1])
-dx_w_r <- readRDS(file.name_dx_r[2])
-dx_nh_r <- readRDS(file.name_dx_r[3])
-
-dx_s_u <- readRDS(file.name_dx_u[1])
-dx_w_u <- readRDS(file.name_dx_u[2])
-dx_nh_u <- readRDS(file.name_dx_u[3])
-
-
-
-
-
-
-
-
-
+#------------------------------------------------------------------------------#
+# Compiling tables for the main text and appendix
+#------------------------------------------------------------------------------#
 # Summary statistics table, table 1
 ## Number of nodes, age-specific
 n_r_age_grp <- table(tar_stats$attr$rural$node.age.grp)
@@ -180,14 +179,91 @@ sum(n_u_age_grp)
 network_stats_tb <- 
   network_stats(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp)
 
+network_stats_tb
 # write.csv(
 # network_stats_tb,
 # "netstats.tb.csv"
 # )
 
-network_stats_tb
+# Table S1 and Table S2, Target statistics and dx
+tar_stats_tb <- 
+  dx_s_r$stats.table.formation %>% 
+  rbind(., dx_s_r$stats.table.duration) %>% 
+  mutate_if(is.numeric, ~ round(., 2)) %>%  
+  select(Target, `Pct Diff`) %>% mutate(out_s_r = paste0(Target, " (", abs(`Pct Diff`), ")")) %>% 
+  select(out_s_r) %>% 
+  tibble::rownames_to_column(., var = "stat") %>% full_join(.,
+                                                            
+                                                            dx_w_r$stats.table.formation %>% 
+                                                              rbind(., dx_w_r$stats.table.duration) %>% 
+                                                              mutate_if(is.numeric, ~ round(., 2)) %>%  
+                                                              select(Target, `Pct Diff`) %>% mutate(out_w_r = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
+                                                              select(out_w_r) %>% 
+                                                              tibble::rownames_to_column(., var = "stat"),
+                                                            by ="stat"
+  )  %>% full_join(.,
+                   
+                   dx_nh_r$stats.table.formation %>% 
+                     rbind(., dx_nh_r$stats.table.duration) %>% 
+                     mutate_if(is.numeric, ~ round(., 2)) %>%  
+                     select(Target, `Pct Diff`) %>% mutate(out_nh_r = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
+                     select(out_nh_r) %>% 
+                     tibble::rownames_to_column(., var = "stat"),
+                   by ="stat")%>% full_join(.,
+                                            
+                                            dx_s_u$stats.table.formation %>% 
+                                              rbind(., dx_s_u$stats.table.duration) %>% 
+                                              mutate_if(is.numeric, ~ round(., 2)) %>%  
+                                              select(Target, `Pct Diff`) %>% mutate(out_s_u = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
+                                              select(out_s_u) %>% 
+                                              tibble::rownames_to_column(., var = "stat"),
+                                            by ="stat") %>% 
+  full_join(.,
+            dx_w_u$stats.table.formation %>% 
+              rbind(., dx_w_u$stats.table.duration) %>% 
+              mutate_if(is.numeric, ~ round(., 2)) %>%  
+              select(Target, `Pct Diff`) %>% mutate(out_w_u = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
+              select(out_w_u) %>% 
+              tibble::rownames_to_column(., var = "stat"),
+            by ="stat") %>% 
+  full_join(.,
+            dx_nh_u$stats.table.formation %>% 
+              rbind(., dx_nh_u$stats.table.duration) %>% 
+              mutate_if(is.numeric, ~ round(., 2)) %>%  
+              select(Target, `Pct Diff`) %>% mutate(out_nh_u = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
+              select(out_nh_u) %>% 
+              tibble::rownames_to_column(., var = "stat"),
+            by ="stat") 
 
-# Table 2, proportion of population reached
+
+# relocate rows
+row_0_0 <- which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y")
+
+tar_stats_tb <- tar_stats_tb %>%
+  slice(c(1, row_0_0, setdiff(1:n(), c(1, row_0_0))))
+
+# adding target statistics as reference group back
+tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_s_r <- tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School$`0-9y`[1] %>% round(.,2)
+tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.20-29y.20-29y"), ]$out_w_r <- tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work$`20-29y`[3]%>% round(.,2)
+tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_nh_r <- tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome$`0-9y`[1] %>% round(.,2)
+
+tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_s_u <- tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School$`0-9y`[1] %>% round(.,2)
+tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.20-29y.20-29y"), ]$out_w_u <- tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work$`20-29y`[3]%>% round(.,2)
+tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_nh_u <- tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome$`0-9y`[1] %>% round(.,2)
+
+# Number of node with contact at nonhome layer
+tar_stats_tb[which(tar_stats_tb$stat == "nodefactor.no.contact.1"), ]$out_nh_r <- as.numeric((tar_stats$attr$rural$contact_attribute_Nonhome %>% table())[2])
+tar_stats_tb[which(tar_stats_tb$stat == "nodefactor.no.contact.1"), ]$out_nh_u <- as.numeric((tar_stats$attr$urban$contact_attribute_Nonhome %>% table())[2])
+
+tar_stats_tb <- 
+  tar_stats_tb%>% 
+  slice(c(1:23, 25, 24))
+
+tar_stats_tb 
+
+#write.csv(tar_stats_tb, "~/Desktop/test.csv")
+
+# Tables S3-S6, avg proportion of population reached across 100 simulations
 prop_reach <- 
 cbind(
 frp_h_r$prop_tb %>% rename(est_30_h = est_30, est_180_h =est_180, est_365_h = est_365),
@@ -205,6 +281,7 @@ cbind(
 )
 
 #write.csv(prop_reach, "~/Desktop/prop_reach.csv")
+prop_reach
 
 
 # Table S1. Percentage of population reached from 1 network simulation
@@ -240,83 +317,7 @@ prop_table_layer_1_iter(prop_reached = frp_1sim_h_u) %>%
 #write.csv(tbs1, "~/Desktop/tbs1.csv")
 
 
-# Table S2, Target statistics and dx
-tar_stats_tb <- 
-dx_s_r$stats.table.formation %>% 
-  rbind(., dx_s_r$stats.table.duration) %>% 
-  mutate_if(is.numeric, ~ round(., 2)) %>%  
-  select(Target, `Pct Diff`) %>% mutate(out_s_r = paste0(Target, " (", abs(`Pct Diff`), ")")) %>% 
-  select(out_s_r) %>% 
-  tibble::rownames_to_column(., var = "stat") %>% full_join(.,
 
-dx_w_r$stats.table.formation %>% 
-  rbind(., dx_w_r$stats.table.duration) %>% 
-  mutate_if(is.numeric, ~ round(., 2)) %>%  
-  select(Target, `Pct Diff`) %>% mutate(out_w_r = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
-  select(out_w_r) %>% 
-  tibble::rownames_to_column(., var = "stat"),
-by ="stat"
-)  %>% full_join(.,
-
-dx_nh_r$stats.table.formation %>% 
-  rbind(., dx_nh_r$stats.table.duration) %>% 
-  mutate_if(is.numeric, ~ round(., 2)) %>%  
-  select(Target, `Pct Diff`) %>% mutate(out_nh_r = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
-  select(out_nh_r) %>% 
-  tibble::rownames_to_column(., var = "stat"),
-by ="stat")%>% full_join(.,
-                         
-                         dx_s_u$stats.table.formation %>% 
-                           rbind(., dx_s_u$stats.table.duration) %>% 
-                           mutate_if(is.numeric, ~ round(., 2)) %>%  
-                           select(Target, `Pct Diff`) %>% mutate(out_s_u = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
-                           select(out_s_u) %>% 
-                           tibble::rownames_to_column(., var = "stat"),
-                         by ="stat") %>% 
-  full_join(.,
-                dx_w_u$stats.table.formation %>% 
-                  rbind(., dx_w_u$stats.table.duration) %>% 
-                  mutate_if(is.numeric, ~ round(., 2)) %>%  
-                  select(Target, `Pct Diff`) %>% mutate(out_w_u = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
-                  select(out_w_u) %>% 
-                  tibble::rownames_to_column(., var = "stat"),
-                by ="stat") %>% 
-  full_join(.,
-            dx_nh_u$stats.table.formation %>% 
-              rbind(., dx_nh_u$stats.table.duration) %>% 
-              mutate_if(is.numeric, ~ round(., 2)) %>%  
-              select(Target, `Pct Diff`) %>% mutate(out_nh_u = paste0(Target, " (", abs(`Pct Diff`), ")"))%>% 
-              select(out_nh_u) %>% 
-              tibble::rownames_to_column(., var = "stat"),
-            by ="stat") 
-
-
-# relocate rows
-row_0_0 <- which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y")
-
-tar_stats_tb <- tar_stats_tb %>%
-  slice(c(1, row_0_0, setdiff(1:n(), c(1, row_0_0))))
-
-# adding target statistics as reference group back
-tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_s_r <- tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$School$`0-9y`[1] %>% round(.,2)
-tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.20-29y.20-29y"), ]$out_w_r <- tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Work$`20-29y`[3]%>% round(.,2)
-tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_nh_r <- tar_stats$targetstats_age.grp$formation_stats_rural$edge_ct_matrix$Nonhome$`0-9y`[1] %>% round(.,2)
-
-tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_s_u <- tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$School$`0-9y`[1] %>% round(.,2)
-tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.20-29y.20-29y"), ]$out_w_u <- tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Work$`20-29y`[3]%>% round(.,2)
-tar_stats_tb[which(tar_stats_tb$stat == "mix.age.grp.0-9y.0-9y"), ]$out_nh_u <- tar_stats$targetstats_age.grp$formation_stats_urban$edge_ct_matrix$Nonhome$`0-9y`[1] %>% round(.,2)
-
-# Number of node with contact at nonhome layer
-tar_stats_tb[which(tar_stats_tb$stat == "nodefactor.no.contact.1"), ]$out_nh_r <- as.numeric((tar_stats$attr$rural$contact_attribute_Nonhome %>% table())[2])
-tar_stats_tb[which(tar_stats_tb$stat == "nodefactor.no.contact.1"), ]$out_nh_u <- as.numeric((tar_stats$attr$urban$contact_attribute_Nonhome %>% table())[2])
-
-tar_stats_tb <- 
-tar_stats_tb%>% 
-  slice(c(1:23, 25, 24))
-
-tar_stats_tb 
-
-#write.csv(tar_stats_tb, "~/Desktop/test.csv")
 
 # Figure 1 (Percentages of populations reached over a 1-year period)
 frp_layers <-
@@ -357,30 +358,39 @@ ggplot(frp_layers ,
   scale_fill_viridis_d() 
 
 
-# Figure S1 (Proportion of mixing)
+# Figure S2 (Proportion of mixing)
 
 df <- 
   rbind(
 summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Home$Home_mix_prop_matrix_2d_glm %>% mutate(layer = "Rural home") %>% rownames_to_column(., var = "ego"),
 summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm %>% mutate(layer = "Rural school")%>% rownames_to_column(., var = "ego"),
 summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Work$Work_mix_prop_matrix_2d_glm %>% mutate(layer = "Rural work")%>% rownames_to_column(., var = "ego"),
-summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Nonhome$Nonhome_mix_prop_matrix_2d_glm%>% mutate(layer = "Rural nonhome")%>% rownames_to_column(., var = "ego"),
+summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Nonhome$Nonhome_mix_prop_matrix_2d_glm%>% mutate(layer = "Rural other")%>% rownames_to_column(., var = "ego"),
 summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Home$Home_mix_prop_matrix_2d_glm %>% mutate(layer = "Urban home") %>% rownames_to_column(., var = "ego"),
 summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$School$School_mix_prop_matrix_2d_glm %>% mutate(layer = "Urban school")%>% rownames_to_column(., var = "ego"),
 summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm %>% mutate(layer = "Urban work")%>% rownames_to_column(., var = "ego"),
-summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Nonhome$Nonhome_mix_prop_matrix_2d_glm%>% mutate(layer = "Urban nonhome")%>% rownames_to_column(., var = "ego")
+summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Nonhome$Nonhome_mix_prop_matrix_2d_glm%>% mutate(layer = "Urban other")%>% rownames_to_column(., var = "ego")
 
 
 )%>%
   mutate(across(everything(), ~ replace_na(.x, 0)),
-         layer = factor(layer, c( "Rural home", "Rural school",  "Rural work", "Rural nonhome", "Urban home", "Urban school", "Urban work", "Urban nonhome" )
+         layer = factor(layer, c( "Rural home", "Rural school",  "Rural work", "Rural other", "Urban home", "Urban school", "Urban work", "Urban other" )
          )
          ) 
   
 
 plot_heatmap_df(df= df)
 
+## main text writing, max value at school and work
+### rural school and work
+summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$School$School_mix_prop_matrix_2d_glm %>% max(., na.rm = T) %>% round(., 2)
+summary_stats$formation$formation_stats_rural$mix_prop_rural_layers$Work$Work_mix_prop_matrix_2d_glm  %>% max(., na.rm = T) %>% round(., 2)
 
+summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$School$School_mix_prop_matrix_2d_glm %>% max(., na.rm = T) %>% round(., 2)
+summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm %>% max(., na.rm = T) %>% round(., 2)
+
+
+summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm== summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm %>% max(., na.rm = T) 
 # Figure - boxplot of FRP at day 180 over 100 simulations
 frp_layers_d180 <- 
   bind_rows(
@@ -449,16 +459,38 @@ frp_layers_1_sim <- # age-specific FRP
 frp_layers_1_sim_overallage <- # overall FRP
   frp_layers_1_sim %>% mutate(node.age.grp = "overall")
   
+# ggplot(frp_layers_1_sim, aes(x = step_180)) +
+#   geom_histogram(bins = 30) +
+#   facet_grid(node.age.grp ~ layer_network, scales = "free") +
+#   labs(
+#     x = "step_180 (%)",
+#     y = "Count"
+#   ) +
+#   theme_light()
 
 
-ggplot(frp_layers_1_sim, aes(x = step_180)) +
-  geom_histogram(bins = 30) +
-  facet_grid(node.age.grp ~ layer_network, scales = "free") +
+
+
+
+ggplot(frp_layers_1_sim %>%
+         mutate(layer = factor(layer, levels = c("Home", "School", "Work", "Other"))),
+       aes(x = step_180, fill = network)) +
+  geom_histogram(position = "dodge") +
+  facet_grid(node.age.grp ~ layer, scales = "free") +
   labs(
-    x = "step_180 (%)",
-    y = "Count"
+    x = "Percentage of population reached",
+    y = "Frequency",
+    fill = "Network"
   ) +
-  theme_light()
+  scale_fill_viridis_d() +
+  theme_light() +
+  theme(legend.position = "bottom")
+
+
+
+
+
+
 
 # Figure - line plot of the FRP of each node across all layers from 1 simulation
 frp_layers_1_sim %>%
@@ -469,16 +501,19 @@ frp_layers_1_sim %>%
     values_to = "value"
   ) %>%
   mutate(step = as.integer(step)) %>% 
-ggplot(., aes(x = step, y = value, group = node_id, color = node.age.grp)) +
-  geom_line() +
-  facet_wrap(~ layer_network) +
+  ggplot(., aes(x = step, y = value, group = node_id, color = node.age.grp)) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~ layer_network, nrow = 2, ncol = 4, scales = "free_y") +
   labs(
-    title = "Trends for Each Node over Steps by Age Group",
-    x = "Step",
-    y = "Value",
-    color = "Node Age Group"
+    title = "",
+    x = "Day",
+    y = "Percentage",
+    color = "Age group"
   ) +
-  theme_minimal()
+  scale_color_viridis_d() +    
+  scale_fill_viridis_d() +
+  theme_minimal() +
+  theme(legend.position = "bottom")
 
 
 
