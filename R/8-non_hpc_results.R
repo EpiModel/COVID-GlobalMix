@@ -114,7 +114,7 @@ frp_1sim_h_r <-
     attr = node_id_age_r, 
     frp_length = .
   )
-  
+
 frp_1sim_s_r <- 
   readRDS(file.name_frp_unprocess_r[2])[[4]] %>% 
   frp_length_df_process(
@@ -325,35 +325,41 @@ rbind(
 frp_h_r$prop_figure_df %>% mutate(layer = "Rural home"), # unit: proportion
 frp_s_r$prop_figure_df %>% mutate(layer = "Rural school"),
 frp_w_r$prop_figure_df %>% mutate(layer = "Rural work"),
-frp_nh_r$prop_figure_df %>% mutate(layer = "Rural nonhome"),
+frp_nh_r$prop_figure_df %>% mutate(layer = "Rural other"),
 
 frp_h_u$prop_figure_df %>% mutate(layer = "Urban home"), # unit: proportion
 frp_s_u$prop_figure_df %>% mutate(layer = "Urban school"),
 frp_w_u$prop_figure_df %>% mutate(layer = "Urban work"),
-frp_nh_u$prop_figure_df %>% mutate(layer = "Urban nonhome")
+frp_nh_u$prop_figure_df %>% mutate(layer = "Urban other")
 
 ) %>%
   mutate(quantile_2.5 = quantile_2.5*100, # convert to percentile
          quantile_50 = quantile_50*100,
          quantile_97.5 = quantile_97.5*100
          ) %>%
-  mutate(layer = factor(layer, levels = c( "Rural home",    "Rural school",  "Rural work",    "Rural nonhome", "Urban home"  ,  "Urban school" , "Urban work", "Urban nonhome")
+  mutate(layer = factor(layer, levels = c( "Rural home",    "Rural school",  "Rural work",    "Rural other", "Urban home"  ,  "Urban school" , "Urban work", "Urban other")
                         )
          )
 
 
-ggplot(frp_layers ,
+
+ggplot(frp_layers %>% filter(step>=1), 
+       
        aes(x = step, y = quantile_50, color = node.age.grp, group = node.age.grp)) +
   geom_line(size = 0.7) +
   geom_ribbon(aes(ymin = quantile_2.5, ymax = quantile_97.5, fill = node.age.grp), alpha = 0.1, 
               color = NA, show.legend = F) +
   facet_wrap(~ layer, , scales = "free_y",
              nrow = 2, ncol = 4,) +
-  theme_classic() +
-  labs(x = "Day", y = "Percentage", color = "Age group")+
+  theme_light() +
+  labs(x = "Day", y = "Percentage of population reached (%)", color = "Age group (years)")+
   theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
   guides(color = guide_legend(nrow = 1),
          fill = guide_legend(nrow = 1))+
+  scale_x_continuous(
+    limits = c(1, NA),
+    breaks = c(1, seq(100, max(frp_layers$step, na.rm = TRUE), 100))
+  )+
   scale_color_viridis_d() +    
   scale_fill_viridis_d() 
 
@@ -500,6 +506,7 @@ frp_layers_1_sim %>%
     names_prefix = "step_",
     values_to = "value"
   ) %>%
+  filter(step >=1) %>% 
   mutate(step = as.integer(step)) %>% 
   ggplot(., aes(x = step, y = value, group = node_id, color = node.age.grp)) +
   geom_line(alpha = 0.5) +
@@ -507,12 +514,12 @@ frp_layers_1_sim %>%
   labs(
     title = "",
     x = "Day",
-    y = "Percentage",
-    color = "Age group"
+    y = "Percentage of population reached (%)",
+    color = "Age group (years)"
   ) +
   scale_color_viridis_d() +    
   scale_fill_viridis_d() +
-  theme_minimal() +
+  theme_light() +
   theme(legend.position = "bottom")
 
 
