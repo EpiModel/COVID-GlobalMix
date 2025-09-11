@@ -141,7 +141,7 @@ node_hh_assign <-
     
     # 5. Every household with a child must also have at least one adult for the simulated data
     hh.check3 <- persons.by.hh %>% group_by(hh) %>% summarize(min.age.grp = min(age.grp), max.age.grp = max(age.grp))
-    orphans_simulated <- nrow(hh.check3[hh.check3$min.age.grp == "0-19y" & hh.check3$max.age.grp == "0-19y", ]) # the number of houeholds having only children
+    orphans_simulated <- nrow(hh.check3[hh.check3$min.age.grp == "0-19y" & hh.check3$max.age.grp == "0-19y", ]) # the number of households having only children
     
     orphans_simulated
     
