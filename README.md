@@ -1,4 +1,4 @@
-# COVID-GlobalMix
+# Epidemic Potential in Dynamic Social Networks
 
 ## Introduction
 This is a repository for scripts modeling human contact networks, estimating forward-reachable paths (FRPs), based on empirical data from the GlobalMix India sites.
