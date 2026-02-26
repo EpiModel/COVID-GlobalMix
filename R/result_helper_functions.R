@@ -389,7 +389,8 @@ network_stats <- function(tar_stats, summary_stats, n_r_age_grp, n_u_age_grp){
  c(rep("-",2),
  summary_stats$dissolution %>%
    mutate(contact_location = factor(contact_location, levels = c( "School", "Work", "Nonhome"))) %>%
-   arrange(contact_location) %>% pull(know_contact_duration) %>% round(., 2)
+   arrange(contact_location) %>% pull(know_contact_duration) %>%
+   (\(x) round(x / 365, 0))()
  ) %>% t() %>%  data.frame() 
  
  
