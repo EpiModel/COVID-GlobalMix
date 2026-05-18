@@ -430,7 +430,7 @@ ggplot(frp_layers_d180 ,
     y = "Percentage of population reached (%)",
     fill = "Age group"
   ) +
-  theme_minimal()+
+  theme_light()+
   theme(strip.text = element_text(size = 10))
 
 
