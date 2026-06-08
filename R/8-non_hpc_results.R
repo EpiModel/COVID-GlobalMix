@@ -343,8 +343,8 @@ frp_nh_u$prop_figure_df %>% mutate(layer = "Urban other")
 
 
 
-ggplot(frp_layers %>% filter(step>=1), 
-       
+ggplot(
+       frp_layers ,
        aes(x = step, y = quantile_50, color = node.age.grp, group = node.age.grp)) +
   geom_line(size = 0.7) +
   geom_ribbon(aes(ymin = quantile_2.5, ymax = quantile_97.5, fill = node.age.grp), alpha = 0.1, 
@@ -357,12 +357,89 @@ ggplot(frp_layers %>% filter(step>=1),
   guides(color = guide_legend(nrow = 1),
          fill = guide_legend(nrow = 1))+
   scale_x_continuous(
-    limits = c(1, NA),
-    breaks = c(1, seq(100, max(frp_layers$step, na.rm = TRUE), 100))
+    limits = c(0, NA),
+    breaks = c(0, seq(100, max(frp_layers$step, na.rm = TRUE), 100))
   )+
-  scale_color_viridis_d() +    
-  scale_fill_viridis_d() 
+  scale_color_viridis_d(
+    labels = function(x) sub("y$", "", x)
+  ) +    
+  scale_fill_viridis_d(
+    labels = function(x) sub("y$", "", x)
+  )
 
+# in-house edit, final Figure 2 
+plot_df <- frp_layers %>%
+  mutate(setting = sub("^(Rural|Urban)\\s+", "", layer))
+
+ylim_df <- plot_df %>%
+  group_by(setting) %>%
+  summarise(
+    ymin = 0,
+    ymax = max(quantile_97.5, na.rm = TRUE) * 1.05,
+    .groups = "drop"
+  ) %>%
+  inner_join(distinct(plot_df, layer, setting), by = "setting")
+
+ggplot(
+  plot_df,
+  aes(x = step, y = quantile_50, color = node.age.grp, group = node.age.grp)
+) +
+  geom_blank(
+    data = ylim_df,
+    aes(x = 0, y = ymin),
+    inherit.aes = FALSE
+  ) +
+  geom_blank(
+    data = ylim_df,
+    aes(x = 0, y = ymax),
+    inherit.aes = FALSE
+  ) +
+  geom_line(size = 0.7) +
+  geom_ribbon(
+    aes(ymin = quantile_2.5, ymax = quantile_97.5, fill = node.age.grp),
+    alpha = 0.1,
+    color = NA,
+    show.legend = FALSE
+  ) +
+  facet_wrap(
+    ~ layer,
+    scales = "free_y",
+    nrow = 2,
+    ncol = 4
+  ) +
+  theme_light() +
+  labs(
+    x = "Day",
+    y = "Percentage of population reached (%)",
+    color = "Age group (years)"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+    
+    strip.text = element_text(color = "black", size = 14)
+  ) +
+  guides(
+    color = guide_legend(nrow = 1),
+    fill = guide_legend(nrow = 1)
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    breaks = c(0, seq(100, max(plot_df$step, na.rm = TRUE), 100))
+  ) +
+  scale_color_viridis_d(
+    labels = function(x) sub("y$", "", x)
+  ) +
+  scale_fill_viridis_d(
+    labels = function(x) sub("y$", "", x)
+  )
 
 # Figure S2 (Proportion of mixing)
 
