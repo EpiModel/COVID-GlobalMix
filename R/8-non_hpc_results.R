@@ -319,7 +319,7 @@ prop_table_layer_1_iter(prop_reached = frp_1sim_h_u) %>%
 
 
 
-# Figure 1 (Percentages of populations reached over a 1-year period)
+# Figure 2 (Percentages of populations reached over a 1-year period)
 frp_layers <-
 rbind(
 frp_h_r$prop_figure_df %>% mutate(layer = "Rural home"), # unit: proportion
@@ -419,7 +419,7 @@ ggplot(
     
     axis.title.x = element_text(size = 14),
     axis.title.y = element_text(size = 14),
-    axis.text = element_text(size = 12),
+    axis.text = element_text(size = 13),
     
     legend.title = element_text(size = 14),
     legend.text = element_text(size = 14),
@@ -474,7 +474,7 @@ summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mi
 
 
 summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm== summary_stats$formation$formation_stats_urban$mix_prop_urban_layers$Work$Work_mix_prop_matrix_2d_glm %>% max(., na.rm = T) 
-# Figure - boxplot of FRP at day 180 over 100 simulations
+# Figure 3 - boxplot of FRP at day 180 over 100 simulations
 frp_layers_d180 <- 
   bind_rows(
     frp_h_r$prop_d180_df %>% mutate(layer = "Home", network = "Rural", layer_network = "Rural home"), # unit: proportion
@@ -510,11 +510,59 @@ ggplot(frp_layers_d180 ,
   theme_light()+
   theme(strip.text = element_text(size = 10))
 
+## in-house edit, final figure 3 
+plot_df <- frp_layers_d180 %>%
+  mutate(setting = sub("^(Rural|Urban)\\s+", "", layer_network))
+
+first_age <- plot_df$node.age.grp[which(!is.na(plot_df$node.age.grp))[1]]
+
+ylim_df <- plot_df %>%
+  group_by(setting) %>%
+  summarise(
+    ymin = min(step_180_avg, na.rm = TRUE),
+    ymax = max(step_180_avg, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    pad = (ymax - ymin) * 0.05,
+    ymin = ymin - pad,
+    ymax = ymax + pad
+  ) %>%
+  inner_join(distinct(plot_df, layer_network, setting), by = "setting") %>%
+  pivot_longer(c(ymin, ymax), values_to = "y") %>%
+  mutate(node.age.grp = first_age)
+
+ggplot(plot_df, aes(x = node.age.grp, y = step_180_avg)) +
+  geom_blank(
+    data = ylim_df,
+    aes(x = node.age.grp, y = y),
+    inherit.aes = FALSE
+  ) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  facet_wrap(~ layer_network, ncol = 4, nrow = 2, scales = "free_y") +
+  labs(
+    x = "Age group (years)",
+    y = "Percentage of population reached (%)",
+    fill = "Age group"  ) +
+  scale_x_discrete(
+    labels = function(x) sub("y$", "", x)
+  ) +
+  theme_light() +
+  theme(
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    
+    legend.title = element_text(size = 15),
+    legend.text = element_text(size = 15),
+    
+    strip.text = element_text(size = 15, color = "black")
+  )
 
 
 
-
-# Figure - histogram of FRP at day 180 from 1 simulation
+# Figure 4 - line plot of the FRP of each node across all layers from 1 simulation
 
 frp_layers_1_sim <- # age-specific FRP
   bind_rows(
@@ -541,41 +589,8 @@ frp_layers_1_sim <- # age-specific FRP
 
 frp_layers_1_sim_overallage <- # overall FRP
   frp_layers_1_sim %>% mutate(node.age.grp = "overall")
-  
-# ggplot(frp_layers_1_sim, aes(x = step_180)) +
-#   geom_histogram(bins = 30) +
-#   facet_grid(node.age.grp ~ layer_network, scales = "free") +
-#   labs(
-#     x = "step_180 (%)",
-#     y = "Count"
-#   ) +
-#   theme_light()
 
-
-
-
-
-ggplot(frp_layers_1_sim %>%
-         mutate(layer = factor(layer, levels = c("Home", "School", "Work", "Other"))),
-       aes(x = step_180, fill = network)) +
-  geom_histogram(position = "dodge") +
-  facet_grid(node.age.grp ~ layer, scales = "free") +
-  labs(
-    x = "Percentage of population reached",
-    y = "Frequency",
-    fill = "Network"
-  ) +
-  scale_fill_viridis_d() +
-  theme_light() +
-  theme(legend.position = "bottom")
-
-
-
-
-
-
-
-# Figure - line plot of the FRP of each node across all layers from 1 simulation
+## old fig 4
 frp_layers_1_sim %>%
   pivot_longer(
     cols = starts_with("step_"),
@@ -598,6 +613,157 @@ frp_layers_1_sim %>%
   scale_fill_viridis_d() +
   theme_light() +
   theme(legend.position = "bottom")
+
+## in-house edit, final figure 4
+plot_df <- frp_layers_1_sim %>%
+  pivot_longer(
+    cols = starts_with("step_"),
+    names_to = "step",
+    names_prefix = "step_",
+    values_to = "value"
+  ) %>%
+  mutate(
+    step = as.integer(step),
+    setting = sub("^(Rural|Urban)\\s+", "", layer_network)
+  )
+
+ylim_df <- plot_df %>%
+  group_by(setting) %>%
+  summarise(
+    ymin = 0,
+    ymax = max(value, na.rm = TRUE) * 1.05,
+    .groups = "drop"
+  ) %>%
+  inner_join(distinct(plot_df, layer_network, setting), by = "setting") %>%
+  pivot_longer(c(ymin, ymax), values_to = "y")
+
+ggplot(plot_df, aes(x = step, y = value, group = node_id, color = node.age.grp)) +
+  geom_blank(
+    data = ylim_df,
+    aes(x = 0, y = y),
+    inherit.aes = FALSE
+  ) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~ layer_network, nrow = 2, ncol = 4, scales = "free_y") +
+  labs(
+    title = "",
+    x = "Day",
+    y = "Percentage of population reached (%)",
+    color = "Age group (years)"
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    breaks = c(0, seq(100, max(plot_df$step, na.rm = TRUE), 100))
+  ) +
+  scale_color_viridis_d(
+    labels = function(x) sub("y$", "", x)
+  ) +
+  scale_fill_viridis_d(
+    labels = function(x) sub("y$", "", x)
+  ) +
+  theme_light() +
+  guides(
+    color = guide_legend(nrow = 1, byrow = TRUE),
+    fill = "none"
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 13),
+    axis.text.y = element_text(size = 13),
+    
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+    
+    strip.text = element_text(size = 14, color = "black")
+  )
+
+# Figure 5- histogram of FRP at day 180 from 1 simulation
+ggplot(frp_layers_1_sim %>%
+         mutate(layer = factor(layer, levels = c("Home", "School", "Work", "Other"))),
+       aes(x = step_180, fill = network)) +
+  geom_histogram(position = "dodge") +
+  facet_grid(node.age.grp ~ layer, scales = "free") +
+  labs(
+    x = "Percentage of population reached",
+    y = "Frequency",
+    fill = "Network"
+  ) +
+  scale_fill_viridis_d() +
+  theme_light() +
+  theme(legend.position = "bottom")
+
+## in-house edit, final figure 5
+plot_df <- frp_layers_1_sim %>%
+  mutate(
+    layer = factor(layer, levels = c("Home", "School", "Work", "Other"))
+  )
+
+home_xlim <- range(plot_df$step_180[plot_df$layer == "Home"], na.rm = TRUE)
+other_xlim <- range(plot_df$step_180[plot_df$layer %in% c("School", "Work", "Other")], na.rm = TRUE)
+
+home_xlim[1] <- min(0, home_xlim[1])
+other_xlim[1] <- min(0, other_xlim[1])
+
+xlim_df <- tibble(
+  layer = factor(
+    c("Home", "Home",
+      "School", "School",
+      "Work", "Work",
+      "Other", "Other"),
+    levels = c("Home", "School", "Work", "Other")
+  ),
+  step_180 = c(home_xlim, other_xlim, other_xlim, other_xlim),
+  y = 0
+)
+
+ggplot(plot_df, aes(x = step_180, fill = network)) +
+  geom_blank(
+    data = xlim_df,
+    aes(x = step_180, y = y),
+    inherit.aes = FALSE
+  ) +
+  geom_histogram(position = "dodge", bins = 30, color = "grey30") +
+  facet_grid(
+    node.age.grp ~ layer,
+    scales = "free_x",
+    labeller = labeller(
+      node.age.grp = function(x) sub("y$", "", x)
+    )
+  ) +
+  labs(
+    x = "Percentage of population reached (%)",
+    y = "Frequency",
+    fill = "Network"
+  ) +
+  scale_fill_manual(
+    values = c("Rural" = "grey25", "Urban" = "grey75")
+  ) +
+  guides(fill = guide_legend(nrow = 1, byrow = TRUE)) +
+  theme_light() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 13),
+    axis.text.y = element_text(size = 13),
+    
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+    
+    strip.text = element_text(size = 14, color = "black")
+  )
+
+
+
+
+
+
 
 
 
